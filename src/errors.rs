@@ -1,4 +1,6 @@
-use crate::document::Point;
+use markdown::mdast::Node;
+
+use crate::{document::Point, rules::RuleContext};
 
 #[derive(Debug)]
 pub struct LintError {
@@ -31,10 +33,20 @@ pub struct LintFixReplace {
 }
 
 impl LintError {
-    pub fn new(message: String, line: usize, column: usize, offset: usize) -> Self {
+    pub fn new(message: String, point: Point) -> Self {
         Self {
             message,
-            location: Point::new(line, column, offset),
+            location: point,
+        }
+    }
+
+    pub fn from_node(node: &Node, context: &RuleContext, message: &str) -> Option<Self> {
+        if let Some(position) = node.position() {
+            let point = Point::from(position);
+            let point = context.adjust_for_frontmatter_lines(point);
+            Some(Self::new(message.into(), point))
+        } else {
+            None
         }
     }
 }

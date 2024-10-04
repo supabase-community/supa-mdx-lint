@@ -9,8 +9,8 @@ type Frontmatter = Box<dyn Any>;
 
 #[derive(Debug)]
 pub struct ParseResult {
-    ast: Node,
-    frontmatter_lines: usize,
+    pub ast: Node,
+    pub frontmatter_lines: usize,
     frontmatter: Option<Frontmatter>,
 }
 

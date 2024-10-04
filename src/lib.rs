@@ -3,6 +3,8 @@ use anyhow::Result;
 mod document;
 mod errors;
 mod parser;
+mod rules;
+mod utils;
 
 pub fn lint(input: &str) -> Result<()> {
     let node = parser::parse(input)?;
