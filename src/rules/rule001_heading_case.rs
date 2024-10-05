@@ -1,12 +1,13 @@
 use std::collections::HashSet;
+use supa_mdx_macros::RuleName;
 
 use markdown::mdast::Node;
 
 use crate::{errors::LintError, utils::get_text_content};
 
-use super::{Rule, RuleContext};
+use super::{Rule, RuleContext, RuleName};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, RuleName)]
 pub struct Rule001HeadingCase {
     may_uppercase: HashSet<String>,
     may_lowercase: HashSet<String>,
