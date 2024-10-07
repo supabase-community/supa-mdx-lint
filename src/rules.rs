@@ -41,6 +41,22 @@ impl RuleSettings {
         Self(toml::Value::Table(table))
     }
 
+    #[cfg(test)]
+    pub fn from_key_value(key: &str, value: toml::Value) -> Self {
+        let mut table = toml::Table::new();
+        table.insert(key.to_string(), value);
+        Self::new(table)
+    }
+
+    #[cfg(test)]
+    pub fn with_array_of_strings(key: &str, values: Vec<&str>) -> Self {
+        let array = values
+            .into_iter()
+            .map(|s| toml::Value::String(s.to_string()))
+            .collect();
+        Self::from_key_value(key, toml::Value::Array(array))
+    }
+
     pub fn get_array_of_regexes(
         &self,
         key: &str,

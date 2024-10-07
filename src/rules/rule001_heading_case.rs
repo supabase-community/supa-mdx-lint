@@ -371,12 +371,8 @@ mod tests {
     #[test]
     fn test_may_uppercase() {
         let mut rule = Rule001HeadingCase::default();
-        let mut settings = toml::Table::new();
-        settings.insert(
-            "may_uppercase".to_string(),
-            toml::Value::Array(vec![toml::Value::String("API".to_string())]),
-        );
-        rule.setup(Some(&RuleSettings::new(settings)));
+        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
+        rule.setup(Some(&settings));
 
         let heading = create_heading_node("This is an API heading", 1);
         let context = create_rule_context();
@@ -388,12 +384,8 @@ mod tests {
     #[test]
     fn test_may_lowercase() {
         let mut rule = Rule001HeadingCase::default();
-        let mut settings = toml::Table::new();
-        settings.insert(
-            "may_lowercase".to_string(),
-            toml::Value::Array(vec![toml::Value::String("the".to_string())]),
-        );
-        rule.setup(Some(&RuleSettings::new(settings)));
+        let settings = RuleSettings::with_array_of_strings("may_lowercase", vec!["the"]);
+        rule.setup(Some(&settings));
 
         let heading = create_heading_node("the quick brown fox", 1);
         let context = create_rule_context();
@@ -418,12 +410,8 @@ mod tests {
     #[test]
     fn test_may_uppercase_multi_word() {
         let mut rule = Rule001HeadingCase::default();
-        let mut settings = toml::Table::new();
-        settings.insert(
-            "may_uppercase".to_string(),
-            toml::Value::Array(vec![toml::Value::String(r"New York City".to_string())]),
-        );
-        rule.setup(Some(&RuleSettings::new(settings)));
+        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["New York City"]);
+        rule.setup(Some(&settings));
 
         let heading = create_heading_node("This is about New York City", 1);
         let context = create_rule_context();
@@ -435,15 +423,9 @@ mod tests {
     #[test]
     fn test_multiple_exception_matches() {
         let mut rule = Rule001HeadingCase::default();
-        let mut settings = toml::Table::new();
-        settings.insert(
-            "may_uppercase".to_string(),
-            toml::Value::Array(vec![
-                toml::Value::String(r"New York".to_string()),
-                toml::Value::String(r"New York City".to_string()),
-            ]),
-        );
-        rule.setup(Some(&RuleSettings::new(settings)));
+        let settings =
+            RuleSettings::with_array_of_strings("may_uppercase", vec!["New York", "New York City"]);
+        rule.setup(Some(&settings));
 
         let heading = create_heading_node("This is about New York City", 1);
         let context = create_rule_context();
@@ -455,12 +437,8 @@ mod tests {
     #[test]
     fn test_may_uppercase_partial_match() {
         let mut rule = Rule001HeadingCase::default();
-        let mut settings = toml::Table::new();
-        settings.insert(
-            "may_uppercase".to_string(),
-            toml::Value::Array(vec![toml::Value::String(r"API".to_string())]),
-        );
-        rule.setup(Some(&RuleSettings::new(settings)));
+        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
+        rule.setup(Some(&settings));
 
         let heading = create_heading_node("This is an API-related topic", 1);
         let context = create_rule_context();
@@ -472,12 +450,8 @@ mod tests {
     #[test]
     fn test_may_lowercase_regex() {
         let mut rule = Rule001HeadingCase::default();
-        let mut settings = toml::Table::new();
-        settings.insert(
-            "may_lowercase".to_string(),
-            toml::Value::Array(vec![toml::Value::String(r"(the|a|an)".to_string())]),
-        );
-        rule.setup(Some(&RuleSettings::new(settings)));
+        let settings = RuleSettings::with_array_of_strings("may_lowercase", vec!["(the|a|an)"]);
+        rule.setup(Some(&settings));
 
         let heading = create_heading_node("the quick brown fox", 1);
         let context = create_rule_context();
@@ -489,12 +463,8 @@ mod tests {
     #[test]
     fn test_may_uppercase_regex_fails() {
         let mut rule = Rule001HeadingCase::default();
-        let mut settings = toml::Table::new();
-        settings.insert(
-            "may_uppercase".to_string(),
-            toml::Value::Array(vec![toml::Value::String(r"[A-Z]{4,}".to_string())]),
-        );
-        rule.setup(Some(&RuleSettings::new(settings)));
+        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["[A-Z]{4,}"]);
+        rule.setup(Some(&settings));
 
         let heading = create_heading_node("This is an API call", 1);
         let context = create_rule_context();
@@ -527,15 +497,8 @@ mod tests {
     #[test]
     fn test_complex_heading() {
         let mut rule = Rule001HeadingCase::default();
-        let mut settings = toml::Table::new();
-        settings.insert(
-            "may_uppercase".to_string(),
-            toml::Value::Array(vec![
-                toml::Value::String(r"API".to_string()),
-                toml::Value::String(r"OAuth".to_string()),
-            ]),
-        );
-        rule.setup(Some(&RuleSettings::new(settings)));
+        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API", "OAuth"]);
+        rule.setup(Some(&settings));
 
         let heading = create_heading_node("The basics of API authentication in OAuth", 1);
         let context = create_rule_context();
