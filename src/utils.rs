@@ -1,5 +1,39 @@
 use markdown::mdast::{Code, InlineCode, InlineMath, Math, MdxTextExpression, Node, Text};
 
+pub trait HasChildren {
+    fn get_children(&self) -> &Vec<Node>;
+}
+
+impl HasChildren for markdown::mdast::Heading {
+    fn get_children(&self) -> &Vec<Node> {
+        &self.children
+    }
+}
+
+impl HasChildren for markdown::mdast::Strong {
+    fn get_children(&self) -> &Vec<Node> {
+        &self.children
+    }
+}
+
+impl HasChildren for markdown::mdast::Emphasis {
+    fn get_children(&self) -> &Vec<Node> {
+        &self.children
+    }
+}
+
+impl HasChildren for markdown::mdast::LinkReference {
+    fn get_children(&self) -> &Vec<Node> {
+        &self.children
+    }
+}
+
+impl HasChildren for markdown::mdast::Link {
+    fn get_children(&self) -> &Vec<Node> {
+        &self.children
+    }
+}
+
 pub fn get_text_content(node: &Node) -> String {
     match node {
         Node::Text(Text { value, .. }) => value.clone(),
@@ -41,6 +75,13 @@ pub fn get_text_content(node: &Node) -> String {
     }
 }
 
+pub fn split_first_word(s: &str) -> (&str, &str) {
+    match s.find(char::is_whitespace) {
+        Some(idx) => (&s[..idx], &s[idx..]),
+        None => (s, ""),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::parser::parse;
@@ -66,6 +107,10 @@ mod tests {
         assert_eq!(text_content, "Heading with bold");
 
         let ast = parse(r#"# **Heading**"#).unwrap().ast;
+        let text_content = get_text_content(&ast);
+        assert_eq!(text_content, "Heading");
+
+        let ast = parse(r#"# **Head**ing"#).unwrap().ast;
         let text_content = get_text_content(&ast);
         assert_eq!(text_content, "Heading");
     }

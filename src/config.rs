@@ -7,8 +7,8 @@ use std::{
 use crate::rules::{RuleRegistry, RuleSettings};
 
 pub struct Config {
-    rule_registry: RuleRegistry,
-    rule_specific_settings: HashMap<String, RuleSettings>,
+    pub(crate) rule_registry: RuleRegistry,
+    pub(crate) rule_specific_settings: HashMap<String, RuleSettings>,
 }
 
 impl Default for Config {
@@ -74,10 +74,6 @@ impl Config {
         });
 
         Ok((registry, rule_specific_settings))
-    }
-
-    pub(crate) fn get_rule_settings(&self, rule_name: &str) -> Option<&RuleSettings> {
-        self.rule_specific_settings.get(rule_name)
     }
 }
 

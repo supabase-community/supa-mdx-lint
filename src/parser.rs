@@ -3,7 +3,7 @@ use log::debug;
 use markdown::{mdast::Node, to_mdast, Constructs, ParseOptions};
 use std::any::Any;
 
-use crate::document::Point;
+use crate::document::AdjustedPoint;
 
 type Frontmatter = Box<dyn Any>;
 
@@ -11,7 +11,7 @@ type Frontmatter = Box<dyn Any>;
 pub struct ParseResult {
     pub ast: Node,
     pub frontmatter_lines: usize,
-    frontmatter: Option<Frontmatter>,
+    pub frontmatter: Option<Frontmatter>,
 }
 
 pub fn parse(input: &str) -> Result<ParseResult> {
@@ -28,7 +28,7 @@ fn extract_frontmatter(input: &str) -> (usize, Option<Frontmatter>, &str) {
     let mut frontmatter = None;
     let mut content = input;
 
-    let mut frontmatter_end = Point::default();
+    let mut frontmatter_end = AdjustedPoint::default();
 
     if content.trim_start().starts_with("---") {
         let start_offset = content.find("---").unwrap() + 3;
@@ -68,7 +68,8 @@ fn extract_frontmatter(input: &str) -> (usize, Option<Frontmatter>, &str) {
 
             end_offset += newline_offset;
 
-            frontmatter_end = Point::new(content[..end_offset].lines().count() + 1, 1, end_offset);
+            frontmatter_end =
+                AdjustedPoint::new(content[..end_offset].lines().count() + 1, 1, end_offset);
         }
     }
 
