@@ -3,9 +3,9 @@ use regex::Regex;
 use supa_mdx_macros::RuleName;
 
 use crate::{
-    errors::{LintError, LintFix},
-    utils::{get_text_content, split_first_word, HasChildren},
-    Fix,
+    document::{Location, Point, UnadjustedPoint},
+    errors::{LintError, LintFix, LintFixReplace},
+    utils::{split_first_word, HasChildren},
 };
 
 use super::{RegexSetting, Rule, RuleContext, RuleName, RuleSettings};
@@ -37,137 +37,206 @@ impl Rule for Rule001HeadingCase {
             return None;
         };
 
-        let mut lint_result = None;
-        let mut remaining_text = get_text_content(ast);
-        let mut is_first_word = true;
+        let mut fixes: Vec<LintFix> = Vec::new();
+        let mut includes_first_word = IncludesFirstWord(true);
+        self.check_ast(ast, &mut fixes, &mut includes_first_word, context);
+
+        let lint_error = if fixes.is_empty() {
+            None
+        } else {
+            LintError::from_node_with_fix(ast, context, "Heading should be sentence case", fixes)
+        };
+
+        lint_error.map(|lint_error| vec![lint_error])
+    }
+}
+
+struct IncludesFirstWord(bool);
+
+#[derive(Debug)]
+enum Case {
+    Upper,
+    Lower,
+}
+
+impl Rule001HeadingCase {
+    fn check_text_sentence_case(
+        &self,
+        text: &Text,
+        fixes: &mut Vec<LintFix>,
+        includes_first_word: &mut IncludesFirstWord,
+        context: &RuleContext,
+    ) {
+        let mut remaining_text = text.value.to_string();
+        let mut is_first_word = includes_first_word.0;
+        let mut char_index = 0;
 
         while !remaining_text.is_empty() {
+            let trim_start = remaining_text.len() - remaining_text.trim_start().len();
+            char_index += trim_start;
             remaining_text = remaining_text.trim_start().to_string();
 
+            if remaining_text.is_empty() {
+                break;
+            }
+
+            let first_char = remaining_text.chars().next().unwrap();
+
             if is_first_word {
-                let is_lowercase = remaining_text
-                    .chars()
-                    .next()
-                    .map_or(false, |c| c.is_lowercase());
-                if is_lowercase {
-                    let match_result = self
-                        .may_lowercase
-                        .iter()
-                        .find_map(|re| re.find(&remaining_text));
-                    if let Some(match_result) = match_result {
-                        remaining_text = remaining_text[match_result.end()..].to_string();
-                    } else {
-                        let lint_error =
-                            LintError::from_node(ast, context, "Heading should be sentence case");
-                        if let Some(lint_error) = lint_error {
-                            lint_result = Some(vec![lint_error]);
-                            break;
-                        }
+                if first_char.is_lowercase() {
+                    let (match_result, rest) = self.create_text_lint_fix(
+                        &remaining_text,
+                        text,
+                        char_index,
+                        Case::Lower,
+                        context,
+                    );
+                    if let Some(fix) = match_result {
+                        fixes.push(fix);
                     }
+                    char_index += remaining_text.len() - rest.len();
+                    remaining_text = rest;
                 } else {
-                    let (_, rest) = split_first_word(&remaining_text);
+                    let (first_word, rest) = split_first_word(&remaining_text);
+                    char_index += first_word.len();
                     remaining_text = rest.to_string();
                 }
 
                 is_first_word = false;
-            } else {
-                let is_uppercase = remaining_text
-                    .chars()
-                    .next()
-                    .map_or(false, |c| c.is_uppercase());
-                if is_uppercase {
-                    let match_result = self
-                        .may_uppercase
-                        .iter()
-                        .find_map(|re| re.find(&remaining_text));
-                    if let Some(match_result) = match_result {
-                        remaining_text = remaining_text[match_result.end()..].to_string();
-                    } else {
-                        let lint_error =
-                            LintError::from_node(ast, context, "Heading should be sentence case");
-                        if let Some(lint_error) = lint_error {
-                            lint_result = Some(vec![lint_error]);
-                            break;
-                        }
-                    }
-                } else {
-                    let (_, rest) = split_first_word(&remaining_text);
-                    remaining_text = rest.to_string();
+            } else if first_char.is_uppercase() {
+                let (match_result, rest) = self.create_text_lint_fix(
+                    &remaining_text,
+                    text,
+                    char_index,
+                    Case::Upper,
+                    context,
+                );
+                if let Some(fix) = match_result {
+                    fixes.push(fix);
                 }
+                char_index += remaining_text.len() - rest.len();
+                remaining_text = rest;
+            } else {
+                let (first_word, rest) = split_first_word(&remaining_text);
+                char_index += first_word.len();
+                remaining_text = rest.to_string();
+            }
+        }
+    }
+
+    fn create_text_lint_fix(
+        &self,
+        text: &str,
+        node: &Text,
+        index: usize,
+        case: Case,
+        context: &RuleContext,
+    ) -> (Option<LintFix>, String) {
+        let patterns = match case {
+            Case::Upper => &self.may_uppercase,
+            Case::Lower => &self.may_lowercase,
+        };
+
+        for pattern in patterns {
+            if let Some(m) = pattern.find(text) {
+                return (None, text[m.end()..].to_string());
             }
         }
 
-        if context.fix == Fix::True {
-            let mut fixes = Vec::<LintFix>::new();
-            let mut is_past_first_word = false;
-            self.fix(ast, &mut fixes, &mut is_past_first_word, context);
+        let (first_word, rest) = split_first_word(text);
+        let replacement_word = match case {
+            Case::Upper => first_word.to_lowercase(),
+            Case::Lower => {
+                let mut chars = first_word.chars();
+                let first_char = chars.next().unwrap();
+                first_char.to_uppercase().collect::<String>() + chars.as_str()
+            }
+        };
+
+        let mut chars = node.value.chars();
+        let mut text_to_move_over = String::new();
+        for _ in 0..index {
+            if let Some(ch) = chars.next() {
+                text_to_move_over.push(ch);
+            }
         }
 
-        lint_result
-    }
-}
+        let start_point = node
+            .position
+            .as_ref()
+            .map(|p| UnadjustedPoint::from(&p.start))
+            .map(|mut p| {
+                p.move_over_text(&text_to_move_over);
+                p
+            });
+        let end_point = start_point.clone().map(|mut p| {
+            p.move_over_text(first_word);
+            p
+        });
 
-impl Rule001HeadingCase {
-    fn fix(
+        match (start_point, end_point) {
+            (Some(start), Some(end)) => (
+                Some(LintFix::Replace(LintFixReplace {
+                    location: Location::from_unadjusted_points(start, end, context),
+                    text: replacement_word,
+                })),
+                rest.to_string(),
+            ),
+            _ => (None, rest.to_string()),
+        }
+    }
+
+    fn check_ast(
         &self,
         node: &Node,
         fixes: &mut Vec<LintFix>,
-        is_past_first_word: &mut bool,
+        is_past_first_word: &mut IncludesFirstWord,
         context: &RuleContext,
     ) {
-        fn fix_children<T: HasChildren>(
+        fn check_children<T: HasChildren>(
             rule: &Rule001HeadingCase,
             node: &T,
             fixes: &mut Vec<LintFix>,
-            is_past_first_word: &mut bool,
+            is_past_first_word: &mut IncludesFirstWord,
             context: &RuleContext,
         ) {
             node.get_children()
                 .iter()
-                .for_each(|child| rule.fix(child, fixes, is_past_first_word, context));
+                .for_each(|child| rule.check_ast(child, fixes, is_past_first_word, context));
         }
 
         match node {
             Node::Text(text) => {
-                self.fix_text_sentence_case(text, fixes, is_past_first_word, context)
+                self.check_text_sentence_case(text, fixes, is_past_first_word, context)
             }
             Node::Emphasis(emphasis) => {
-                fix_children(self, emphasis, fixes, is_past_first_word, context)
+                check_children(self, emphasis, fixes, is_past_first_word, context)
             }
-            Node::Link(link) => fix_children(self, link, fixes, is_past_first_word, context),
+            Node::Link(link) => check_children(self, link, fixes, is_past_first_word, context),
             Node::LinkReference(link_reference) => {
-                fix_children(self, link_reference, fixes, is_past_first_word, context)
+                check_children(self, link_reference, fixes, is_past_first_word, context)
             }
-            Node::Strong(strong) => fix_children(self, strong, fixes, is_past_first_word, context),
+            Node::Strong(strong) => {
+                check_children(self, strong, fixes, is_past_first_word, context)
+            }
             Node::Heading(heading) => {
-                fix_children(self, heading, fixes, is_past_first_word, context)
+                check_children(self, heading, fixes, is_past_first_word, context)
             }
             _ => {}
-        }
-    }
-
-    fn fix_text_sentence_case(
-        &self,
-        node: &Text,
-        fixes: &mut Vec<LintFix>,
-        is_past_first_word: &mut bool,
-        context: &RuleContext,
-    ) {
-        let text = &node.value;
-        if text.is_empty() || text.trim().is_empty() {
-            return;
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroUsize;
+
     use markdown::{
         mdast::{Heading, Text},
         unist::Position,
     };
 
-    use crate::{parser::ParseResult, Fix};
+    use crate::parser::ParseResult;
 
     use super::*;
 
@@ -176,11 +245,23 @@ mod tests {
             depth: level,
             children: vec![Node::Text(Text {
                 value: content.to_string(),
-                // Dummy position to make sure the lint error is created
-                position: Some(Position::new(1, 1, 0, 1, 2, 1)),
+                position: Some(Position::new(
+                    1,
+                    3,
+                    2,
+                    1,
+                    content.len() + 3,
+                    content.len() + 2,
+                )),
             })],
-            // Dummy position to make sure the lint error is created
-            position: Some(Position::new(1, 1, 0, 1, 2, 1)),
+            position: Some(Position::new(
+                1,
+                1,
+                2,
+                1,
+                content.len() + 3,
+                content.len() + 2,
+            )),
         })
     }
 
@@ -194,7 +275,6 @@ mod tests {
                 frontmatter_lines: 0,
                 frontmatter: None,
             },
-            fix: Fix::False,
         }
     }
 
@@ -216,7 +296,29 @@ mod tests {
 
         let result = rule.check(&heading, &context);
         assert!(result.is_some());
-        assert_eq!(result.unwrap().len(), 1);
+
+        let errors = result.unwrap();
+        assert_eq!(errors.len(), 1);
+
+        let fixes = errors.get(0).unwrap().fix.clone();
+        assert!(fixes.is_some());
+
+        let fixes = fixes.unwrap();
+        assert_eq!(fixes.len(), 1);
+
+        let fix = fixes.get(0).unwrap();
+        match fix {
+            LintFix::Replace(fix) => {
+                assert_eq!(fix.text, "This");
+                assert_eq!(fix.location.start().line, NonZeroUsize::new(1).unwrap());
+                assert_eq!(fix.location.start().column, NonZeroUsize::new(3).unwrap());
+                assert_eq!(fix.location.start().offset, 2);
+                assert_eq!(fix.location.end().line, NonZeroUsize::new(1).unwrap());
+                assert_eq!(fix.location.end().column, NonZeroUsize::new(7).unwrap());
+                assert_eq!(fix.location.end().offset, 6);
+            }
+            _ => panic!("Unexpected fix type"),
+        }
     }
 
     #[test]
@@ -227,7 +329,43 @@ mod tests {
 
         let result = rule.check(&heading, &context);
         assert!(result.is_some());
-        assert_eq!(result.unwrap().len(), 1);
+
+        let errors = result.unwrap();
+        assert_eq!(errors.len(), 1);
+
+        let fixes = errors.get(0).unwrap().fix.clone();
+        assert!(fixes.is_some());
+
+        let fixes = fixes.unwrap();
+        assert_eq!(fixes.len(), 2);
+
+        let fix_one = fixes.get(0).unwrap();
+        match fix_one {
+            LintFix::Replace(fix) => {
+                assert_eq!(fix.text, "should");
+                assert_eq!(fix.location.start().line, NonZeroUsize::new(1).unwrap());
+                assert_eq!(fix.location.start().column, NonZeroUsize::new(8).unwrap());
+                assert_eq!(fix.location.start().offset, 7);
+                assert_eq!(fix.location.end().line, NonZeroUsize::new(1).unwrap());
+                assert_eq!(fix.location.end().column, NonZeroUsize::new(14).unwrap());
+                assert_eq!(fix.location.end().offset, 13);
+            }
+            _ => panic!("Unexpected fix type"),
+        }
+
+        let fix_two = fixes.get(1).unwrap();
+        match fix_two {
+            LintFix::Replace(fix) => {
+                assert_eq!(fix.text, "fail");
+                assert_eq!(fix.location.start().line, NonZeroUsize::new(1).unwrap());
+                assert_eq!(fix.location.start().column, NonZeroUsize::new(15).unwrap());
+                assert_eq!(fix.location.start().offset, 14);
+                assert_eq!(fix.location.end().line, NonZeroUsize::new(1).unwrap());
+                assert_eq!(fix.location.end().column, NonZeroUsize::new(19).unwrap());
+                assert_eq!(fix.location.end().offset, 18);
+            }
+            _ => panic!("Unexpected fix type"),
+        }
     }
 
     #[test]
@@ -363,7 +501,27 @@ mod tests {
 
         let result = rule.check(&heading, &context);
         assert!(result.is_some());
-        assert_eq!(result.unwrap().len(), 1);
+
+        let result = result.unwrap();
+        assert_eq!(result.len(), 1);
+
+        let error = result.get(0).unwrap();
+        assert_eq!(error.fix.as_ref().unwrap().len(), 1);
+
+        let fixes = error.fix.clone().unwrap();
+        let fix = fixes.get(0).unwrap();
+        match fix {
+            LintFix::Replace(fix) => {
+                assert_eq!(fix.text, "api");
+                assert_eq!(fix.location.start().line, NonZeroUsize::new(1).unwrap());
+                assert_eq!(fix.location.start().column, NonZeroUsize::new(14).unwrap());
+                assert_eq!(fix.location.start().offset, 13);
+                assert_eq!(fix.location.end().line, NonZeroUsize::new(1).unwrap());
+                assert_eq!(fix.location.end().column, NonZeroUsize::new(17).unwrap());
+                assert_eq!(fix.location.end().offset, 16);
+            }
+            _ => panic!("Unexpected fix type"),
+        }
     }
 
     #[test]

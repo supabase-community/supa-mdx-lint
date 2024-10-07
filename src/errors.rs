@@ -12,28 +12,29 @@ pub struct LintError {
     pub fix: Option<Vec<LintFix>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LintFix {
     Insert(LintFixInsert),
     Delete(LintFixDelete),
     Replace(LintFixReplace),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LintFixInsert {
     /// Text is inserted in front of this point
     pub point: AdjustedPoint,
     pub text: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LintFixDelete {
     pub location: Location,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LintFixReplace {
     pub location: Location,
+    pub text: String,
 }
 
 impl LintError {

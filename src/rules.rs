@@ -7,7 +7,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{errors::LintError, parser::ParseResult, Fix};
+use crate::{errors::LintError, parser::ParseResult};
 
 pub mod rule001_heading_case;
 
@@ -68,7 +68,7 @@ impl RuleSettings {
             if vec.is_empty() {
                 None
             } else {
-                vec.sort_by(|a, b| b.as_str().len().cmp(&a.as_str().len()));
+                vec.sort_by_key(|b| std::cmp::Reverse(b.as_str().len()));
                 Some(vec)
             }
         } else {
@@ -79,12 +79,11 @@ impl RuleSettings {
 
 pub struct RuleContext {
     parse_result: ParseResult,
-    fix: Fix,
 }
 
 impl RuleContext {
-    pub fn new(parse_result: ParseResult, fix: Fix) -> Self {
-        Self { parse_result, fix }
+    pub fn new(parse_result: ParseResult) -> Self {
+        Self { parse_result }
     }
 
     pub fn frontmatter_lines(&self) -> usize {

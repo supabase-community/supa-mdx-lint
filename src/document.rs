@@ -48,38 +48,6 @@ pub struct UnadjustedPoint {
     pub offset: usize,
 }
 
-impl UnadjustedPoint {
-    pub fn move_over_text(&mut self, text: &str) {
-        let mut chars = text.chars().peekable();
-        while let Some(c) = chars.next() {
-            match c {
-                '\r' => {
-                    if chars.peek() == Some(&'\n') {
-                        chars.next();
-                        self.add_lines(1);
-                        self.column = NonZeroUsize::new(1).expect("Column numbers are 1-indexed");
-                        self.offset += 2;
-                    } else {
-                        self.add_lines(1);
-                        self.column = NonZeroUsize::new(1).expect("Column numbers are 1-indexed");
-                        self.offset += 1;
-                    }
-                }
-                '\n' => {
-                    self.add_lines(1);
-                    self.column = NonZeroUsize::new(1).expect("Column numbers are 1-indexed");
-                    self.offset += 1;
-                }
-                _ => {
-                    self.column = NonZeroUsize::new(self.column.get() + 1)
-                        .expect("Column numbers after adding should be greater than 0");
-                    self.offset += 1;
-                }
-            }
-        }
-    }
-}
-
 impl From<&UnistPoint> for UnadjustedPoint {
     fn from(point: &UnistPoint) -> Self {
         Self {
@@ -91,10 +59,59 @@ impl From<&UnistPoint> for UnadjustedPoint {
 }
 
 pub trait Point {
+    fn column(&self) -> usize;
+    fn offset(&self) -> usize;
+    fn set_column(&mut self, column: usize);
+    fn set_offset(&mut self, offset: usize);
     fn add_lines(&mut self, lines: usize);
+
+    fn move_over_text(&mut self, text: &str) {
+        let mut chars = text.chars().peekable();
+        while let Some(c) = chars.next() {
+            match c {
+                '\r' => {
+                    if chars.peek() == Some(&'\n') {
+                        chars.next();
+                        self.add_lines(1);
+                        self.set_column(1);
+                        self.set_offset(self.offset() + 2);
+                    } else {
+                        self.add_lines(1);
+                        self.set_column(1);
+                        self.set_offset(self.offset() + 1);
+                    }
+                }
+                '\n' => {
+                    self.add_lines(1);
+                    self.set_column(1);
+                    self.set_offset(self.offset() + 1);
+                }
+                _ => {
+                    self.set_column(self.column() + 1);
+                    self.set_offset(self.offset() + 1);
+                }
+            }
+        }
+    }
 }
 
 impl Point for AdjustedPoint {
+    fn column(&self) -> usize {
+        self.column.get()
+    }
+
+    fn offset(&self) -> usize {
+        self.offset
+    }
+
+    fn set_column(&mut self, column: usize) {
+        self.column = NonZeroUsize::new(column).expect("Column numbers are 1-indexed");
+    }
+
+    fn set_offset(&mut self, offset: usize) {
+        self.offset = offset;
+    }
+
     fn add_lines(&mut self, lines: usize) {
         self.line = NonZeroUsize::new(self.line.get() + lines)
             .expect("Line number after adding should be greater than 0");
@@ -102,13 +119,29 @@ impl Point for AdjustedPoint {
 }
 
 impl Point for UnadjustedPoint {
+    fn column(&self) -> usize {
+        self.column.get()
+    }
+
+    fn offset(&self) -> usize {
+        self.offset
+    }
+
+    fn set_column(&mut self, column: usize) {
+        self.column = NonZeroUsize::new(column).expect("Column numbers are 1-indexed");
+    }
+
+    fn set_offset(&mut self, offset: usize) {
+        self.offset = offset;
+    }
+
     fn add_lines(&mut self, lines: usize) {
         self.line = NonZeroUsize::new(self.line.get() + lines)
             .expect("Line number after adding should be greater than 0");
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Location {
     // Keep these fields private so that we can make sure MDAST positions are
     // adjusted for frontmatter lines before being used to create a Location.

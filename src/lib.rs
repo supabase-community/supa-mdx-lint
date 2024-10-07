@@ -22,31 +22,25 @@ pub enum LintTarget<'a> {
     String(&'a str),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Fix {
-    True,
-    False,
-}
-
 impl Linter {
-    pub fn lint(&self, input: LintTarget, fix: Fix) -> Result<Vec<LintError>> {
+    pub fn lint(&self, input: LintTarget) -> Result<Vec<LintError>> {
         match input {
-            LintTarget::FileOrDirectory(path) => self.lint_file_or_directory(path, fix),
-            LintTarget::String(string) => self.lint_string(string, fix),
+            LintTarget::FileOrDirectory(path) => self.lint_file_or_directory(path),
+            LintTarget::String(string) => self.lint_string(string),
         }
     }
 
-    fn lint_file_or_directory(&self, path: &Path, fix: Fix) -> Result<Vec<LintError>> {
+    fn lint_file_or_directory(&self, path: &Path) -> Result<Vec<LintError>> {
         if path.is_file() {
             let mut file = fs::File::open(path)?;
             let mut contents = String::new();
             file.read_to_string(&mut contents)?;
-            self.lint_string(&contents, fix)
+            self.lint_string(&contents)
         } else if path.is_dir() {
             let collected_vec = fs::read_dir(path)?
                 .filter_map(Result::ok)
                 .flat_map(|entry| {
-                    self.lint_file_or_directory(&entry.path(), fix)
+                    self.lint_file_or_directory(&entry.path())
                         .unwrap_or_default()
                 })
                 .collect::<Vec<_>>();
@@ -59,9 +53,9 @@ impl Linter {
         }
     }
 
-    fn lint_string(&self, string: &str, fix: Fix) -> Result<Vec<LintError>> {
+    fn lint_string(&self, string: &str) -> Result<Vec<LintError>> {
         let parse_result = parse(string)?;
-        let rule_context = RuleContext::new(parse_result, fix);
+        let rule_context = RuleContext::new(parse_result);
         self.config.rule_registry.run(&rule_context)
     }
 }
@@ -120,7 +114,7 @@ mod tests {
         let linter = LinterBuilder::new().configure(config).build()?;
 
         let valid_mdx = "# Hello, world!\n\nThis is valid MDX document.";
-        let result = linter.lint(LintTarget::String(valid_mdx), Fix::False)?;
+        let result = linter.lint(LintTarget::String(valid_mdx))?;
 
         assert!(
             result.is_empty(),
@@ -136,7 +130,7 @@ mod tests {
         let linter = LinterBuilder::new().configure(config).build()?;
 
         let invalid_mdx = "# Incorrect Heading\n\nThis is an invalid MDX document.";
-        let result = linter.lint(LintTarget::String(invalid_mdx), Fix::False)?;
+        let result = linter.lint(LintTarget::String(invalid_mdx))?;
 
         debug!("Lint errors: {:?}", result);
 
