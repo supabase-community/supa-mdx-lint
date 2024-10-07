@@ -8,7 +8,7 @@ use crate::{
     utils::{split_first_word, HasChildren},
 };
 
-use super::{RegexSetting, Rule, RuleContext, RuleName, RuleSettings};
+use super::{RegexSettings, Rule, RuleContext, RuleName, RuleSettings};
 
 #[derive(Debug, Default, RuleName)]
 pub struct Rule001HeadingCase {
@@ -19,13 +19,16 @@ pub struct Rule001HeadingCase {
 impl Rule for Rule001HeadingCase {
     fn setup(&mut self, settings: Option<&RuleSettings>) {
         if let Some(settings) = settings {
-            if let Some(vec) =
-                settings.get_array_of_regexes("may_uppercase", Some(RegexSetting::MatchBeginning))
+            let regex_settings = RegexSettings {
+                match_beginning: true,
+                match_word_boundary_at_end: true,
+            };
+
+            if let Some(vec) = settings.get_array_of_regexes("may_uppercase", Some(&regex_settings))
             {
                 self.may_uppercase = vec;
             }
-            if let Some(vec) =
-                settings.get_array_of_regexes("may_lowercase", Some(RegexSetting::MatchBeginning))
+            if let Some(vec) = settings.get_array_of_regexes("may_lowercase", Some(&regex_settings))
             {
                 self.may_lowercase = vec;
             }

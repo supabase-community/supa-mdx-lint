@@ -32,8 +32,18 @@ pub trait RuleName {
 #[derive(Clone, Debug)]
 pub struct RuleSettings(toml::Value);
 
-pub enum RegexSetting {
-    MatchBeginning,
+pub struct RegexSettings {
+    pub match_beginning: bool,
+    pub match_word_boundary_at_end: bool,
+}
+
+impl Default for RegexSettings {
+    fn default() -> Self {
+        Self {
+            match_beginning: false,
+            match_word_boundary_at_end: false,
+        }
+    }
 }
 
 impl RuleSettings {
@@ -60,20 +70,22 @@ impl RuleSettings {
     pub fn get_array_of_regexes(
         &self,
         key: &str,
-        setting: Option<RegexSetting>,
+        settings: Option<&RegexSettings>,
     ) -> Option<Vec<Regex>> {
         let table = &self.0;
         if let Some(toml::Value::Array(array)) = table.get(key) {
             let mut vec = Vec::new();
             for value in array {
                 if let toml::Value::String(pattern) = value {
-                    let pattern = if let Some(ref setting) = setting {
-                        match setting {
-                            RegexSetting::MatchBeginning => format!("^{}\\b", pattern),
+                    let mut pattern = pattern.to_string();
+                    if let Some(settings) = settings {
+                        if settings.match_beginning {
+                            pattern = format!("^{}", pattern);
                         }
-                    } else {
-                        pattern.to_string()
-                    };
+                        if settings.match_word_boundary_at_end {
+                            pattern = format!("{}\\b", pattern);
+                        }
+                    }
 
                     if let Ok(regex) = Regex::new(&pattern) {
                         vec.push(regex);
