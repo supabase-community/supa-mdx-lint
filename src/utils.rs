@@ -5,6 +5,13 @@ pub fn set_panic_hook() {
     console_error_panic_hook::set_once();
 }
 
+#[macro_export]
+macro_rules! log {
+    ( $( $t:tt )* ) => {
+        web_sys::console::log_1(&format!( $( $t )* ).into());
+    }
+}
+
 pub trait HasChildren {
     fn get_children(&self) -> &Vec<Node>;
 }

@@ -132,6 +132,7 @@ Content here."#;
         let heading = root.children().unwrap().first().unwrap();
         assert_eq!(heading.position().unwrap().start.line, 1);
         assert_eq!(heading.position().unwrap().start.column, 1);
+        assert_eq!(heading.position().unwrap().start.offset, 0);
     }
 
     #[test]

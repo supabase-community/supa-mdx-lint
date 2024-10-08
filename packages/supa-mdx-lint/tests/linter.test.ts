@@ -7,8 +7,7 @@ describe('Linter', () => {
     const target: LintTarget = {
       _type: 'string',
       path: null,
-      text: `
-# Hello
+      text: `# Hello
 
 This is a valid mdx file.
 `,
@@ -22,14 +21,12 @@ This is a valid mdx file.
     const target: LintTarget = {
       _type: 'string',
       path: null,
-      text: `
-# Hello Bad Heading
+      text: `# Hello Bad Heading
 
 This is an invalid mdx file.
 `,
     };
     const errors = await linter.lint(target);
-    // TODO: Need to fix, offsets are off by 1.
     expect(errors.length).toEqual(1);
   });
 });
