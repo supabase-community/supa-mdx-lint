@@ -1,0 +1,21 @@
+{
+  "name": "supa-mdx-lint",
+  "version": "0.1.0",
+  "main": "./dist/bundle.js",
+  "type": "module",
+  "scripts": {
+    "build": "",
+    "prepare": "wasm-pack build --target bundler --out-dir ./packages/supa-mdx-lint/pkg",
+    "test": "vitest"
+  },
+  "files": [
+    "dist",
+    "pkg",
+    "src/index.ts"
+  ],
+  "devDependencies": {
+    "vite-plugin-top-level-await": "^1.4.4",
+    "vite-plugin-wasm": "^3.3.0",
+    "vitest": "^2.1.2"
+  }
+}

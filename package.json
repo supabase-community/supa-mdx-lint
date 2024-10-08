@@ -1,0 +1,11 @@
+{
+  "name": "supabase-mdx-lint-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "prepare": "npm run prepare --workspaces"
+  }
+}

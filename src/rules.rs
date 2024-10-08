@@ -9,7 +9,7 @@ use std::{
 
 use crate::{errors::LintError, parser::ParseResult};
 
-pub mod rule001_heading_case;
+mod rule001_heading_case;
 
 use rule001_heading_case::Rule001HeadingCase;
 
@@ -32,18 +32,10 @@ pub trait RuleName {
 #[derive(Clone, Debug)]
 pub struct RuleSettings(toml::Value);
 
+#[derive(Default)]
 pub struct RegexSettings {
     pub match_beginning: bool,
     pub match_word_boundary_at_end: bool,
-}
-
-impl Default for RegexSettings {
-    fn default() -> Self {
-        Self {
-            match_beginning: false,
-            match_word_boundary_at_end: false,
-        }
-    }
 }
 
 impl RuleSettings {
@@ -52,14 +44,14 @@ impl RuleSettings {
     }
 
     #[cfg(test)]
-    pub fn from_key_value(key: &str, value: toml::Value) -> Self {
+    fn from_key_value(key: &str, value: toml::Value) -> Self {
         let mut table = toml::Table::new();
         table.insert(key.to_string(), value);
         Self::new(table)
     }
 
     #[cfg(test)]
-    pub fn with_array_of_strings(key: &str, values: Vec<&str>) -> Self {
+    fn with_array_of_strings(key: &str, values: Vec<&str>) -> Self {
         let array = values
             .into_iter()
             .map(|s| toml::Value::String(s.to_string()))
@@ -67,7 +59,7 @@ impl RuleSettings {
         Self::from_key_value(key, toml::Value::Array(array))
     }
 
-    pub fn get_array_of_regexes(
+    fn get_array_of_regexes(
         &self,
         key: &str,
         settings: Option<&RegexSettings>,

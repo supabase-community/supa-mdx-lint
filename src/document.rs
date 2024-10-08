@@ -1,11 +1,13 @@
-use std::num::NonZeroUsize;
-
 use markdown::unist::{Point as UnistPoint, Position};
+use serde::{Deserialize, Serialize};
+use std::num::NonZeroUsize;
+use tsify::Tsify;
 
 use crate::rules::RuleContext;
 
 /// A point in the source document, adjusted for frontmatter lines.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize, Tsify)]
+#[tsify(into_wasm_abi)]
 pub struct AdjustedPoint {
     /// 1-indexed
     pub line: NonZeroUsize,
@@ -141,7 +143,8 @@ impl Point for UnadjustedPoint {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize, Tsify)]
+#[tsify(into_wasm_abi)]
 pub struct Location {
     // Keep these fields private so that we can make sure MDAST positions are
     // adjusted for frontmatter lines before being used to create a Location.
