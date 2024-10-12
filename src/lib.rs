@@ -7,6 +7,8 @@ use wasm_bindgen::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(target_arch = "wasm32")]
 use tsify::Tsify;
+#[cfg(target_arch = "wasm32")]
+use web_sys::console;
 
 pub mod config;
 mod document;
@@ -30,18 +32,47 @@ pub struct Linter {
 }
 
 #[cfg(target_arch = "wasm32")]
-#[derive(Serialize, Deserialize, Tsify)]
+#[derive(Debug, Serialize, Deserialize, Tsify)]
 #[tsify(from_wasm_abi)]
 pub struct JsLintTarget {
-    _type: String,
+    #[serde(rename = "_type")]
+    type_: String,
     path: Option<String>,
     text: Option<String>,
 }
 
 #[cfg(target_arch = "wasm32")]
 impl JsLintTarget {
+    fn from_js_value(input: JsValue) -> Result<Self, JsValue> {
+        match serde_wasm_bindgen::from_value::<serde_json::Value>(input) {
+            Ok(json_value) => match serde_json::from_value::<JsLintTarget>(json_value) {
+                Ok(js_target) => Ok(js_target),
+                Err(err) => {
+                    console::log_1(&JsValue::from_str(&format!(
+                        "failed to parse JsLintTarget: {:?}",
+                        err
+                    )));
+                    Err(JsValue::from_str(&format!(
+                        "Failed to parse JsLintTarget: {:?}",
+                        err
+                    )))
+                }
+            },
+            Err(err) => {
+                console::log_1(&JsValue::from_str(&format!(
+                    "Failed to convert input to serde_json::Value {:?}",
+                    err
+                )));
+                Err(JsValue::from_str(&format!(
+                    "Failed to convert input to serde_json::Value {:?}",
+                    err
+                )))
+            }
+        }
+    }
+
     fn to_lint_target(self) -> Result<LintTarget, JsValue> {
-        match self._type.as_str() {
+        match self.type_.as_str() {
             "fileOrDirectory" => {
                 match self
                     .path
@@ -77,7 +108,7 @@ pub enum LintTarget {
 impl Linter {
     #[wasm_bindgen]
     pub fn lint(&self, input: JsValue) -> Result<JsValue, JsValue> {
-        let js_target: JsLintTarget = serde_wasm_bindgen::from_value(input).unwrap();
+        let js_target = JsLintTarget::from_js_value(input)?;
         match js_target.to_lint_target() {
             Ok(lint_target) => match self.lint_internal(lint_target) {
                 Ok(errors) => serde_wasm_bindgen::to_value(
@@ -203,9 +234,11 @@ impl LinterBuilderWithConfig {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 use ctor::ctor;
 
+#[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 #[ctor]
 fn init_test_logger() {
@@ -214,9 +247,18 @@ fn init_test_logger() {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_arch = "wasm32")]
+    use js_sys::Array;
+    #[cfg(target_arch = "wasm32")]
+    use serde_json::json;
+    #[cfg(target_arch = "wasm32")]
+    use serde_wasm_bindgen::to_value;
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::*;
 
     use super::*;
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_lint_valid_string() -> Result<()> {
         let config = Config::default();
@@ -233,6 +275,37 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen_test]
+    fn test_lint_valid_string_from_js() {
+        let config = json!({});
+        let linter = match LinterBuilder::new()
+            .configure(to_value(&config).unwrap())
+            .build()
+        {
+            Ok(linter) => linter,
+            Err(err) => panic!("Failed to build linter: {:?}", err),
+        };
+
+        let valid_mdx = "# Hello, world!\n\nThis is valid MDX document.";
+        let lint_target = json!({"_type": "string", "text": valid_mdx});
+        let lint_target_js_value =
+            to_value(&lint_target).expect("Failed to convert lint target to JsValue");
+
+        let result = match linter.lint(lint_target_js_value) {
+            Ok(result) => result,
+            Err(err) => panic!("Failed to lint string: {:?}", err),
+        };
+        let result = Array::from(&result);
+
+        assert!(
+            result.length() == 0,
+            "Expected no lint errors for valid MDX, got {:?}",
+            result
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_lint_invalid_string() -> Result<()> {
         let config = Config::default();
@@ -243,5 +316,35 @@ mod tests {
 
         assert!(!result.is_empty(), "Expected lint errors for invalid MDX");
         Ok(())
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen_test]
+    fn test_lint_invalid_string_from_js() {
+        let config = json!({});
+        let linter = match LinterBuilder::new()
+            .configure(to_value(&config).unwrap())
+            .build()
+        {
+            Ok(linter) => linter,
+            Err(err) => panic!("Failed to build linter: {:?}", err),
+        };
+
+        let invalid_mdx = "# Incorrect Heading\n\nThis is an invalid MDX document.";
+        let lint_target = json!({"_type": "string", "text": invalid_mdx});
+        let lint_target_js_value =
+            to_value(&lint_target).expect("Failed to convert lint target to JsValue");
+
+        let result = match linter.lint(lint_target_js_value) {
+            Ok(result) => result,
+            Err(err) => panic!("Failed to lint string: {:?}", err),
+        };
+        let result = Array::from(&result);
+
+        assert!(
+            result.length() > 0,
+            "Expected lint errors for invalid MDX, got {:?}",
+            result
+        );
     }
 }
