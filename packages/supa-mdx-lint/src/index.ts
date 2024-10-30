@@ -29,8 +29,10 @@ export class Linter {
     this.linter = linterBuilder.configure(options).build();
   }
 
-  lint(target: LintTarget): Promise<LintError[]> {
-    return this.linter.lint(target);
+  lint(target: LintTarget, rule?: string): Promise<LintError[]> {
+    return rule
+      ? this.linter.lint_only_rule(rule, target)
+      : this.linter.lint(target);
   }
 }
 
