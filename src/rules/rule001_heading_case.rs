@@ -269,7 +269,7 @@ mod tests {
         })
     }
 
-    fn create_rule_context() -> RuleContext {
+    fn create_rule_context<'ctx>() -> RuleContext<'ctx> {
         RuleContext {
             parse_result: ParseResult {
                 ast: Node::Root(markdown::mdast::Root {
@@ -279,6 +279,7 @@ mod tests {
                 frontmatter_lines: 0,
                 frontmatter: None,
             },
+            check_only_rules: None,
         }
     }
 
