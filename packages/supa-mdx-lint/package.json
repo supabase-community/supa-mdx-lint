@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
     "prepare": "npm run prepare:wasm && npm run prepare:tsc",
     "prepare:wasm": "wasm-pack build --target bundler --out-dir ./packages/supa-mdx-lint/pkg",
     "prepare:tsc": "tsc",
@@ -16,7 +19,10 @@
     "src/index.ts"
   ],
   "devDependencies": {
+    "@supa-mdx-lint/eslint-config": "*",
     "@types/node": "^22.7.5",
+    "eslint": "^9.13.0",
+    "prettier": "^3.3.3",
     "typescript": "^5.6.3",
     "vite-plugin-top-level-await": "^1.4.4",
     "vite-plugin-wasm": "^3.3.0",
