@@ -1,11 +1,9 @@
 use anyhow::Result;
+use log::warn;
 use markdown::mdast::Node;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::collections::HashMap;
 
 use crate::{errors::LintError, parser::ParseResult};
 
@@ -13,14 +11,11 @@ mod rule001_heading_case;
 
 use rule001_heading_case::Rule001HeadingCase;
 
-#[allow(clippy::type_complexity)]
-static ALL_RULES: Lazy<Vec<Arc<Mutex<Box<dyn Rule>>>>> = Lazy::new(|| {
-    vec![Arc::new(Mutex::new(
-        Box::new(Rule001HeadingCase::default()),
-    ))]
-});
+static ALL_RULES: Lazy<Vec<Box<dyn Rule>>> =
+    Lazy::new(|| vec![Box::new(Rule001HeadingCase::default())]);
 
-pub trait Rule: Send + Sync + RuleName {
+#[allow(private_bounds)] // RuleClone is used within this module tree only
+pub trait Rule: Send + Sync + RuleName + RuleClone {
     fn setup(&mut self, _settings: Option<&RuleSettings>) {}
     fn check(&self, ast: &Node, context: &RuleContext) -> Option<Vec<LintError>>;
 }
@@ -29,18 +24,36 @@ pub trait RuleName {
     fn name(&self) -> &'static str;
 }
 
+trait RuleClone {
+    fn clone_box(&self) -> Box<dyn Rule>;
+}
+
+impl<T: 'static + Rule + Clone> RuleClone for T {
+    fn clone_box(&self) -> Box<dyn Rule> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn Rule> {
+    fn clone(&self) -> Box<dyn Rule> {
+        self.clone_box()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct RuleSettings(toml::Value);
 
 #[derive(Default)]
 pub struct RegexSettings {
+    /// Regex should only be matched against beginning of string.
     pub match_beginning: bool,
+    /// Regex should only match if it matches up to the end of the word.
     pub match_word_boundary_at_end: bool,
 }
 
 impl RuleSettings {
-    pub fn new(table: toml::Table) -> Self {
-        Self(toml::Value::Table(table))
+    pub fn new(table: impl Into<toml::Table>) -> Self {
+        Self(toml::Value::Table(table.into()))
     }
 
     #[cfg(test)]
@@ -71,23 +84,38 @@ impl RuleSettings {
                 if let toml::Value::String(pattern) = value {
                     let mut pattern = pattern.to_string();
                     if let Some(settings) = settings {
-                        if settings.match_beginning {
+                        if settings.match_beginning && !pattern.starts_with('^') {
                             pattern = format!("^{}", pattern);
                         }
-                        if settings.match_word_boundary_at_end {
+                        if settings.match_word_boundary_at_end && !pattern.ends_with("\\b") {
                             pattern = format!("{}\\b", pattern);
                         }
                     }
 
                     if let Ok(regex) = Regex::new(&pattern) {
                         vec.push(regex);
+                    } else {
+                        warn!("Encountered invalid regex pattern in rule settings: {pattern}")
                     }
-                    // Silently ignore invalid regex patterns
                 }
             }
             if vec.is_empty() {
                 None
             } else {
+                // Sort regexes by length, so the longest match is tried first.
+                //
+                // This ensures, for example, that if two exceptions "Supabase"
+                // and "Supabase Auth" are defined, the "Supabase Auth"
+                // exception will trigger first, preventing "Auth" from being
+                // matched as a false positive.
+                //
+                // Note that this is not a perfect solution, as the order of
+                // matched pattern lengths is not guaranteed to be the same as
+                // the order of regex pattern lengths. For example, the regex
+                // "a{35}" is shorter than "abcdefg", but will match a longer
+                // result. However, since we're unlikely to see regexes defined
+                // this way in exception files, we're just going to ignore this
+                // issue for now.
                 vec.sort_by_key(|b| std::cmp::Reverse(b.as_str().len()));
                 Some(vec)
             }
@@ -113,7 +141,7 @@ impl RuleContext {
 
 pub struct RuleRegistry {
     state: RuleRegistryState,
-    rules: Vec<Arc<Mutex<Box<dyn Rule>>>>,
+    rules: Vec<Box<dyn Rule>>,
 }
 
 enum RuleRegistryState {
@@ -123,7 +151,10 @@ enum RuleRegistryState {
 
 impl RuleRegistry {
     pub fn new() -> Self {
-        let rules = ALL_RULES.clone();
+        let mut rules = Vec::<Box<dyn Rule>>::with_capacity(ALL_RULES.len());
+        ALL_RULES.iter().for_each(|rule| {
+            rules.push(rule.clone());
+        });
         Self {
             state: RuleRegistryState::PreSetup,
             rules,
@@ -131,28 +162,22 @@ impl RuleRegistry {
     }
 
     pub fn is_valid_rule(rule_name: &str) -> bool {
-        ALL_RULES
-            .iter()
-            .any(|rule| rule.lock().unwrap().name() == rule_name)
+        ALL_RULES.iter().any(|rule| rule.name() == rule_name)
     }
 
     pub fn deactivate_rule(&mut self, rule_name: &str) {
-        self.rules
-            .retain(|rule| rule.lock().unwrap().name() != rule_name);
+        self.rules.retain(|rule| rule.name() != rule_name);
     }
 
     #[cfg(test)]
     pub fn is_rule_active(&self, rule_name: &str) -> bool {
-        self.rules
-            .iter()
-            .any(|rule| rule.lock().unwrap().name() == rule_name)
+        self.rules.iter().any(|rule| rule.name() == rule_name)
     }
 
     pub fn setup(&mut self, settings: &HashMap<String, RuleSettings>) -> Result<()> {
         match self.state {
             RuleRegistryState::PreSetup => {
                 for rule in &mut self.rules {
-                    let mut rule = rule.lock().unwrap();
                     let rule_settings = settings.get(rule.name());
                     rule.setup(rule_settings);
                 }
@@ -160,7 +185,7 @@ impl RuleRegistry {
                 Ok(())
             }
             RuleRegistryState::Setup => Err(anyhow::anyhow!(
-                "Cannot setup rule registry if it is already set up"
+                "Cannot set up rule registry if it is already set up"
             )),
         }
     }
@@ -180,7 +205,7 @@ impl RuleRegistry {
 
     fn check_node(&self, ast: &Node, context: &RuleContext, errors: &mut Vec<LintError>) {
         for rule in &self.rules {
-            if let Some(rule_errors) = rule.lock().unwrap().check(ast, context) {
+            if let Some(rule_errors) = rule.check(ast, context) {
                 errors.extend(rule_errors);
             }
         }
