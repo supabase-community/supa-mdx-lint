@@ -1,6 +1,7 @@
 use proc_macro::TokenStream;
 use quote::quote;
 
+/// Auto-generates the rule name for a rule.
 #[proc_macro_derive(RuleName)]
 pub fn rule_name_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
