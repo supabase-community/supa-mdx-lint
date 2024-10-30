@@ -6,6 +6,6 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces",
-    "prepare": "npm run prepare --workspaces"
+    "prepare": "npm run prepare --workspaces --if-present"
   }
 }

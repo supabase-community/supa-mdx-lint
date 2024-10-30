@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { Linter, type LintTarget, type LintError } from '../src';
+import { Linter, type LintTarget } from '../src';
 
 describe('Linter', () => {
   it('should lint a valid mdx file', async () => {
-    const linter = new Linter();
+    const linter = await Linter.create();
     const target: LintTarget = {
       _type: 'string',
       path: null,
@@ -17,7 +17,7 @@ This is a valid mdx file.
   });
 
   it('should lint an invalid mdx file', async () => {
-    const linter = new Linter();
+    const linter = await Linter.create();
     const target: LintTarget = {
       _type: 'string',
       path: null,
