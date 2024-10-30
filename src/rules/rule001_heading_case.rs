@@ -10,7 +10,11 @@ use crate::{
 
 use super::{RegexSettings, Rule, RuleContext, RuleName, RuleSettings};
 
-#[derive(Debug, Default, RuleName)]
+/// Internal flag for whether the first word still needs to be taken into
+/// account when checking capitalization.
+struct IncludesFirstWord(bool);
+
+#[derive(Debug, Default, Clone, RuleName)]
 pub struct Rule001HeadingCase {
     may_uppercase: Vec<Regex>,
     may_lowercase: Vec<Regex>,
@@ -54,8 +58,6 @@ impl Rule for Rule001HeadingCase {
     }
 }
 
-struct IncludesFirstWord(bool);
-
 #[derive(Debug)]
 enum Case {
     Upper,
@@ -71,7 +73,6 @@ impl Rule001HeadingCase {
         context: &RuleContext,
     ) {
         let mut remaining_text = text.value.to_string();
-        let mut is_first_word = includes_first_word.0;
         let mut char_index = 0;
 
         while !remaining_text.is_empty() {
@@ -85,7 +86,7 @@ impl Rule001HeadingCase {
 
             let first_char = remaining_text.chars().next().unwrap();
 
-            if is_first_word {
+            if includes_first_word.0 {
                 if first_char.is_lowercase() {
                     let (match_result, rest) = self.create_text_lint_fix(
                         &remaining_text,
@@ -105,7 +106,7 @@ impl Rule001HeadingCase {
                     remaining_text = rest.to_string();
                 }
 
-                is_first_word = false;
+                includes_first_word.0 = false;
             } else if first_char.is_uppercase() {
                 let (match_result, rest) = self.create_text_lint_fix(
                     &remaining_text,
