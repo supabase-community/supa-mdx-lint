@@ -65,5 +65,9 @@ jobs:
 
       - name: install npm packages
         run: npm ci
+      - name: js format check
+        run: npm run format:check
+      - name: js lint
+        run: npm run lint
       - name: js tests
-        run: npm run test -w supa-mdx-lint
+        run: npm run test

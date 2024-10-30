@@ -5,7 +5,10 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces",
-    "prepare": "npm run prepare --workspaces --if-present"
+    "build": "npm run build --workspaces --if-present",
+    "format:check": "npm run format:check --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "prepare": "npm run prepare --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
   }
 }
