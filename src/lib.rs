@@ -1,12 +1,13 @@
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::{fs, io::Read};
+use tsify::Tsify;
 use wasm_bindgen::prelude::*;
 
-#[cfg(target_arch = "wasm32")]
-use serde::{Deserialize, Serialize};
-#[cfg(target_arch = "wasm32")]
-use tsify::Tsify;
+#[cfg(not(target_arch = "wasm32"))]
+use ctor::ctor;
+
 #[cfg(target_arch = "wasm32")]
 use web_sys::console;
 
@@ -24,11 +25,33 @@ use crate::rules::RuleContext;
 use crate::utils::set_panic_hook;
 
 #[cfg(target_arch = "wasm32")]
-use errors::JsLintError;
+use crate::errors::JsLintError;
+
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(test))]
+#[ctor]
+fn init_logger() {
+    env_logger::init();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(test)]
+#[ctor]
+fn init_test_logger() {
+    env_logger::builder().is_test(true).try_init().unwrap();
+}
 
 #[wasm_bindgen]
 pub struct Linter {
     config: Config,
+}
+
+#[derive(Debug, Serialize, Deserialize, Tsify)]
+#[serde(tag = "_type", content = "content")]
+#[tsify(from_wasm_abi)]
+pub enum LintTarget {
+    FileOrDirectory(PathBuf),
+    String(String),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -96,11 +119,6 @@ impl JsLintTarget {
             )),
         }
     }
-}
-
-pub enum LintTarget {
-    FileOrDirectory(PathBuf),
-    String(String),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -232,17 +250,6 @@ impl LinterBuilderWithConfig {
             config: self.config,
         })
     }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-#[cfg(test)]
-use ctor::ctor;
-
-#[cfg(not(target_arch = "wasm32"))]
-#[cfg(test)]
-#[ctor]
-fn init_test_logger() {
-    env_logger::builder().is_test(true).try_init().unwrap();
 }
 
 #[cfg(test)]
