@@ -125,13 +125,19 @@ impl RuleSettings {
     }
 }
 
-pub struct RuleContext {
+pub type RuleFilter<'filter> = Option<&'filter [&'filter str]>;
+
+pub struct RuleContext<'ctx> {
     parse_result: ParseResult,
+    check_only_rules: RuleFilter<'ctx>,
 }
 
-impl RuleContext {
-    pub fn new(parse_result: ParseResult) -> Self {
-        Self { parse_result }
+impl<'ctx> RuleContext<'ctx> {
+    pub fn new(parse_result: ParseResult, check_only_rules: Option<&'ctx [&'ctx str]>) -> Self {
+        Self {
+            parse_result,
+            check_only_rules,
+        }
     }
 
     pub fn frontmatter_lines(&self) -> usize {
@@ -205,6 +211,11 @@ impl RuleRegistry {
 
     fn check_node(&self, ast: &Node, context: &RuleContext, errors: &mut Vec<LintError>) {
         for rule in &self.rules {
+            if let Some(filter) = &context.check_only_rules {
+                if !filter.contains(&rule.name()) {
+                    continue;
+                }
+            }
             if let Some(rule_errors) = rule.check(ast, context) {
                 errors.extend(rule_errors);
             }
@@ -215,5 +226,103 @@ impl RuleRegistry {
                 self.check_node(child, context, errors);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+
+    use super::*;
+    use markdown::mdast::{Node, Text};
+    use supa_mdx_macros::RuleName;
+
+    #[derive(Clone, Default, RuleName)]
+    struct MockRule {
+        check_count: Arc<AtomicUsize>,
+    }
+
+    impl Rule for MockRule {
+        fn check(&self, _ast: &Node, _context: &RuleContext) -> Option<Vec<LintError>> {
+            self.check_count.fetch_add(1, Ordering::Relaxed);
+            None
+        }
+    }
+
+    #[derive(Clone, Default, RuleName)]
+    struct MockRule2 {
+        check_count: Arc<AtomicUsize>,
+    }
+
+    impl Rule for MockRule2 {
+        fn check(&self, _ast: &Node, _context: &RuleContext) -> Option<Vec<LintError>> {
+            self.check_count.fetch_add(1, Ordering::Relaxed);
+            None
+        }
+    }
+
+    #[test]
+    fn test_check_node_with_filter() {
+        let text_node = Node::Text(Text {
+            value: "test".into(),
+            position: None,
+        });
+
+        let mock_rule_1 = MockRule::default();
+        let mock_rule_2 = MockRule2::default();
+        let check_count_1 = mock_rule_1.check_count.clone();
+        let check_count_2 = mock_rule_2.check_count.clone();
+
+        let registry = RuleRegistry {
+            state: RuleRegistryState::Setup,
+            rules: vec![Box::new(mock_rule_1), Box::new(mock_rule_2)],
+        };
+
+        let parse_result = ParseResult {
+            ast: text_node.clone(),
+            frontmatter_lines: 0,
+            frontmatter: None,
+        };
+        let context = RuleContext::new(parse_result, Some(&["MockRule"]));
+
+        let mut errors = Vec::new();
+        registry.check_node(&text_node, &context, &mut errors);
+
+        assert_eq!(check_count_1.load(Ordering::Relaxed), 1);
+        assert_eq!(check_count_2.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn test_check_node_without_filter() {
+        let text_node = Node::Text(Text {
+            value: "test".into(),
+            position: None,
+        });
+
+        let mock_rule_1 = MockRule::default();
+        let mock_rule_2 = MockRule2::default();
+        let check_count_1 = mock_rule_1.check_count.clone();
+        let check_count_2 = mock_rule_2.check_count.clone();
+
+        let registry = RuleRegistry {
+            state: RuleRegistryState::Setup,
+            rules: vec![Box::new(mock_rule_1), Box::new(mock_rule_2)],
+        };
+
+        let parse_result = ParseResult {
+            ast: text_node.clone(),
+            frontmatter_lines: 0,
+            frontmatter: None,
+        };
+        let context = RuleContext::new(parse_result, None);
+
+        let mut errors = Vec::new();
+        registry.check_node(&text_node, &context, &mut errors);
+
+        assert_eq!(check_count_1.load(Ordering::Relaxed), 1);
+        assert_eq!(check_count_2.load(Ordering::Relaxed), 1);
     }
 }

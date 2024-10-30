@@ -1,4 +1,5 @@
 use anyhow::Result;
+use rules::RuleFilter;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::{fs, io::Read};
@@ -128,7 +129,7 @@ impl Linter {
     pub fn lint(&self, input: JsValue) -> Result<JsValue, JsValue> {
         let js_target = JsLintTarget::from_js_value(input)?;
         match js_target.to_lint_target() {
-            Ok(lint_target) => match self.lint_internal(lint_target) {
+            Ok(lint_target) => match self.lint_internal(lint_target, None) {
                 Ok(errors) => serde_wasm_bindgen::to_value(
                     &errors
                         .into_iter()
@@ -141,32 +142,70 @@ impl Linter {
             Err(err) => Err(err),
         }
     }
+
+    #[wasm_bindgen]
+    pub fn lint_only_rule(&self, rule_id: JsValue, input: JsValue) -> Result<JsValue, JsValue> {
+        let js_target = JsLintTarget::from_js_value(input)?;
+        match (js_target.to_lint_target(), rule_id.as_string()) {
+            (Ok(lint_target), Some(rule_id)) => {
+                match self.lint_internal(lint_target, Some(&[rule_id.as_str()])) {
+                    Ok(errors) => serde_wasm_bindgen::to_value(
+                        &errors
+                            .into_iter()
+                            .map(|e| Into::<JsLintError>::into(e))
+                            .collect::<Vec<_>>(),
+                    )
+                    .map_err(|e| JsValue::from_str(&e.to_string())),
+                    Err(err) => Err(JsValue::from_str(&err.to_string())),
+                }
+            }
+            (Err(err), _) => Err(err),
+            (_, None) => Err(JsValue::from_str(
+                "A rule ID must be provided when linting only a single rule",
+            )),
+        }
+    }
 }
 
 impl Linter {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn lint(&self, input: LintTarget) -> Result<Vec<LintError>> {
-        self.lint_internal(input)
+        self.lint_internal(input, None)
     }
 
-    pub fn lint_internal(&self, input: LintTarget) -> Result<Vec<LintError>> {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn lint_only_rule(&self, rule_id: &str, input: LintTarget) -> Result<Vec<LintError>> {
+        self.lint_internal(input, Some(&[rule_id]))
+    }
+
+    fn lint_internal(
+        &self,
+        input: LintTarget,
+        check_only_rules: RuleFilter,
+    ) -> Result<Vec<LintError>> {
         match input {
-            LintTarget::FileOrDirectory(path) => self.lint_file_or_directory(path),
-            LintTarget::String(string) => self.lint_string(&string),
+            LintTarget::FileOrDirectory(path) => {
+                self.lint_file_or_directory(path, check_only_rules)
+            }
+            LintTarget::String(string) => self.lint_string(&string, check_only_rules),
         }
     }
 
-    fn lint_file_or_directory(&self, path: PathBuf) -> Result<Vec<LintError>> {
+    fn lint_file_or_directory(
+        &self,
+        path: PathBuf,
+        check_only_rules: RuleFilter,
+    ) -> Result<Vec<LintError>> {
         if path.is_file() {
             let mut file = fs::File::open(path)?;
             let mut contents = String::new();
             file.read_to_string(&mut contents)?;
-            self.lint_string(&contents)
+            self.lint_string(&contents, check_only_rules)
         } else if path.is_dir() {
             let collected_vec = fs::read_dir(path)?
                 .filter_map(Result::ok)
                 .flat_map(|entry| {
-                    self.lint_file_or_directory(entry.path())
+                    self.lint_file_or_directory(entry.path(), check_only_rules)
                         .unwrap_or_default()
                 })
                 .collect::<Vec<_>>();
@@ -179,9 +218,9 @@ impl Linter {
         }
     }
 
-    fn lint_string(&self, string: &str) -> Result<Vec<LintError>> {
+    fn lint_string(&self, string: &str, check_only_rules: RuleFilter) -> Result<Vec<LintError>> {
         let parse_result = parse(string)?;
-        let rule_context = RuleContext::new(parse_result);
+        let rule_context = RuleContext::new(parse_result, check_only_rules);
         self.config.rule_registry.run(&rule_context)
     }
 }
