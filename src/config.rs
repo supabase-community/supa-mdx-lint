@@ -1,8 +1,8 @@
 use anyhow::Result;
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use std::collections::{HashMap, HashSet};
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
 
 use crate::rules::{RuleRegistry, RuleSettings};
 
@@ -21,6 +21,7 @@ impl Default for Config {
 }
 
 impl Config {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn from_config_file<P: AsRef<Path>>(config_file: P) -> Result<Self> {
         let config_content = std::fs::read_to_string(config_file)?;
         let parsed: toml::Table = toml::from_str(&config_content)?;
@@ -80,18 +81,22 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+
+    #[cfg(not(target_arch = "wasm32"))]
     use tempfile::NamedTempFile;
 
     use super::*;
 
     const VALID_RULE_NAME: &str = "Rule001HeadingCase";
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn create_temp_config_file(content: &str) -> NamedTempFile {
         let file = NamedTempFile::new().unwrap();
         std::fs::write(&file, content).unwrap();
         file
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_from_config_file_valid() {
         let content = format!(
@@ -107,6 +112,7 @@ option2 = "value"
         assert!(config.rule_registry.is_rule_active(VALID_RULE_NAME));
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_ignores_invalid_rule_name() {
         let content = r#"
@@ -122,6 +128,7 @@ option2 = "value"
         assert!(config.rule_registry.is_rule_active(VALID_RULE_NAME));
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_from_config_file_invalid() {
         let content = "invalid toml content";
@@ -140,6 +147,15 @@ option2 = "value"
         let config = Config::from_serializable(config_json).unwrap();
         assert!(config.rule_specific_settings.contains_key(VALID_RULE_NAME));
         assert!(config.rule_registry.is_rule_active(VALID_RULE_NAME));
+    }
+
+    #[test]
+    fn test_config_deactivate_rule() {
+        let config_json = json!({
+            VALID_RULE_NAME: false
+        });
+        let config = Config::from_serializable(config_json).unwrap();
+        assert!(!config.rule_registry.is_rule_active(VALID_RULE_NAME));
     }
 
     #[test]
