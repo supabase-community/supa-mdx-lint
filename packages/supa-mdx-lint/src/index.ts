@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-import * as wasm from "../pkg/supa_mdx_lint";
+import * as wasm from "../pkg/supa_mdx_lint.js";
 import { join } from "node:path";
 
 export type LintTarget = wasm.JsLintTarget & {
@@ -29,6 +29,13 @@ export class Linter {
     this.linter = linterBuilder.configure(options).build();
   }
 
+  /**
+   * Lints the given target.
+   *
+   * @param target The target to lint.
+   * @param rule The rule to lint. If not provided, all rules will be run.
+   * @returns A list of lint errors.
+   */
   lint(target: LintTarget, rule?: string): Promise<LintError[]> {
     return rule
       ? this.linter.lint_only_rule(rule, target)

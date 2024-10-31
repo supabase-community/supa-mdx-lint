@@ -6,6 +6,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "format": "npm run format --workspaces --if-present",
     "format:check": "npm run format:check --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "prepare": "npm run prepare --workspaces --if-present",
