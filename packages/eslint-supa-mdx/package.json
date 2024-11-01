@@ -6,13 +6,14 @@
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node tests/rule*.js",
+    "test": "vitest",
     "lint": "eslint ."
   },
   "devDependencies": {
     "@supa-mdx-lint/eslint-config": "*",
     "eslint": "^9.13.0",
-    "prettier": "^3.3.3"
+    "prettier": "^3.3.3",
+    "vitest": "^2.1.4"
   },
   "dependencies": {
     "supa-mdx-lint": "*",
