@@ -70,6 +70,6 @@ jobs:
       - name: js lint
         run: npm run lint
       - name: js tests
-        # Temporarily not running tests for eslint-plugin-supa-mdx until we
-        # figure out why the process never exits in CI only
+        # Temporarily ignore tests for eslint-plugin-supa-mdx until we figure
+        # out why the test runner never exits in CI only
         run: npm run test -w supa-mdx-lint
