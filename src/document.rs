@@ -179,6 +179,25 @@ impl Location {
         let end = AdjustedPoint::from_unadjusted_point(end, context);
         Self { start, end }
     }
+
+    #[cfg(test)]
+    /// Quickly create a dummy Location for testing.
+    ///
+    /// Not exposed in non-tests because it bypasses the checks for point
+    /// adjustment.
+    pub fn dummy(
+        start_line: usize,
+        start_column: usize,
+        start_offset: usize,
+        end_line: usize,
+        end_column: usize,
+        end_offset: usize,
+    ) -> Self {
+        Self {
+            start: AdjustedPoint::new(start_line, start_column, start_offset),
+            end: AdjustedPoint::new(end_line, end_column, end_offset),
+        }
+    }
 }
 
 #[cfg(test)]
