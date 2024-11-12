@@ -52,3 +52,14 @@ fn integration_test_silent() {
         .arg("--silent");
     cmd.assert().success().stdout(predicate::str::is_empty());
 }
+
+#[test]
+fn integration_test_globs() {
+    let mut cmd = Command::cargo_bin("supa-mdx-lint").unwrap();
+    cmd.arg("tests/good*.mdx")
+        .arg("--config")
+        .arg("tests/supa-mdx-lint.config.toml");
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("2 sources linted"));
+}
