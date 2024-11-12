@@ -1,4 +1,30 @@
+//! Read the rule configuration from a TOML file.
+//!
+//! The configuration file is a TOML file that contains a table of rule
+//! settings. Each rule has a unique name, and each rule can have a set of
+//! settings that are specific to that rule.
+//!
+//! Rules can be turned off by setting the rule to `false`.
+//!
+//! The configuration file can also include other files using the `include()`
+//! function. This allows for modular configuration, where each rule can be
+//! defined in a separate file, and then included into the main configuration
+//! file.
+//!
+//! Example:
+//!
+//! ```toml
+//! [Rule001SomeRule]
+//! option1 = true
+//! option2 = "value"
+//!
+//! Rule002SomeOtherRule = "include('some_other_rule.toml')"
+//!
+//! Rule003NotApplied = false
+//! ```
+
 use anyhow::Result;
+use log::{debug, error};
 use std::collections::{HashMap, HashSet};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -6,6 +32,7 @@ use std::path::Path;
 
 use crate::rules::{RuleRegistry, RuleSettings};
 
+#[derive(Debug)]
 pub struct Config {
     pub(crate) rule_registry: RuleRegistry,
     pub(crate) rule_specific_settings: HashMap<String, RuleSettings>,
@@ -23,10 +50,55 @@ impl Default for Config {
 impl Config {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn from_config_file<P: AsRef<Path>>(config_file: P) -> Result<Self> {
-        let config_content = std::fs::read_to_string(config_file)?;
-        let parsed: toml::Table = toml::from_str(&config_content)?;
+        let config_path = config_file.as_ref().to_path_buf();
+        let config_dir = config_path.parent().ok_or_else(|| {
+            anyhow::anyhow!("Unable to determine parent directory of config file: {config_path:?}")
+        })?;
+
+        let config_content = std::fs::read_to_string(&config_path)
+            .inspect_err(|_| error!("Failed to read config file at {config_path:?}"))?;
+        let parsed = Self::process_includes(&config_content, config_dir).inspect_err(|_| {
+            error!("Failed to parse config");
+            debug!("Config file content:\n\t{config_content}")
+        })?;
 
         Self::from_serializable(parsed)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn process_includes(raw_str: &str, base_dir: &Path) -> Result<toml::Table> {
+        let table: toml::Table = toml::from_str(raw_str)?;
+        let mut processed_table = toml::Table::new();
+
+        for (key, value) in table {
+            let processed_value = match value {
+                toml::Value::String(s) if s.starts_with("include('") && s.ends_with("')") => {
+                    // Extract the path from include('path')
+                    let path_str = s[9..s.len() - 2].to_string();
+                    let include_path = base_dir.join(path_str);
+
+                    let include_content = std::fs::read_to_string(&include_path).map_err(|e| {
+                        anyhow::anyhow!(
+                            "Failed to read include file at path {:?}: {}",
+                            include_path,
+                            e
+                        )
+                    })?;
+                    toml::from_str(&include_content).map_err(|e| {
+                        anyhow::anyhow!(
+                            "Failed to parse include file from path {:?}: {}",
+                            include_path,
+                            e
+                        )
+                    })?
+                }
+                _ => value,
+            };
+
+            processed_table.insert(key, processed_value);
+        }
+
+        Ok(processed_table)
     }
 
     pub fn from_serializable<T: serde::Serialize>(config: T) -> Result<Self> {
@@ -80,12 +152,13 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use std::fs;
+
     use serde_json::json;
 
     #[cfg(not(target_arch = "wasm32"))]
     use tempfile::NamedTempFile;
-
-    use super::*;
 
     const VALID_RULE_NAME: &str = "Rule001HeadingCase";
 
@@ -110,6 +183,36 @@ option2 = "value"
         let config = Config::from_config_file(file.path()).unwrap();
         assert!(config.rule_specific_settings.contains_key(VALID_RULE_NAME));
         assert!(config.rule_registry.is_rule_active(VALID_RULE_NAME));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn test_config_with_includes() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+
+        let included_content = r#"
+option1 = true
+option2 = "value"
+"#;
+        let included_path = temp_dir.path().join("heading_sentence_case.toml");
+        fs::write(&included_path, included_content)?;
+
+        let main_content = format!(
+            r#"
+{VALID_RULE_NAME} = "include('heading_sentence_case.toml')"
+"#
+        );
+        let main_config_path = temp_dir.path().join("config.toml");
+        fs::write(&main_config_path, main_content)?;
+
+        let config = Config::from_config_file(main_config_path)?;
+
+        assert!(config.rule_specific_settings.contains_key(VALID_RULE_NAME));
+        let rule_settings = config.rule_specific_settings.get(VALID_RULE_NAME).unwrap();
+        assert!(rule_settings.has_key("option1"));
+        assert!(rule_settings.has_key("option2"));
+
+        Ok(())
     }
 
     #[cfg(not(target_arch = "wasm32"))]

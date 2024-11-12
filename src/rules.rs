@@ -3,7 +3,7 @@ use log::warn;
 use markdown::mdast::Node;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 use crate::{errors::LintError, parser::ParseResult};
 
@@ -15,7 +15,7 @@ static ALL_RULES: Lazy<Vec<Box<dyn Rule>>> =
     Lazy::new(|| vec![Box::new(Rule001HeadingCase::default())]);
 
 #[allow(private_bounds)] // RuleClone is used within this module tree only
-pub trait Rule: Send + Sync + RuleName + RuleClone {
+pub trait Rule: Send + Sync + Debug + RuleName + RuleClone {
     fn setup(&mut self, _settings: Option<&RuleSettings>) {}
     fn check(&self, ast: &Node, context: &RuleContext) -> Option<Vec<LintError>>;
 }
@@ -54,6 +54,14 @@ pub struct RegexSettings {
 impl RuleSettings {
     pub fn new(table: impl Into<toml::Table>) -> Self {
         Self(toml::Value::Table(table.into()))
+    }
+
+    #[cfg(test)]
+    pub fn has_key(&self, key: &str) -> bool {
+        self.0
+            .as_table()
+            .map(|table| table.contains_key(key))
+            .unwrap_or(false)
     }
 
     #[cfg(test)]
@@ -145,14 +153,16 @@ impl<'ctx> RuleContext<'ctx> {
     }
 }
 
+#[derive(Debug)]
 pub struct RuleRegistry {
     state: RuleRegistryState,
     rules: Vec<Box<dyn Rule>>,
 }
 
+#[derive(Debug)]
 enum RuleRegistryState {
     PreSetup,
-    Setup,
+    Ready,
 }
 
 impl RuleRegistry {
@@ -187,10 +197,10 @@ impl RuleRegistry {
                     let rule_settings = settings.get(rule.name());
                     rule.setup(rule_settings);
                 }
-                self.state = RuleRegistryState::Setup;
+                self.state = RuleRegistryState::Ready;
                 Ok(())
             }
-            RuleRegistryState::Setup => Err(anyhow::anyhow!(
+            RuleRegistryState::Ready => Err(anyhow::anyhow!(
                 "Cannot set up rule registry if it is already set up"
             )),
         }
@@ -201,7 +211,7 @@ impl RuleRegistry {
             RuleRegistryState::PreSetup => Err(anyhow::anyhow!(
                 "Cannot run rule registry in pre-setup state"
             )),
-            RuleRegistryState::Setup => {
+            RuleRegistryState::Ready => {
                 let mut errors = Vec::new();
                 self.check_node(&context.parse_result.ast, context, &mut errors);
                 Ok(errors)
@@ -240,7 +250,7 @@ mod tests {
     use markdown::mdast::{Node, Text};
     use supa_mdx_macros::RuleName;
 
-    #[derive(Clone, Default, RuleName)]
+    #[derive(Clone, Default, Debug, RuleName)]
     struct MockRule {
         check_count: Arc<AtomicUsize>,
     }
@@ -252,7 +262,7 @@ mod tests {
         }
     }
 
-    #[derive(Clone, Default, RuleName)]
+    #[derive(Clone, Default, Debug, RuleName)]
     struct MockRule2 {
         check_count: Arc<AtomicUsize>,
     }
@@ -277,7 +287,7 @@ mod tests {
         let check_count_2 = mock_rule_2.check_count.clone();
 
         let registry = RuleRegistry {
-            state: RuleRegistryState::Setup,
+            state: RuleRegistryState::Ready,
             rules: vec![Box::new(mock_rule_1), Box::new(mock_rule_2)],
         };
 
@@ -308,7 +318,7 @@ mod tests {
         let check_count_2 = mock_rule_2.check_count.clone();
 
         let registry = RuleRegistry {
-            state: RuleRegistryState::Setup,
+            state: RuleRegistryState::Ready,
             rules: vec![Box::new(mock_rule_1), Box::new(mock_rule_2)],
         };
 
