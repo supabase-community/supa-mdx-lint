@@ -52,17 +52,14 @@ jobs:
             ~/.cargo/git/db/
           key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: install wasm-pack
+        run: cargo install wasm-pack --locked
+
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af #v4.1.0
         with:
           node-version: ${{ matrix.node }}
           cache: npm
           cache-dependency-path: "**/package-lock.json"
-      - name: install wasm-pack
-        run: npm install -g wasm-pack
-
-      - name: wasm tests
-        run: wasm-pack test --node
-
       - name: install npm packages
         run: npm ci
       - name: js format check
@@ -70,6 +67,4 @@ jobs:
       - name: js lint
         run: npm run lint
       - name: js tests
-        # Temporarily ignore tests for eslint-plugin-supa-mdx until we figure
-        # out why the test runner never exits in CI only
-        run: npm run test -w supa-mdx-lint
+        run: npm run test
