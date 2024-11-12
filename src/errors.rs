@@ -33,18 +33,23 @@ pub struct JsLintError {
 }
 
 #[cfg(target_arch = "wasm32")]
+impl From<&LintError> for JsLintError {
+    fn from(value: &LintError) -> Self {
+        Self {
+            message: value.message.clone(),
+            location: value.location.clone(),
+            fix: value
+                .fix
+                .as_ref()
+                .map(|fixes| fixes.iter().map(|f| f.into()).collect::<Vec<JsLintFix>>()),
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
 impl From<LintError> for JsLintError {
     fn from(value: LintError) -> Self {
-        Self {
-            message: value.message,
-            location: value.location,
-            fix: value.fix.map(|fixes| {
-                fixes
-                    .into_iter()
-                    .map(|f| f.into())
-                    .collect::<Vec<JsLintFix>>()
-            }),
-        }
+        (&value).into()
     }
 }
 
@@ -66,26 +71,26 @@ pub struct JsLintFix {
 }
 
 #[cfg(target_arch = "wasm32")]
-impl From<LintFix> for JsLintFix {
-    fn from(value: LintFix) -> Self {
+impl From<&LintFix> for JsLintFix {
+    fn from(value: &LintFix) -> Self {
         match value {
             LintFix::Insert(lint_fix_insert) => JsLintFix {
                 _type: "insert".to_string(),
-                point: Some(lint_fix_insert.point),
+                point: Some(lint_fix_insert.point.clone()),
                 location: None,
-                text: Some(lint_fix_insert.text),
+                text: Some(lint_fix_insert.text.clone()),
             },
             LintFix::Delete(lint_fix_delete) => JsLintFix {
                 _type: "delete".to_string(),
                 point: None,
-                location: Some(lint_fix_delete.location),
+                location: Some(lint_fix_delete.location.clone()),
                 text: None,
             },
             LintFix::Replace(lint_fix_replace) => JsLintFix {
                 _type: "replace".to_string(),
                 point: None,
-                location: Some(lint_fix_replace.location),
-                text: Some(lint_fix_replace.text),
+                location: Some(lint_fix_replace.location.clone()),
+                text: Some(lint_fix_replace.text.clone()),
             },
         }
     }

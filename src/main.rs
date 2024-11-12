@@ -1,14 +1,19 @@
-use std::{env, path::PathBuf};
+use std::{env, io::BufWriter, path::PathBuf, process};
 
-use anyhow::Result;
-use clap::Parser;
-use log::debug;
-use simplelog::{ColorChoice, Config, LevelFilter, TermLogger, TerminalMode};
+use anyhow::{Context, Result};
+use clap::{ArgGroup, Parser};
+use log::{debug, error};
+use simplelog::{ColorChoice, Config as LogConfig, LevelFilter, TermLogger, TerminalMode};
+use supa_mdx_lint::{Config, LintTarget, LinterBuilder, OutputFormatter, SimpleFormatter};
 
 const DEFAULT_CONFIG_FILE: &str = "supa-mdx-lint.config.toml";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
+#[clap(group(
+            ArgGroup::new("verbosity")
+                .args(&["debug", "silent"]),
+        ))]
 struct Args {
     /// File or directory to lint
     target: PathBuf,
@@ -20,16 +25,21 @@ struct Args {
     /// Turn debugging information on
     #[arg(short, long)]
     debug: bool,
+
+    /// Do not write anything to the output
+    #[arg(short, long)]
+    silent: bool,
 }
 
-fn setup_logging(debug: bool) -> Result<LevelFilter> {
-    let log_level: LevelFilter = match debug {
-        true => LevelFilter::Debug,
-        false => LevelFilter::Info,
+fn setup_logging(args: &Args) -> Result<LevelFilter> {
+    let log_level: LevelFilter = match (args.silent, args.debug) {
+        (true, false) => LevelFilter::Off,
+        (false, true) => LevelFilter::Debug,
+        _ => LevelFilter::Info,
     };
     TermLogger::init(
         log_level,
-        Config::default(),
+        LogConfig::default(),
         TerminalMode::Mixed,
         ColorChoice::Auto,
     )
@@ -38,15 +48,16 @@ fn setup_logging(debug: bool) -> Result<LevelFilter> {
     Ok(log_level)
 }
 
-fn main() -> Result<()> {
+fn execute() -> Result<Result<()>> {
     let args = Args::parse();
 
-    let log_level = setup_logging(args.debug)?;
+    let log_level = setup_logging(&args)?;
     debug!("Log level set to {log_level}");
 
-    let current_dir = env::current_dir().expect("Failed to get current directory");
+    let current_dir = env::current_dir().context("Failed to get current directory")?;
 
     let target = current_dir.join(args.target);
+    let target = LintTarget::FileOrDirectory(target);
     debug!("Lint target is {target:?}");
 
     let config_path = args.config.map_or_else(
@@ -55,5 +66,41 @@ fn main() -> Result<()> {
     );
     debug!("Config path is {config_path:?}");
 
-    Ok(())
+    let linter = LinterBuilder::new()
+        .configure(Config::from_config_file(config_path)?)
+        .build()?;
+    debug!("Linter built: {linter:?}");
+
+    match linter.lint(target) {
+        Ok(diagnostics) => {
+            debug!("Linting completed successfully");
+
+            if !args.silent {
+                let formatter = SimpleFormatter;
+                let stdout = std::io::stdout().lock();
+                let mut stdout = BufWriter::new(stdout);
+                formatter.format(&diagnostics, &mut stdout)?;
+            }
+
+            if diagnostics.iter().any(|d| !d.errors().is_empty()) {
+                Ok(Err(anyhow::anyhow!("Linting errors found")))
+            } else {
+                Ok(Ok(()))
+            }
+        }
+        Err(err) => {
+            error!("Error: {err:?}");
+            Err(err)
+        }
+    }
+}
+
+fn main() {
+    match execute() {
+        Ok(Ok(())) => process::exit(exitcode::OK),
+        Ok(Err(_)) => process::exit(exitcode::DATAERR),
+        // Not really, but we need to bubble better errors up to get a more
+        // meaningful exit code.
+        Err(_) => process::exit(exitcode::SOFTWARE),
+    }
 }
