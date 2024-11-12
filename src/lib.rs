@@ -12,6 +12,7 @@ use web_sys::console;
 pub mod config;
 mod document;
 mod errors;
+mod output;
 mod parser;
 mod rules;
 mod utils;
