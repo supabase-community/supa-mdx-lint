@@ -8,7 +8,7 @@
 //! {"message": "<msg>", "location": {"path": "<file path>", "range": {"start": {"line": 14, "column": 15}, "end": {"line": 14, "column": 18}}}, "suggestions": [{"range": {"start": {"line": 14, "column": 15}, "end": {"line": 14, "column": 18}}, "text": "<replacement text>"}], "severity": "WARNING"}
 //! ```
 
-use std::{borrow::Cow, io::Write};
+use std::io::Write;
 
 use anyhow::Result;
 use log::{debug, warn};
@@ -34,7 +34,7 @@ struct RdfOutput<'output> {
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct RdfLocation<'location> {
-    path: Cow<'location, str>,
+    path: &'location str,
     range: RdfRange,
 }
 
@@ -100,13 +100,13 @@ impl<'fix> RdfSuggestion<'fix> {
 }
 
 impl OutputFormatter for RdfFormatter {
-    fn format<Writer: Write>(&self, output: &[&LintOutput], io: &mut Writer) -> Result<()> {
+    fn format<Writer: Write>(&self, output: &[LintOutput], io: &mut Writer) -> Result<()> {
         for output in output.iter() {
             for error in output.errors.iter() {
                 let rdf_output = RdfOutput {
                     message: &error.message,
                     location: RdfLocation {
-                        path: output.file_path.to_string_lossy(),
+                        path: &output.file_path,
                         range: (&error.location).into(),
                     },
                     severity: LintLevel::Error,
@@ -140,14 +140,12 @@ impl OutputFormatter for RdfFormatter {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use super::*;
     use crate::{document::Location, errors::LintError};
 
     #[test]
     fn test_rdf_formatter() {
-        let file_path = PathBuf::from("test.md");
+        let file_path = "test.md".to_string();
         let error = LintError {
             message: "This is an error".to_string(),
             location: Location::dummy(1, 1, 0, 1, 2, 1),
@@ -158,7 +156,7 @@ mod tests {
             file_path,
             errors: vec![error],
         };
-        let output = vec![&output];
+        let output = vec![output];
 
         let formatter = RdfFormatter;
         let mut result = Vec::new();
@@ -172,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_rdf_formatter_with_fixes() {
-        let file_path = PathBuf::from("test.md");
+        let file_path = "test.md".to_string();
         let error = LintError {
             message: "This is an error".to_string(),
             location: Location::dummy(1, 1, 0, 1, 9, 8),
@@ -184,7 +182,7 @@ mod tests {
             file_path,
             errors: vec![error],
         };
-        let output = vec![&output];
+        let output = vec![output];
 
         let formatter = RdfFormatter;
         let mut result = Vec::new();
@@ -198,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_rdf_formatter_multiple_errors() {
-        let file_path = PathBuf::from("test.md");
+        let file_path = "test.md".to_string();
         let error_1 = LintError {
             message: "This is an error".to_string(),
             location: Location::dummy(1, 1, 0, 1, 2, 1),
@@ -214,7 +212,7 @@ mod tests {
             file_path,
             errors: vec![error_1, error_2],
         };
-        let output = vec![&output];
+        let output = vec![output];
 
         let formatter = RdfFormatter;
         let mut result = Vec::new();
@@ -229,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_rdf_formatter_multiple_files() {
-        let file_path_1 = PathBuf::from("test.md");
+        let file_path_1 = "test.md".to_string();
         let error_1 = LintError {
             message: "This is an error".to_string(),
             location: Location::dummy(1, 1, 0, 1, 2, 1),
@@ -246,14 +244,14 @@ mod tests {
             errors: vec![error_1.clone(), error_2.clone()],
         };
 
-        let file_path_2 = PathBuf::from("test2.md");
+        let file_path_2 = "test2.md".to_string();
 
         let output_2 = LintOutput {
             file_path: file_path_2,
             errors: vec![error_1, error_2],
         };
 
-        let output = vec![&output_1, &output_2];
+        let output = vec![output_1, output_2];
 
         let formatter = RdfFormatter;
         let mut result = Vec::new();

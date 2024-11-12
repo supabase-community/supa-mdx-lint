@@ -1,7 +1,8 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use rules::RuleFilter;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::env;
+use std::path::{Path, PathBuf};
 use std::{fs, io::Read};
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
@@ -9,7 +10,7 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use web_sys::console;
 
-pub mod config;
+mod config;
 mod document;
 mod errors;
 mod output;
@@ -17,8 +18,10 @@ mod parser;
 mod rules;
 mod utils;
 
-use crate::config::Config;
-use crate::errors::LintError;
+pub use crate::config::Config;
+pub use crate::output::{rdf::RdfFormatter, simple::SimpleFormatter, OutputFormatter};
+
+use crate::output::LintOutput;
 use crate::parser::parse;
 use crate::rules::RuleContext;
 use crate::utils::set_panic_hook;
@@ -26,6 +29,7 @@ use crate::utils::set_panic_hook;
 #[cfg(target_arch = "wasm32")]
 use crate::errors::JsLintError;
 
+#[derive(Debug)]
 #[wasm_bindgen]
 pub struct Linter {
     config: Config,
@@ -114,10 +118,12 @@ impl Linter {
         let js_target = JsLintTarget::from_js_value(input)?;
         match js_target.to_lint_target() {
             Ok(lint_target) => match self.lint_internal(lint_target, None) {
-                Ok(errors) => serde_wasm_bindgen::to_value(
-                    &errors
-                        .into_iter()
-                        .map(|e| Into::<JsLintError>::into(e))
+                Ok(diagnostics) => serde_wasm_bindgen::to_value(
+                    &diagnostics
+                        .iter()
+                        .flat_map(|diagnostic| {
+                            diagnostic.errors().iter().map(Into::<JsLintError>::into)
+                        })
                         .collect::<Vec<_>>(),
                 )
                 .map_err(|e| JsValue::from_str(&e.to_string())),
@@ -133,10 +139,12 @@ impl Linter {
         match (js_target.to_lint_target(), rule_id.as_string()) {
             (Ok(lint_target), Some(rule_id)) => {
                 match self.lint_internal(lint_target, Some(&[rule_id.as_str()])) {
-                    Ok(errors) => serde_wasm_bindgen::to_value(
-                        &errors
-                            .into_iter()
-                            .map(|e| Into::<JsLintError>::into(e))
+                    Ok(diagnostics) => serde_wasm_bindgen::to_value(
+                        &diagnostics
+                            .iter()
+                            .flat_map(|diagnostic| {
+                                diagnostic.errors().iter().map(Into::<JsLintError>::into)
+                            })
                             .collect::<Vec<_>>(),
                     )
                     .map_err(|e| JsValue::from_str(&e.to_string())),
@@ -151,14 +159,16 @@ impl Linter {
     }
 }
 
+struct LintSourceReference<'reference>(Option<&'reference Path>);
+
 impl Linter {
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn lint(&self, input: LintTarget) -> Result<Vec<LintError>> {
+    pub fn lint(&self, input: LintTarget) -> Result<Vec<LintOutput>> {
         self.lint_internal(input, None)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn lint_only_rule(&self, rule_id: &str, input: LintTarget) -> Result<Vec<LintError>> {
+    pub fn lint_only_rule(&self, rule_id: &str, input: LintTarget) -> Result<Vec<LintOutput>> {
         self.lint_internal(input, Some(&[rule_id]))
     }
 
@@ -166,12 +176,14 @@ impl Linter {
         &self,
         input: LintTarget,
         check_only_rules: RuleFilter,
-    ) -> Result<Vec<LintError>> {
+    ) -> Result<Vec<LintOutput>> {
         match input {
             LintTarget::FileOrDirectory(path) => {
                 self.lint_file_or_directory(path, check_only_rules)
             }
-            LintTarget::String(string) => self.lint_string(&string, check_only_rules),
+            LintTarget::String(string) => {
+                self.lint_string(&string, LintSourceReference(None), check_only_rules)
+            }
         }
     }
 
@@ -179,15 +191,26 @@ impl Linter {
         &self,
         path: PathBuf,
         check_only_rules: RuleFilter,
-    ) -> Result<Vec<LintError>> {
+    ) -> Result<Vec<LintOutput>> {
         if path.is_file() {
-            let mut file = fs::File::open(path)?;
+            let mut file = fs::File::open(&path)?;
             let mut contents = String::new();
             file.read_to_string(&mut contents)?;
-            self.lint_string(&contents, check_only_rules)
+            self.lint_string(
+                &contents,
+                LintSourceReference(Some(&path)),
+                check_only_rules,
+            )
         } else if path.is_dir() {
             let collected_vec = fs::read_dir(path)?
                 .filter_map(Result::ok)
+                .filter(|dir_entry| {
+                    dir_entry.path().is_dir()
+                        || dir_entry
+                            .path()
+                            .extension()
+                            .map_or(false, |ext| ext == "mdx")
+                })
                 .flat_map(|entry| {
                     self.lint_file_or_directory(entry.path(), check_only_rules)
                         .unwrap_or_default()
@@ -202,10 +225,32 @@ impl Linter {
         }
     }
 
-    fn lint_string(&self, string: &str, check_only_rules: RuleFilter) -> Result<Vec<LintError>> {
+    fn lint_string(
+        &self,
+        string: &str,
+        source: LintSourceReference,
+        check_only_rules: RuleFilter,
+    ) -> Result<Vec<LintOutput>> {
         let parse_result = parse(string)?;
         let rule_context = RuleContext::new(parse_result, check_only_rules);
-        self.config.rule_registry.run(&rule_context)
+        match self.config.rule_registry.run(&rule_context) {
+            Ok(diagnostics) => {
+                let source = match source.0 {
+                    Some(path) => {
+                        let current_dir =
+                            env::current_dir().context("Failed to get current directory")?;
+                        let relative_path = match path.strip_prefix(&current_dir) {
+                            Ok(relative_path) => relative_path,
+                            Err(_) => path,
+                        };
+                        &relative_path.to_string_lossy()
+                    }
+                    None => "[direct input]",
+                };
+                Ok(vec![LintOutput::new(source, diagnostics)])
+            }
+            Err(err) => Err(err),
+        }
     }
 }
 
@@ -295,7 +340,7 @@ mod tests {
         let result = linter.lint(LintTarget::String(valid_mdx.to_string()))?;
 
         assert!(
-            result.is_empty(),
+            result.get(0).unwrap().errors().is_empty(),
             "Expected no lint errors for valid MDX, got {:?}",
             result
         );
@@ -310,7 +355,10 @@ mod tests {
         let invalid_mdx = "# Incorrect Heading\n\nThis is an invalid MDX document.";
         let result = linter.lint(LintTarget::String(invalid_mdx.to_string()))?;
 
-        assert!(!result.is_empty(), "Expected lint errors for invalid MDX");
+        assert!(
+            !result.get(0).unwrap().errors().is_empty(),
+            "Expected lint errors for invalid MDX"
+        );
         Ok(())
     }
 }

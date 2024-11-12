@@ -24,10 +24,10 @@
 //! ```
 
 use anyhow::Result;
-use log::{debug, error};
 use std::collections::{HashMap, HashSet};
 
 #[cfg(not(target_arch = "wasm32"))]
+use log::{debug, error};
 use std::path::Path;
 
 use crate::rules::{RuleRegistry, RuleSettings};
