@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use markdown::mdast::Node;
 
 pub fn set_panic_hook() {
@@ -51,4 +53,9 @@ pub fn split_first_word(s: &str) -> (&str, &str) {
         Some(idx) => (&s[..idx], &s[idx..]),
         None => (s, ""),
     }
+}
+
+pub fn is_lintable(path: impl AsRef<Path>) -> bool {
+    let path = path.as_ref();
+    path.is_dir() || path.extension().map_or(false, |ext| ext == "mdx")
 }

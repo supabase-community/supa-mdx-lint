@@ -1,10 +1,18 @@
-use std::{env, io::BufWriter, path::PathBuf, process};
+use std::{
+    env,
+    io::{BufWriter, Write},
+    path::PathBuf,
+    process,
+};
 
 use anyhow::{Context, Result};
 use clap::{ArgGroup, Parser};
+use glob::glob;
 use log::{debug, error};
 use simplelog::{ColorChoice, Config as LogConfig, LevelFilter, TermLogger, TerminalMode};
-use supa_mdx_lint::{Config, LintTarget, LinterBuilder, OutputFormatter, SimpleFormatter};
+use supa_mdx_lint::{
+    is_lintable, Config, LintTarget, LinterBuilder, OutputFormatter, SimpleFormatter,
+};
 
 const DEFAULT_CONFIG_FILE: &str = "supa-mdx-lint.config.toml";
 
@@ -15,8 +23,8 @@ const DEFAULT_CONFIG_FILE: &str = "supa-mdx-lint.config.toml";
                 .args(&["debug", "silent"]),
         ))]
 struct Args {
-    /// File or directory to lint
-    target: PathBuf,
+    /// (Glob of) files or directories to lint
+    target: String,
 
     /// Sets a custom config file
     #[arg(short, long, value_name = "FILE")]
@@ -54,12 +62,15 @@ fn execute() -> Result<Result<()>> {
     let log_level = setup_logging(&args)?;
     debug!("Log level set to {log_level}");
 
+    let target = glob(&args.target).context("Failed to parse glob pattern")?;
+    let targets = target
+        .into_iter()
+        .filter_map(|res| res.ok())
+        .filter(|path| is_lintable(path))
+        .map(LintTarget::FileOrDirectory);
+    debug!("Lint targets: {targets:?}");
+
     let current_dir = env::current_dir().context("Failed to get current directory")?;
-
-    let target = current_dir.join(args.target);
-    let target = LintTarget::FileOrDirectory(target);
-    debug!("Lint target is {target:?}");
-
     let config_path = args.config.map_or_else(
         || current_dir.join(DEFAULT_CONFIG_FILE),
         |config| current_dir.join(config),
@@ -71,27 +82,32 @@ fn execute() -> Result<Result<()>> {
         .build()?;
     debug!("Linter built: {linter:?}");
 
-    match linter.lint(target) {
-        Ok(diagnostics) => {
-            debug!("Linting completed successfully");
-
-            if !args.silent {
-                let formatter = SimpleFormatter;
-                let stdout = std::io::stdout().lock();
-                let mut stdout = BufWriter::new(stdout);
-                formatter.format(&diagnostics, &mut stdout)?;
+    let mut diagnostics = Vec::new();
+    for target in targets {
+        match linter.lint(&target) {
+            Ok(mut result) => {
+                debug!("Successfully linted {target:?}");
+                diagnostics.append(&mut result);
             }
-
-            if diagnostics.iter().any(|d| !d.errors().is_empty()) {
-                Ok(Err(anyhow::anyhow!("Linting errors found")))
-            } else {
-                Ok(Ok(()))
+            Err(err) => {
+                error!("Error linting {target:?}: {err:?}");
+                return Err(err);
             }
         }
-        Err(err) => {
-            error!("Error: {err:?}");
-            Err(err)
-        }
+    }
+
+    if !args.silent {
+        let formatter = SimpleFormatter;
+        let stdout = std::io::stdout().lock();
+        let mut stdout = BufWriter::new(stdout);
+        formatter.format(&diagnostics, &mut stdout)?;
+        stdout.flush()?;
+    }
+
+    if diagnostics.iter().any(|d| !d.errors().is_empty()) {
+        Ok(Err(anyhow::anyhow!("Linting errors found")))
+    } else {
+        Ok(Ok(()))
     }
 }
 
