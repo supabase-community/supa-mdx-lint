@@ -20,7 +20,7 @@ pub struct ParseResult {
 }
 
 pub fn parse(input: &str) -> Result<ParseResult> {
-    let (frontmatter_lines, frontmatter, content) = extract_frontmatter(input);
+    let (frontmatter_lines, _frontmatter_offset, frontmatter, content) = extract_frontmatter(input);
     let ast = parse_internal(content)?;
     Ok(ParseResult {
         ast,
@@ -29,7 +29,7 @@ pub fn parse(input: &str) -> Result<ParseResult> {
     })
 }
 
-fn extract_frontmatter(input: &str) -> (usize, Option<Frontmatter>, &str) {
+pub fn extract_frontmatter(input: &str) -> (usize, usize, Option<Frontmatter>, &str) {
     let mut frontmatter = None;
     let mut content = input;
 
@@ -88,7 +88,12 @@ fn extract_frontmatter(input: &str) -> (usize, Option<Frontmatter>, &str) {
         0
     };
 
-    (frontmatter_lines, frontmatter, content)
+    (
+        frontmatter_lines,
+        frontmatter_end.offset,
+        frontmatter,
+        content,
+    )
 }
 
 fn parse_internal(input: &str) -> Result<Node> {

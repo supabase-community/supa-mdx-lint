@@ -1,13 +1,3 @@
-//! Outputs linter diagnostics in the
-//! [Reviewdog Diagnostic Format](https://github.com/reviewdog/reviewdog/tree/master/proto/rdf).
-//!
-//! Uses the `rdjsonl` form, which has the structure:
-//!
-//! ```text
-//! {"message": "<msg>", "location": {"path": "<file path>", "range": {"start": {"line": 14, "column": 15}}}, "severity": "ERROR"}
-//! {"message": "<msg>", "location": {"path": "<file path>", "range": {"start": {"line": 14, "column": 15}, "end": {"line": 14, "column": 18}}}, "suggestions": [{"range": {"start": {"line": 14, "column": 15}, "end": {"line": 14, "column": 18}}, "text": "<replacement text>"}], "severity": "WARNING"}
-//! ```
-
 use std::io::Write;
 
 use anyhow::Result;
@@ -16,11 +6,22 @@ use serde::Serialize;
 
 use crate::{
     document::{AdjustedPoint, Location},
-    errors::{LintFix, LintLevel},
+    errors::LintLevel,
+    fix::LintFix,
 };
 
-use super::{LintOutput, OutputFormatter};
+use super::LintOutput;
 
+/// Outputs linter diagnostics in the
+/// [Reviewdog Diagnostic Format](https://github.com/reviewdog/reviewdog/tree/master/proto/rdf).
+///
+/// Uses the `rdjsonl` form, which has the structure:
+///
+/// ```text
+/// {"message": "<msg>", "location": {"path": "<file path>", "range": {"start": {"line": 14, "column": 15}}}, "severity": "ERROR"}
+/// {"message": "<msg>", "location": {"path": "<file path>", "range": {"start": {"line": 14, "column": 15}, "end": {"line": 14, "column": 18}}}, "suggestions": [{"range": {"start": {"line": 14, "column": 15}, "end": {"line": 14, "column": 18}}, "text": "<replacement text>"}], "severity": "WARNING"}
+/// ```
+#[derive(Debug, Clone)]
 pub struct RdfFormatter;
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
@@ -99,8 +100,12 @@ impl<'fix> RdfSuggestion<'fix> {
     }
 }
 
-impl OutputFormatter for RdfFormatter {
-    fn format<Writer: Write>(&self, output: &[LintOutput], io: &mut Writer) -> Result<()> {
+impl RdfFormatter {
+    pub(super) fn format<Writer: Write>(
+        &self,
+        output: &[LintOutput],
+        io: &mut Writer,
+    ) -> Result<()> {
         for output in output.iter() {
             for error in output.errors.iter() {
                 let rdf_output = RdfOutput {
@@ -141,7 +146,11 @@ impl OutputFormatter for RdfFormatter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{document::Location, errors::LintError};
+    use crate::{
+        document::Location,
+        errors::LintError,
+        fix::{LintFix, LintFixDelete},
+    };
 
     #[test]
     fn test_rdf_formatter() {
@@ -176,7 +185,7 @@ mod tests {
             level: LintLevel::Error,
             message: "This is an error".to_string(),
             location: Location::dummy(1, 1, 0, 1, 9, 8),
-            fix: Some(vec![LintFix::Delete(crate::errors::LintFixDelete {
+            fix: Some(vec![LintFix::Delete(LintFixDelete {
                 location: Location::dummy(1, 1, 0, 1, 9, 8),
             })]),
         };
