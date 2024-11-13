@@ -6,7 +6,7 @@ use regex::Regex;
 use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
-    errors::LintError,
+    errors::{LintError, LintLevel},
     parser::{LintDisables, ParseResult},
 };
 
@@ -19,8 +19,9 @@ static ALL_RULES: Lazy<Vec<Box<dyn Rule>>> =
 
 #[allow(private_bounds)] // RuleClone is used within this module tree only
 pub trait Rule: Send + Sync + Debug + RuleName + RuleClone {
+    fn default_level(&self) -> LintLevel;
     fn setup(&mut self, _settings: Option<&RuleSettings>) {}
-    fn check(&self, ast: &Node, context: &RuleContext) -> Option<Vec<LintError>>;
+    fn check(&self, ast: &Node, context: &RuleContext, level: LintLevel) -> Option<Vec<LintError>>;
 }
 
 pub trait RuleName {
@@ -40,6 +41,12 @@ impl<T: 'static + Rule + Clone> RuleClone for T {
 impl Clone for Box<dyn Rule> {
     fn clone(&self) -> Box<dyn Rule> {
         self.clone_box()
+    }
+}
+
+impl dyn Rule {
+    pub fn get_level(&self, configured_level: Option<LintLevel>) -> LintLevel {
+        configured_level.unwrap_or(self.default_level())
     }
 }
 
@@ -170,6 +177,7 @@ impl<'ctx> RuleContext<'ctx> {
 pub struct RuleRegistry {
     state: RuleRegistryState,
     rules: Vec<Box<dyn Rule>>,
+    configured_levels: HashMap<String, LintLevel>,
 }
 
 #[derive(Debug)]
@@ -187,6 +195,7 @@ impl RuleRegistry {
         Self {
             state: RuleRegistryState::PreSetup,
             rules,
+            configured_levels: Default::default(),
         }
     }
 
@@ -196,6 +205,16 @@ impl RuleRegistry {
 
     pub fn deactivate_rule(&mut self, rule_name: &str) {
         self.rules.retain(|rule| rule.name() != rule_name);
+    }
+
+    pub fn save_configured_level(&mut self, rule_name: &str, level: LintLevel) {
+        self.configured_levels.insert(rule_name.to_string(), level);
+    }
+
+    pub fn get_configured_level(&self, rule_name: &str) -> Option<LintLevel> {
+        self.configured_levels
+            .get(rule_name)
+            .map(|level| level.clone())
     }
 
     #[cfg(test)]
@@ -239,7 +258,9 @@ impl RuleRegistry {
                     continue;
                 }
             }
-            if let Some(rule_errors) = rule.check(ast, context) {
+
+            let rule_level = rule.get_level(self.get_configured_level(rule.name()));
+            if let Some(rule_errors) = rule.check(ast, context, rule_level) {
                 debug!("Rule errors: {:#?}", rule_errors);
                 let filtered_errors: Vec<LintError> = rule_errors
                     .into_iter()
@@ -280,7 +301,16 @@ mod tests {
     }
 
     impl Rule for MockRule {
-        fn check(&self, _ast: &Node, _context: &RuleContext) -> Option<Vec<LintError>> {
+        fn default_level(&self) -> LintLevel {
+            LintLevel::Error
+        }
+
+        fn check(
+            &self,
+            _ast: &Node,
+            _context: &RuleContext,
+            _level: LintLevel,
+        ) -> Option<Vec<LintError>> {
             self.check_count.fetch_add(1, Ordering::Relaxed);
             None
         }
@@ -292,7 +322,16 @@ mod tests {
     }
 
     impl Rule for MockRule2 {
-        fn check(&self, _ast: &Node, _context: &RuleContext) -> Option<Vec<LintError>> {
+        fn default_level(&self) -> LintLevel {
+            LintLevel::Error
+        }
+
+        fn check(
+            &self,
+            _ast: &Node,
+            _context: &RuleContext,
+            _level: LintLevel,
+        ) -> Option<Vec<LintError>> {
             self.check_count.fetch_add(1, Ordering::Relaxed);
             None
         }
@@ -313,6 +352,7 @@ mod tests {
         let registry = RuleRegistry {
             state: RuleRegistryState::Ready,
             rules: vec![Box::new(mock_rule_1), Box::new(mock_rule_2)],
+            configured_levels: Default::default(),
         };
 
         let parse_result = ParseResult {
@@ -344,6 +384,7 @@ mod tests {
         let registry = RuleRegistry {
             state: RuleRegistryState::Ready,
             rules: vec![Box::new(mock_rule_1), Box::new(mock_rule_2)],
+            configured_levels: Default::default(),
         };
 
         let parse_result = ParseResult {

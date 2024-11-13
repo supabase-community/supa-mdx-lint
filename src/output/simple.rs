@@ -13,6 +13,8 @@ use std::{collections::HashSet, io::Write};
 use anyhow::Result;
 use log::warn;
 
+use crate::errors::LintLevel;
+
 use super::{LintOutput, OutputFormatter};
 
 pub struct SimpleFormatter;
@@ -28,10 +30,11 @@ impl OutputFormatter for SimpleFormatter {
                 written = true;
                 match writeln!(
                     io,
-                    "{}:{}:{}: [ERROR] {}",
+                    "{}:{}:{}: [{}] {}",
                     output.file_path,
                     error.location.start().line,
                     error.location.start().column,
+                    error.level,
                     error.message,
                 ) {
                     Ok(_) => {}
@@ -60,8 +63,11 @@ impl SimpleFormatter {
 
         for o in output {
             seen_files.insert(&o.file_path);
-            for e in &o.errors {
-                num_errors += 1;
+            for error in &o.errors {
+                match error.level {
+                    LintLevel::Error => num_errors += 1,
+                    LintLevel::Warning => num_warnings += 1,
+                }
             }
         }
 
@@ -100,12 +106,16 @@ impl SimpleFormatter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{document::Location, errors::LintError};
+    use crate::{
+        document::Location,
+        errors::{LintError, LintLevel},
+    };
 
     #[test]
     fn test_simple_formatter() {
         let file_path = "test.md".to_string();
         let error = LintError {
+            level: LintLevel::Error,
             message: "This is an error".to_string(),
             location: Location::dummy(1, 1, 0, 1, 2, 1),
             fix: None,
@@ -123,6 +133,60 @@ mod tests {
         assert_eq!(
             String::from_utf8(result).unwrap(),
             "test.md:1:1: [ERROR] This is an error\n\n🔍 1 source linted\n🔴 Found 1 error\n"
+        );
+    }
+
+    #[test]
+    fn test_simple_formatter_warning() {
+        let file_path = "test.md".to_string();
+        let error = LintError {
+            level: LintLevel::Warning,
+            message: "This is a warning".to_string(),
+            location: Location::dummy(1, 1, 0, 1, 2, 1),
+            fix: None,
+        };
+        let output = LintOutput {
+            file_path,
+            errors: vec![error],
+        };
+        let output = vec![output];
+
+        let formatter = SimpleFormatter;
+        let mut result = Vec::new();
+        formatter.format(&output, &mut result).unwrap();
+        assert_eq!(
+            String::from_utf8(result).unwrap(),
+            "test.md:1:1: [WARN] This is a warning\n\n🔍 1 source linted\n🟡 Found 1 warning\n"
+        );
+    }
+
+    #[test]
+    fn test_simple_formatter_warning_and_error() {
+        let file_path = "test.md".to_string();
+        let error1 = LintError {
+            level: LintLevel::Error,
+            message: "This is an error".to_string(),
+            location: Location::dummy(1, 1, 0, 1, 2, 1),
+            fix: None,
+        };
+        let error2 = LintError {
+            level: LintLevel::Warning,
+            message: "This is a warning".to_string(),
+            location: Location::dummy(2, 1, 10, 1, 2, 11),
+            fix: None,
+        };
+        let output = LintOutput {
+            file_path,
+            errors: vec![error1, error2],
+        };
+        let output = vec![output];
+
+        let formatter = SimpleFormatter;
+        let mut result = Vec::new();
+        formatter.format(&output, &mut result).unwrap();
+        assert_eq!(
+            String::from_utf8(result).unwrap(),
+            "test.md:1:1: [ERROR] This is an error\ntest.md:2:1: [WARN] This is a warning\n\n🔍 1 source linted\n🔴 Found 1 error and 1 warning\n"
         );
     }
 
@@ -148,11 +212,13 @@ mod tests {
     fn test_simple_formatter_multiple_errors() {
         let file_path = "test.md".to_string();
         let error_1 = LintError {
+            level: LintLevel::Error,
             message: "This is an error".to_string(),
             location: Location::dummy(1, 1, 0, 1, 2, 1),
             fix: None,
         };
         let error_2 = LintError {
+            level: LintLevel::Error,
             message: "This is another error".to_string(),
             location: Location::dummy(2, 1, 10, 2, 2, 11),
             fix: None,
@@ -177,11 +243,13 @@ mod tests {
     fn test_simple_formatter_multiple_files() {
         let file_path_1 = "test.md".to_string();
         let error_1 = LintError {
+            level: LintLevel::Error,
             message: "This is an error".to_string(),
             location: Location::dummy(1, 1, 0, 1, 2, 1),
             fix: None,
         };
         let error_2 = LintError {
+            level: LintLevel::Error,
             message: "This is another error".to_string(),
             location: Location::dummy(2, 1, 10, 2, 2, 11),
             fix: None,
@@ -194,11 +262,13 @@ mod tests {
 
         let file_path_2 = "test2.md".to_string();
         let error_3 = LintError {
+            level: LintLevel::Error,
             message: "This is an error".to_string(),
             location: Location::dummy(1, 1, 0, 1, 2, 1),
             fix: None,
         };
         let error_4 = LintError {
+            level: LintLevel::Error,
             message: "This is another error".to_string(),
             location: Location::dummy(2, 1, 10, 2, 2, 11),
             fix: None,

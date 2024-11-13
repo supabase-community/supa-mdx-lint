@@ -4,6 +4,8 @@
 //! settings. Each rule has a unique name, and each rule can have a set of
 //! settings that are specific to that rule.
 //!
+//! The setting named `level` is reserved for setting the rule's severity level.
+//!
 //! Rules can be turned off by setting the rule to `false`.
 //!
 //! The configuration file can also include other files using the `include()`
@@ -15,6 +17,7 @@
 //!
 //! ```toml
 //! [Rule001SomeRule]
+//! level = "error"
 //! option1 = true
 //! option2 = "value"
 //!
@@ -32,7 +35,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::rules::{RuleRegistry, RuleSettings};
+use crate::{
+    errors::LintLevel,
+    rules::{RuleRegistry, RuleSettings},
+};
 
 const IGNORE_GLOBS_KEY: &str = "ignore_patterns";
 
@@ -177,6 +183,18 @@ impl Config {
                     filtered_rules.insert(key.clone());
                 }
                 toml::Value::Table(table) if RuleRegistry::is_valid_rule(&key) => {
+                    let level = table.get("level");
+                    if let Some(toml::Value::String(level)) = level.as_ref() {
+                        match TryInto::<LintLevel>::try_into(level.as_str()) {
+                            Ok(level) => {
+                                registry.save_configured_level(&key, level);
+                            }
+                            Err(err) => {
+                                warn!("{err}")
+                            }
+                        }
+                    }
+
                     rule_specific_settings.insert(key.clone(), RuleSettings::new(table.clone()));
                 }
                 _ => {}

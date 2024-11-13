@@ -12,7 +12,7 @@ use std::io::Write;
 
 use anyhow::Result;
 use log::{debug, warn};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::{
     document::{AdjustedPoint, Location},
@@ -23,22 +23,22 @@ use super::{LintOutput, OutputFormatter};
 
 pub struct RdfFormatter;
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize)]
 struct RdfOutput<'output> {
     message: &'output str,
     location: RdfLocation<'output>,
-    severity: LintLevel,
+    severity: &'output LintLevel,
     #[serde(skip_serializing_if = "Option::is_none")]
     suggestions: Option<Vec<RdfSuggestion<'output>>>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize)]
 struct RdfLocation<'location> {
     path: &'location str,
     range: RdfRange,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize)]
 struct RdfRange {
     start: RdfPosition,
     end: RdfPosition,
@@ -53,7 +53,7 @@ impl From<&Location> for RdfRange {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize)]
 struct RdfPosition {
     line: usize,
     column: usize,
@@ -68,7 +68,7 @@ impl From<&AdjustedPoint> for RdfPosition {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize)]
 struct RdfSuggestion<'suggestion> {
     range: RdfRange,
     text: &'suggestion str,
@@ -109,7 +109,7 @@ impl OutputFormatter for RdfFormatter {
                         path: &output.file_path,
                         range: (&error.location).into(),
                     },
-                    severity: LintLevel::Error,
+                    severity: &error.level,
                     suggestions: error
                         .fix
                         .as_ref()
@@ -147,6 +147,7 @@ mod tests {
     fn test_rdf_formatter() {
         let file_path = "test.md".to_string();
         let error = LintError {
+            level: LintLevel::Error,
             message: "This is an error".to_string(),
             location: Location::dummy(1, 1, 0, 1, 2, 1),
             fix: None,
@@ -172,6 +173,7 @@ mod tests {
     fn test_rdf_formatter_with_fixes() {
         let file_path = "test.md".to_string();
         let error = LintError {
+            level: LintLevel::Error,
             message: "This is an error".to_string(),
             location: Location::dummy(1, 1, 0, 1, 9, 8),
             fix: Some(vec![LintFix::Delete(crate::errors::LintFixDelete {
@@ -198,11 +200,13 @@ mod tests {
     fn test_rdf_formatter_multiple_errors() {
         let file_path = "test.md".to_string();
         let error_1 = LintError {
+            level: LintLevel::Error,
             message: "This is an error".to_string(),
             location: Location::dummy(1, 1, 0, 1, 2, 1),
             fix: None,
         };
         let error_2 = LintError {
+            level: LintLevel::Error,
             message: "This is another error".to_string(),
             location: Location::dummy(2, 1, 10, 2, 2, 11),
             fix: None,
@@ -229,11 +233,13 @@ mod tests {
     fn test_rdf_formatter_multiple_files() {
         let file_path_1 = "test.md".to_string();
         let error_1 = LintError {
+            level: LintLevel::Error,
             message: "This is an error".to_string(),
             location: Location::dummy(1, 1, 0, 1, 2, 1),
             fix: None,
         };
         let error_2 = LintError {
+            level: LintLevel::Error,
             message: "This is another error".to_string(),
             location: Location::dummy(2, 1, 10, 2, 2, 11),
             fix: None,
