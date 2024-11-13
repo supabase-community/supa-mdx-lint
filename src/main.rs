@@ -11,7 +11,7 @@ use glob::glob;
 use log::{debug, error};
 use simplelog::{ColorChoice, Config as LogConfig, LevelFilter, TermLogger, TerminalMode};
 use supa_mdx_lint::{
-    is_lintable, Config, LintTarget, LinterBuilder, OutputFormatter, SimpleFormatter,
+    is_lintable, Config, LintOutput, LintTarget, Linter, LinterBuilder, OutputFormatter,
 };
 
 const DEFAULT_CONFIG_FILE: &str = "supa-mdx-lint.config.toml";
@@ -20,7 +20,7 @@ const DEFAULT_CONFIG_FILE: &str = "supa-mdx-lint.config.toml";
 #[command(version, about, long_about = None)]
 #[clap(group(
             ArgGroup::new("verbosity")
-                .args(&["debug", "silent"]),
+                .args(&["debug", "silent", "trace"]),
         ))]
 struct Args {
     /// (Glob of) files or directories to lint
@@ -30,6 +30,14 @@ struct Args {
     #[arg(short, long, value_name = "FILE")]
     config: Option<PathBuf>,
 
+    /// Auto-fix any fixable errors
+    #[arg(short, long)]
+    fix: bool,
+
+    /// Output format
+    #[arg(long, value_name = "FORMAT", default_value = "simple", value_parser = clap::value_parser!(OutputFormatter))]
+    format: OutputFormatter,
+
     /// Turn debugging information on
     #[arg(short, long)]
     debug: bool,
@@ -37,13 +45,21 @@ struct Args {
     /// Do not write anything to the output
     #[arg(short, long)]
     silent: bool,
+
+    #[cfg(debug_assertions)]
+    #[arg(long)]
+    trace: bool,
 }
 
 fn setup_logging(args: &Args) -> Result<LevelFilter> {
-    let log_level: LevelFilter = match (args.silent, args.debug) {
-        (true, false) => LevelFilter::Off,
-        (false, true) => LevelFilter::Debug,
-        _ => LevelFilter::Info,
+    let log_level = if args.silent {
+        LevelFilter::Off
+    } else if args.trace {
+        LevelFilter::Trace
+    } else if args.debug {
+        LevelFilter::Debug
+    } else {
+        LevelFilter::Info
     };
     TermLogger::init(
         log_level,
@@ -56,31 +72,14 @@ fn setup_logging(args: &Args) -> Result<LevelFilter> {
     Ok(log_level)
 }
 
-fn execute() -> Result<Result<()>> {
-    let args = Args::parse();
-
-    let log_level = setup_logging(&args)?;
-    debug!("Log level set to {log_level}");
-
-    let target = glob(&args.target).context("Failed to parse glob pattern")?;
+fn get_diagnostics(target: &str, linter: &Linter) -> Result<Vec<LintOutput>> {
+    let target = glob(target).context("Failed to parse glob pattern")?;
     let targets = target
         .into_iter()
         .filter_map(|res| res.ok())
         .filter(|path| is_lintable(path))
         .map(LintTarget::FileOrDirectory);
-    debug!("Lint targets: {targets:?}");
-
-    let current_dir = env::current_dir().context("Failed to get current directory")?;
-    let config_path = args.config.map_or_else(
-        || current_dir.join(DEFAULT_CONFIG_FILE),
-        |config| current_dir.join(config),
-    );
-    debug!("Config path is {config_path:?}");
-
-    let config = Config::from_config_file(config_path)?;
-    debug!("Config: {config:?}");
-    let linter = LinterBuilder::new().configure(config).build()?;
-    debug!("Linter built: {linter:?}");
+    debug!("Lint targets: {targets:#?}");
 
     let mut diagnostics = Vec::new();
     for target in targets {
@@ -90,19 +89,56 @@ fn execute() -> Result<Result<()>> {
                 diagnostics.append(&mut result);
             }
             Err(err) => {
-                error!("Error linting {target:?}: {err:?}");
+                error!("Error linting {target:?}: {err:#?}");
                 return Err(err);
             }
         }
     }
+    Ok(diagnostics)
+}
+
+fn execute() -> Result<Result<()>> {
+    let args = Args::parse();
+
+    let log_level = setup_logging(&args)?;
+    debug!("Log level set to {log_level}");
+
+    let current_dir = env::current_dir().context("Failed to get current directory")?;
+    let config_path = args.config.map_or_else(
+        || current_dir.join(DEFAULT_CONFIG_FILE),
+        |config| current_dir.join(config),
+    );
+    debug!("Config path is {config_path:?}");
+
+    let config = Config::from_config_file(config_path)?;
+    let linter = LinterBuilder::new().configure(config).build()?;
+    debug!("Linter built: {linter:#?}");
+
+    let mut diagnostics = get_diagnostics(&args.target, &linter)?;
+
+    let stdout = std::io::stdout().lock();
+    let mut stdout = BufWriter::new(stdout);
+
+    if args.fix {
+        let (num_files_fixed, num_errors_fixed) = linter.fix(&diagnostics)?;
+        if !args.silent {
+            writeln!(
+                stdout,
+                "Fixed {num_errors_fixed} error{} in {num_files_fixed} file{}",
+                if num_errors_fixed > 1 { "s" } else { "" },
+                if num_files_fixed > 1 { "s" } else { "" },
+            )?;
+            writeln!(stdout, "Checking for oustanding errors...")?;
+            writeln!(stdout)?;
+        }
+        diagnostics = get_diagnostics(&args.target, &linter)?;
+    }
 
     if !args.silent {
-        let formatter = SimpleFormatter;
-        let stdout = std::io::stdout().lock();
-        let mut stdout = BufWriter::new(stdout);
-        formatter.format(&diagnostics, &mut stdout)?;
-        stdout.flush()?;
+        args.format.format(&diagnostics, &mut stdout)?;
     }
+
+    stdout.flush()?;
 
     if diagnostics.iter().any(|d| !d.errors().is_empty()) {
         Ok(Err(anyhow::anyhow!("Linting errors found")))

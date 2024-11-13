@@ -1,13 +1,3 @@
-//! Outputs linter diagnostics in the simple format, for CLI display, which has
-//! the structure:
-//!
-//! ```text
-//! <file path>:<line>:<column>: [<severity>] <msg>
-//! ```
-//!
-//! The diagnostics are followed by a summary of the number of linted files,
-//! total errors, and total warnings.
-
 use std::{collections::HashSet, io::Write};
 
 use anyhow::Result;
@@ -15,12 +5,26 @@ use log::warn;
 
 use crate::errors::LintLevel;
 
-use super::{LintOutput, OutputFormatter};
+use super::LintOutput;
 
+/// Outputs linter diagnostics in the simple format, for CLI display, which has
+/// the structure:
+///
+/// ```text
+/// <file path>:<line>:<column>: [<severity>] <msg>
+/// ```
+///
+/// The diagnostics are followed by a summary of the number of linted files,
+/// total errors, and total warnings.
+#[derive(Debug, Clone)]
 pub struct SimpleFormatter;
 
-impl OutputFormatter for SimpleFormatter {
-    fn format<Writer: Write>(&self, output: &[LintOutput], io: &mut Writer) -> Result<()> {
+impl SimpleFormatter {
+    pub(super) fn format<Writer: Write>(
+        &self,
+        output: &[LintOutput],
+        io: &mut Writer,
+    ) -> Result<()> {
         // Whether anything has been written to the output, used to determine
         // whether to write a newline before the summary.
         let mut written = false;

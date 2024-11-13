@@ -1,18 +1,19 @@
+use log::trace;
 use markdown::mdast::{Node, Text};
 use regex::Regex;
 use supa_mdx_macros::RuleName;
 
 use crate::{
     document::{Location, Point, UnadjustedPoint},
-    errors::{LintError, LintFix, LintFixReplace, LintLevel},
-    utils::{split_first_word, HasChildren},
+    errors::{LintError, LintLevel},
+    fix::{LintFix, LintFixReplace},
+    utils::{split_first_word_at_whitespace_and_colons, HasChildren},
 };
 
 use super::{RegexSettings, Rule, RuleContext, RuleName, RuleSettings};
 
-/// Internal flag for whether the first word still needs to be taken into
-/// account when checking capitalization.
-struct IncludesFirstWord(bool);
+#[derive(Debug)]
+struct NextWordCapital(bool);
 
 #[derive(Debug, Default, Clone, RuleName)]
 pub struct Rule001HeadingCase {
@@ -49,8 +50,8 @@ impl Rule for Rule001HeadingCase {
         };
 
         let mut fixes: Vec<LintFix> = Vec::new();
-        let mut includes_first_word = IncludesFirstWord(true);
-        self.check_ast(ast, &mut fixes, &mut includes_first_word, context);
+        let mut next_word_capital = NextWordCapital(true);
+        self.check_ast(ast, &mut fixes, &mut next_word_capital, context);
 
         let lint_error = if fixes.is_empty() {
             None
@@ -79,26 +80,34 @@ impl Rule001HeadingCase {
         &self,
         text: &Text,
         fixes: &mut Vec<LintFix>,
-        includes_first_word: &mut IncludesFirstWord,
+        next_word_capital: &mut NextWordCapital,
         context: &RuleContext,
     ) {
         let mut remaining_text = text.value.to_string();
         let mut char_index = 0;
 
         while !remaining_text.is_empty() {
-            let trim_start = remaining_text.len() - remaining_text.trim_start().len();
-            char_index += trim_start;
-            remaining_text = remaining_text.trim_start().to_string();
+            if remaining_text.starts_with(": ") {
+                next_word_capital.0 = true;
+            }
+
+            let current_length = remaining_text.len();
+            remaining_text = remaining_text
+                .trim_start_matches(|c: char| !c.is_ascii_alphabetic())
+                .to_string();
+            char_index += current_length - remaining_text.len();
 
             if remaining_text.is_empty() {
                 break;
             }
 
+            trace!("Checking remaining text \"{remaining_text}\" at index {char_index} with {next_word_capital:?}");
+
             let first_char = remaining_text.chars().next().unwrap();
 
-            if includes_first_word.0 {
+            if next_word_capital.0 {
                 if first_char.is_lowercase() {
-                    let (match_result, rest) = self.create_text_lint_fix(
+                    let (match_result, rest, split_on_colon) = self.create_text_lint_fix(
                         &remaining_text,
                         text,
                         char_index,
@@ -108,17 +117,34 @@ impl Rule001HeadingCase {
                     if let Some(fix) = match_result {
                         fixes.push(fix);
                     }
+                    if !split_on_colon {
+                        next_word_capital.0 = false;
+                    }
                     char_index += remaining_text.len() - rest.len();
                     remaining_text = rest;
                 } else {
-                    let (first_word, rest) = split_first_word(&remaining_text);
-                    char_index += first_word.len();
-                    remaining_text = rest.to_string();
+                    let exception = self
+                        .may_uppercase
+                        .iter()
+                        .find(|pattern| pattern.is_match(&remaining_text));
+                    if exception.is_some() {
+                        let match_result = exception.unwrap().find(&remaining_text).unwrap();
+                        remaining_text = remaining_text[match_result.end()..].to_string();
+                        if !remaining_text.starts_with(':') {
+                            next_word_capital.0 = false;
+                        }
+                    } else {
+                        let (first_word, rest, split_on_colon) =
+                            split_first_word_at_whitespace_and_colons(&remaining_text);
+                        if !split_on_colon {
+                            next_word_capital.0 = false;
+                        }
+                        char_index += first_word.len();
+                        remaining_text = rest.to_string();
+                    }
                 }
-
-                includes_first_word.0 = false;
             } else if first_char.is_uppercase() {
-                let (match_result, rest) = self.create_text_lint_fix(
+                let (match_result, rest, split_on_colon) = self.create_text_lint_fix(
                     &remaining_text,
                     text,
                     char_index,
@@ -128,10 +154,17 @@ impl Rule001HeadingCase {
                 if let Some(fix) = match_result {
                     fixes.push(fix);
                 }
+                if split_on_colon {
+                    next_word_capital.0 = true;
+                }
                 char_index += remaining_text.len() - rest.len();
                 remaining_text = rest;
             } else {
-                let (first_word, rest) = split_first_word(&remaining_text);
+                let (first_word, rest, split_on_colon) =
+                    split_first_word_at_whitespace_and_colons(&remaining_text);
+                if split_on_colon {
+                    next_word_capital.0 = true;
+                }
                 char_index += first_word.len();
                 remaining_text = rest.to_string();
             }
@@ -145,19 +178,24 @@ impl Rule001HeadingCase {
         index: usize,
         case: Case,
         context: &RuleContext,
-    ) -> (Option<LintFix>, String) {
+    ) -> (Option<LintFix>, String, bool) {
         let patterns = match case {
             Case::Upper => &self.may_uppercase,
             Case::Lower => &self.may_lowercase,
         };
+        trace!(
+            "Checking text case for {:?} with patterns {:#?}",
+            text,
+            patterns
+        );
 
         for pattern in patterns {
             if let Some(m) = pattern.find(text) {
-                return (None, text[m.end()..].to_string());
+                return (None, text[m.end()..].to_string(), false);
             }
         }
 
-        let (first_word, rest) = split_first_word(text);
+        let (first_word, rest, split_on_colon) = split_first_word_at_whitespace_and_colons(text);
         let replacement_word = match case {
             Case::Upper => first_word.to_lowercase(),
             Case::Lower => {
@@ -169,9 +207,11 @@ impl Rule001HeadingCase {
 
         let mut chars = node.value.chars();
         let mut text_to_move_over = String::new();
-        for _ in 0..index {
+        let mut i = 0;
+        while i < index {
             if let Some(ch) = chars.next() {
                 text_to_move_over.push(ch);
+                i += ch.len_utf8();
             }
         }
 
@@ -195,8 +235,9 @@ impl Rule001HeadingCase {
                     text: replacement_word,
                 })),
                 rest.to_string(),
+                split_on_colon,
             ),
-            _ => (None, rest.to_string()),
+            _ => (None, rest.to_string(), split_on_colon),
         }
     }
 
@@ -204,37 +245,40 @@ impl Rule001HeadingCase {
         &self,
         node: &Node,
         fixes: &mut Vec<LintFix>,
-        is_past_first_word: &mut IncludesFirstWord,
+        next_word_capital: &mut NextWordCapital,
         context: &RuleContext,
     ) {
+        trace!("Checking ast for node: {node:?} with settings: {next_word_capital:?}");
+
         fn check_children<T: HasChildren>(
             rule: &Rule001HeadingCase,
             node: &T,
             fixes: &mut Vec<LintFix>,
-            is_past_first_word: &mut IncludesFirstWord,
+            next_word_capital: &mut NextWordCapital,
             context: &RuleContext,
         ) {
             node.get_children()
                 .iter()
-                .for_each(|child| rule.check_ast(child, fixes, is_past_first_word, context));
+                .for_each(|child| rule.check_ast(child, fixes, next_word_capital, context));
         }
 
         match node {
             Node::Text(text) => {
-                self.check_text_sentence_case(text, fixes, is_past_first_word, context)
+                self.check_text_sentence_case(text, fixes, next_word_capital, context)
             }
             Node::Emphasis(emphasis) => {
-                check_children(self, emphasis, fixes, is_past_first_word, context)
+                check_children(self, emphasis, fixes, next_word_capital, context)
             }
-            Node::Link(link) => check_children(self, link, fixes, is_past_first_word, context),
+            Node::Link(link) => check_children(self, link, fixes, next_word_capital, context),
             Node::LinkReference(link_reference) => {
-                check_children(self, link_reference, fixes, is_past_first_word, context)
+                check_children(self, link_reference, fixes, next_word_capital, context)
             }
-            Node::Strong(strong) => {
-                check_children(self, strong, fixes, is_past_first_word, context)
-            }
+            Node::Strong(strong) => check_children(self, strong, fixes, next_word_capital, context),
             Node::Heading(heading) => {
-                check_children(self, heading, fixes, is_past_first_word, context)
+                check_children(self, heading, fixes, next_word_capital, context)
+            }
+            Node::InlineCode(_) => {
+                next_word_capital.0 = false;
             }
             _ => {}
         }
@@ -250,7 +294,7 @@ mod tests {
         unist::Position,
     };
 
-    use crate::parser::{LintDisables, ParseResult};
+    use crate::parser::{parse, LintDisables, ParseResult};
 
     use super::*;
 
@@ -511,12 +555,65 @@ mod tests {
     }
 
     #[test]
+    fn test_multi_word_exception_at_start() {
+        let mut rule = Rule001HeadingCase::default();
+        let settings =
+            RuleSettings::with_array_of_strings("may_uppercase", vec!["Content Delivery Network"]);
+        rule.setup(Some(&settings));
+
+        let heading = create_heading_node("Content Delivery Network latency", 1);
+        let context = create_rule_context();
+
+        let result = rule.check(&heading, &context, LintLevel::Error);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_brackets_around_exception() {
+        let mut rule = Rule001HeadingCase::default();
+        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["Edge Functions"]);
+        rule.setup(Some(&settings));
+
+        let heading = create_heading_node("Deno (Edge Functions)", 1);
+        let context = create_rule_context();
+
+        let result = rule.check(&heading, &context, LintLevel::Error);
+        assert!(result.is_none());
+    }
+
+    #[test]
     fn test_complex_heading() {
         let mut rule = Rule001HeadingCase::default();
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API", "OAuth"]);
         rule.setup(Some(&settings));
 
         let heading = create_heading_node("The basics of API authentication in OAuth", 1);
+        let context = create_rule_context();
+
+        let result = rule.check(&heading, &context, LintLevel::Error);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_can_capitalize_after_colon() {
+        let mut rule = Rule001HeadingCase::default();
+        rule.setup(None);
+
+        let heading = create_heading_node("Bonus: Profile photos", 1);
+        let context = create_rule_context();
+
+        let result = rule.check(&heading, &context, LintLevel::Error);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_no_flag_inline_code() {
+        let mut rule = Rule001HeadingCase::default();
+        rule.setup(None);
+
+        let markdown = "# `inline_code` (in a heading) can have `ArbitraryCase`";
+        let parse_result = parse(markdown).unwrap();
+        let heading = parse_result.ast.children().unwrap().get(0).unwrap();
         let context = create_rule_context();
 
         let result = rule.check(&heading, &context, LintLevel::Error);

@@ -212,9 +212,7 @@ impl RuleRegistry {
     }
 
     pub fn get_configured_level(&self, rule_name: &str) -> Option<LintLevel> {
-        self.configured_levels
-            .get(rule_name)
-            .map(|level| level.clone())
+        self.configured_levels.get(rule_name).cloned()
     }
 
     #[cfg(test)]

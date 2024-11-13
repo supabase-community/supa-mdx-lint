@@ -1,31 +1,3 @@
-//! Read the rule configuration from a TOML file.
-//!
-//! The configuration file is a TOML file that contains a table of rule
-//! settings. Each rule has a unique name, and each rule can have a set of
-//! settings that are specific to that rule.
-//!
-//! The setting named `level` is reserved for setting the rule's severity level.
-//!
-//! Rules can be turned off by setting the rule to `false`.
-//!
-//! The configuration file can also include other files using the `include()`
-//! function. This allows for modular configuration, where each rule can be
-//! defined in a separate file, and then included into the main configuration
-//! file.
-//!
-//! Example:
-//!
-//! ```toml
-//! [Rule001SomeRule]
-//! level = "error"
-//! option1 = true
-//! option2 = "value"
-//!
-//! Rule002SomeOtherRule = "include('some_other_rule.toml')"
-//!
-//! Rule003NotApplied = false
-//! ```
-
 use anyhow::Result;
 use glob::Pattern;
 use log::{debug, error, warn};
@@ -64,6 +36,33 @@ impl Default for Config {
 }
 
 impl Config {
+    /// Read the rule configuration from a TOML file.
+    ///
+    /// The configuration file is a TOML file that contains a table of rule
+    /// settings. Each rule has a unique name, and each rule can have a set of
+    /// settings that are specific to that rule.
+    ///
+    /// The setting named `level` is reserved for setting the rule's severity level.
+    ///
+    /// Rules can be turned off by setting the rule to `false`.
+    ///
+    /// The configuration file can also include other files using the `include()`
+    /// function. This allows for modular configuration, where each rule can be
+    /// defined in a separate file, and then included into the main configuration
+    /// file.
+    ///
+    /// Example:
+    ///
+    /// ```toml
+    /// [Rule001SomeRule]
+    /// level = "error"
+    /// option1 = true
+    /// option2 = "value"
+    ///
+    /// Rule002SomeOtherRule = "include('some_other_rule.toml')"
+    ///
+    /// Rule003NotApplied = false
+    /// ```
     #[cfg(not(target_arch = "wasm32"))]
     pub fn from_config_file<P: AsRef<Path>>(config_file: P) -> Result<Self> {
         let config_path = config_file.as_ref().to_path_buf();

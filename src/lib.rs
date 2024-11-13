@@ -10,19 +10,20 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use web_sys::console;
 
+mod app_error;
 mod config;
 mod document;
 mod errors;
+mod fix;
 mod output;
 mod parser;
 mod rules;
 mod utils;
 
 pub use crate::config::Config;
-pub use crate::output::{rdf::RdfFormatter, simple::SimpleFormatter, OutputFormatter};
+pub use crate::output::{rdf::RdfFormatter, simple::SimpleFormatter, LintOutput, OutputFormatter};
 pub use crate::utils::is_lintable;
 
-use crate::output::LintOutput;
 use crate::parser::parse;
 use crate::rules::RuleContext;
 use crate::utils::set_panic_hook;

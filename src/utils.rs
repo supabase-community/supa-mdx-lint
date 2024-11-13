@@ -48,10 +48,26 @@ impl HasChildren for markdown::mdast::Link {
     }
 }
 
-pub fn split_first_word(s: &str) -> (&str, &str) {
-    match s.find(char::is_whitespace) {
-        Some(idx) => (&s[..idx], &s[idx..]),
-        None => (s, ""),
+pub fn split_first_word_at_whitespace_and_colons(s: &str) -> (&str, &str, bool) {
+    let next_whitespace = s.find(char::is_whitespace);
+    let next_colon = s.find(':');
+    match (next_whitespace, next_colon) {
+        (Some(idx), None) => (&s[..idx], &s[idx..], false),
+        (None, Some(idx)) => {
+            if s[idx + 1..].starts_with(char::is_whitespace) {
+                (&s[..idx], &s[idx..], true)
+            } else {
+                (s, "", false)
+            }
+        }
+        (None, None) => (s, "", false),
+        (Some(idx_whitespace), Some(idx_colon)) => {
+            if idx_whitespace < idx_colon || !s[idx_colon + 1..].starts_with(char::is_whitespace) {
+                (&s[..idx_whitespace], &s[idx_whitespace..], false)
+            } else {
+                (&s[..idx_colon], &s[idx_colon..], true)
+            }
+        }
     }
 }
 

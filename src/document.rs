@@ -1,5 +1,6 @@
 use markdown::unist::{Point as UnistPoint, Position};
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::num::NonZeroUsize;
 use tsify::Tsify;
 
@@ -40,6 +41,22 @@ impl Default for AdjustedPoint {
     }
 }
 
+impl PartialOrd for AdjustedPoint {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for AdjustedPoint {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.line.cmp(&other.line) {
+            Ordering::Less => Ordering::Less,
+            Ordering::Equal => self.column.cmp(&other.column),
+            Ordering::Greater => Ordering::Greater,
+        }
+    }
+}
+
 /// A point in the source document, not adjusted for frontmatter lines.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct UnadjustedPoint {
@@ -71,6 +88,7 @@ pub trait Point {
     fn move_over_text(&mut self, text: &str) {
         let mut chars = text.chars().peekable();
         while let Some(c) = chars.next() {
+            let byte_len = c.len_utf8();
             match c {
                 '\r' => {
                     if chars.peek() == Some(&'\n') {
@@ -90,8 +108,8 @@ pub trait Point {
                     self.set_offset(self.offset() + 1);
                 }
                 _ => {
-                    self.set_column(self.column() + 1);
-                    self.set_offset(self.offset() + 1);
+                    self.set_column(self.column() + byte_len);
+                    self.set_offset(self.offset() + byte_len);
                 }
             }
         }
@@ -144,7 +162,7 @@ impl Point for UnadjustedPoint {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Tsify)]
+#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize, Tsify)]
 #[tsify(into_wasm_abi)]
 pub struct Location {
     // Keep these fields private so that we can make sure MDAST positions are
@@ -179,6 +197,13 @@ impl Location {
         let start = AdjustedPoint::from_unadjusted_point(start, context);
         let end = AdjustedPoint::from_unadjusted_point(end, context);
         Self { start, end }
+    }
+
+    pub fn merge(a: Self, b: Self) -> Self {
+        Self {
+            start: a.start.min(b.start),
+            end: a.end.max(b.end),
+        }
     }
 
     pub fn overlaps_lines<LineRange: NonZeroLineRange>(&self, other: &LineRange) -> bool {
@@ -297,8 +322,8 @@ mod tests {
         };
         point.move_over_text("Hello 🦀");
         assert_eq!(point.line.get(), 1);
-        assert_eq!(point.column.get(), 8);
-        assert_eq!(point.offset, 7);
+        assert_eq!(point.column.get(), 11);
+        assert_eq!(point.offset, 10);
     }
 
     #[test]
