@@ -1,11 +1,14 @@
 use anyhow::Result;
-use log::warn;
+use log::{debug, error, warn};
 use markdown::mdast::Node;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{collections::HashMap, fmt::Debug};
 
-use crate::{errors::LintError, parser::ParseResult};
+use crate::{
+    errors::LintError,
+    parser::{LintDisables, ParseResult},
+};
 
 mod rule001_heading_case;
 
@@ -138,14 +141,24 @@ pub type RuleFilter<'filter> = Option<&'filter [&'filter str]>;
 pub struct RuleContext<'ctx> {
     parse_result: ParseResult,
     check_only_rules: RuleFilter<'ctx>,
+    disables: LintDisables,
 }
 
 impl<'ctx> RuleContext<'ctx> {
-    pub fn new(parse_result: ParseResult, check_only_rules: Option<&'ctx [&'ctx str]>) -> Self {
-        Self {
+    pub fn new(
+        parse_result: ParseResult,
+        check_only_rules: Option<&'ctx [&'ctx str]>,
+    ) -> Result<Self> {
+        let disables = (&parse_result.ast).try_into().inspect_err(|err| {
+            error!("Error parsing disable directives from file: {}", err);
+        })?;
+        debug!("Disables: {:?}", disables);
+
+        Ok(Self {
             parse_result,
             check_only_rules,
-        }
+            disables,
+        })
     }
 
     pub fn frontmatter_lines(&self) -> usize {
@@ -227,7 +240,18 @@ impl RuleRegistry {
                 }
             }
             if let Some(rule_errors) = rule.check(ast, context) {
-                errors.extend(rule_errors);
+                debug!("Rule errors: {:#?}", rule_errors);
+                let filtered_errors: Vec<LintError> = rule_errors
+                    .into_iter()
+                    .filter(|err| {
+                        !context.disables.is_rule_disabled_for_location(
+                            rule.name(),
+                            &err.location,
+                            context,
+                        )
+                    })
+                    .collect();
+                errors.extend(filtered_errors);
             }
         }
 
@@ -296,7 +320,7 @@ mod tests {
             frontmatter_lines: 0,
             frontmatter: None,
         };
-        let context = RuleContext::new(parse_result, Some(&["MockRule"]));
+        let context = RuleContext::new(parse_result, Some(&["MockRule"])).unwrap();
 
         let mut errors = Vec::new();
         registry.check_node(&text_node, &context, &mut errors);
@@ -327,7 +351,7 @@ mod tests {
             frontmatter_lines: 0,
             frontmatter: None,
         };
-        let context = RuleContext::new(parse_result, None);
+        let context = RuleContext::new(parse_result, None).unwrap();
 
         let mut errors = Vec::new();
         registry.check_node(&text_node, &context, &mut errors);

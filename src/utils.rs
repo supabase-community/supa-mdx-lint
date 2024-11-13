@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{num::NonZeroUsize, path::Path};
 
 use markdown::mdast::Node;
 
@@ -58,4 +58,9 @@ pub fn split_first_word(s: &str) -> (&str, &str) {
 pub fn is_lintable(path: impl AsRef<Path>) -> bool {
     let path = path.as_ref();
     path.is_dir() || path.extension().map_or(false, |ext| ext == "mdx")
+}
+
+pub trait NonZeroLineRange {
+    fn start_line(&self) -> NonZeroUsize;
+    fn end_line(&self) -> Option<NonZeroUsize>;
 }

@@ -240,7 +240,7 @@ mod tests {
         unist::Position,
     };
 
-    use crate::parser::ParseResult;
+    use crate::parser::{LintDisables, ParseResult};
 
     use super::*;
 
@@ -280,6 +280,7 @@ mod tests {
                 frontmatter: None,
             },
             check_only_rules: None,
+            disables: LintDisables::default(),
         }
     }
 
