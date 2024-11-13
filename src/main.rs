@@ -77,9 +77,9 @@ fn execute() -> Result<Result<()>> {
     );
     debug!("Config path is {config_path:?}");
 
-    let linter = LinterBuilder::new()
-        .configure(Config::from_config_file(config_path)?)
-        .build()?;
+    let config = Config::from_config_file(config_path)?;
+    debug!("Config: {config:?}");
+    let linter = LinterBuilder::new().configure(config).build()?;
     debug!("Linter built: {linter:?}");
 
     let mut diagnostics = Vec::new();

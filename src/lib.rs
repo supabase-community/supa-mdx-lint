@@ -194,6 +194,10 @@ impl Linter {
         check_only_rules: RuleFilter,
     ) -> Result<Vec<LintOutput>> {
         if path.is_file() {
+            if self.config.is_ignored(path) {
+                return Ok(Vec::new());
+            }
+
             let mut file = fs::File::open(path)?;
             let mut contents = String::new();
             file.read_to_string(&mut contents)?;
@@ -269,8 +273,10 @@ impl LinterBuilder {
     #[wasm_bindgen]
     #[cfg(target_arch = "wasm32")]
     pub fn configure(self, config: JsValue) -> LinterBuilderWithConfig {
+        use config::ConfigDir;
+
         let settings: toml::Value = serde_wasm_bindgen::from_value(config).unwrap();
-        let config = Config::from_serializable(settings).unwrap();
+        let config = Config::from_serializable(settings, &ConfigDir(None)).unwrap();
         LinterBuilderWithConfig { config }
     }
 }
