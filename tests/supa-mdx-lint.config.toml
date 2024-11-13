@@ -1,2 +1,4 @@
+ignore_patterns = ["*00x.mdx"]
+
 [Rule001HeadingCase]
 may_uppercase = ["Supabase"]

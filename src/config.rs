@@ -24,18 +24,27 @@
 //! ```
 
 use anyhow::Result;
-use std::collections::{HashMap, HashSet};
-
-#[cfg(not(target_arch = "wasm32"))]
-use log::{debug, error};
-use std::path::Path;
+use glob::Pattern;
+use log::{debug, error, warn};
+use std::{
+    collections::{HashMap, HashSet},
+    env,
+    path::{Path, PathBuf},
+};
 
 use crate::rules::{RuleRegistry, RuleSettings};
+
+const IGNORE_GLOBS_KEY: &str = "ignore_patterns";
+
+#[derive(Debug, Clone)]
+pub struct ConfigDir(pub Option<PathBuf>);
 
 #[derive(Debug)]
 pub struct Config {
     pub(crate) rule_registry: RuleRegistry,
     pub(crate) rule_specific_settings: HashMap<String, RuleSettings>,
+    /// A list of globs to ignore.
+    ignore_globs: HashSet<Pattern>,
 }
 
 impl Default for Config {
@@ -43,6 +52,7 @@ impl Default for Config {
         Self {
             rule_registry: RuleRegistry::new(),
             rule_specific_settings: HashMap::new(),
+            ignore_globs: HashSet::new(),
         }
     }
 }
@@ -62,7 +72,8 @@ impl Config {
             debug!("Config file content:\n\t{config_content}")
         })?;
 
-        Self::from_serializable(parsed)
+        let config_dir = ConfigDir(Some(config_dir.to_path_buf()));
+        Self::from_serializable(parsed, &config_dir)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -101,16 +112,21 @@ impl Config {
         Ok(processed_table)
     }
 
-    pub fn from_serializable<T: serde::Serialize>(config: T) -> Result<Self> {
+    pub fn from_serializable<T: serde::Serialize>(
+        config: T,
+        config_dir: &ConfigDir,
+    ) -> Result<Self> {
         let registry = RuleRegistry::new();
         let value = toml::Value::try_from(config)?;
         let table = Self::validate_config_structure(value)?;
 
-        let (registry, rule_settings) = Self::process_config_table(registry, table)?;
+        let (registry, rule_settings, ignore_globs) =
+            Self::process_config_table(registry, table, config_dir)?;
 
         Ok(Self {
             rule_registry: registry,
             rule_specific_settings: rule_settings,
+            ignore_globs,
         })
     }
 
@@ -126,12 +142,37 @@ impl Config {
     fn process_config_table(
         mut registry: RuleRegistry,
         table: toml::Table,
-    ) -> Result<(RuleRegistry, HashMap<String, RuleSettings>)> {
+        config_dir: &ConfigDir,
+    ) -> Result<(
+        RuleRegistry,
+        HashMap<String, RuleSettings>,
+        HashSet<Pattern>,
+    )> {
         let mut filtered_rules: HashSet<String> = HashSet::new();
         let mut rule_specific_settings = HashMap::new();
+        let mut ignore_globs = HashSet::<Pattern>::new();
 
         for (key, value) in table {
             match value {
+                toml::Value::Array(arr) if key == IGNORE_GLOBS_KEY => {
+                    arr.into_iter().for_each(|glob| {
+                        if let toml::Value::String(glob) = glob {
+                            let root_dir = match config_dir.0 {
+                                Some(ref dir) => dir,
+                                None => &std::env::current_dir().unwrap(),
+                            };
+                            let glob = root_dir.join(glob);
+                            match Pattern::new(&glob.to_string_lossy()) {
+                                Ok(glob) => {
+                                    ignore_globs.insert(glob);
+                                }
+                                Err(err) => {
+                                    warn!("Failed to parse ignore pattern {glob:?}: {err:?}");
+                                }
+                            }
+                        }
+                    });
+                }
                 toml::Value::Boolean(false) if RuleRegistry::is_valid_rule(&key) => {
                     filtered_rules.insert(key.clone());
                 }
@@ -146,7 +187,27 @@ impl Config {
             registry.deactivate_rule(rule_name);
         });
 
-        Ok((registry, rule_specific_settings))
+        Ok((registry, rule_specific_settings, ignore_globs))
+    }
+
+    pub fn is_ignored(&self, path: &Path) -> bool {
+        let path = if path.is_relative() {
+            let current_dir = env::current_dir().unwrap();
+            &current_dir.join(path)
+        } else {
+            path
+        };
+        debug!("Checking if path {path:?} is ignored");
+
+        let is_ignored = self
+            .ignore_globs
+            .iter()
+            .any(|pattern| pattern.matches_path(path));
+        debug!(
+            "Path {path:?} is {}ignored",
+            if is_ignored { "" } else { "not " }
+        );
+        is_ignored
     }
 }
 
@@ -247,7 +308,7 @@ option2 = "value"
                 "option2": "value"
             },
         });
-        let config = Config::from_serializable(config_json).unwrap();
+        let config = Config::from_serializable(config_json, &ConfigDir(None)).unwrap();
         assert!(config.rule_specific_settings.contains_key(VALID_RULE_NAME));
         assert!(config.rule_registry.is_rule_active(VALID_RULE_NAME));
     }
@@ -257,13 +318,13 @@ option2 = "value"
         let config_json = json!({
             VALID_RULE_NAME: false
         });
-        let config = Config::from_serializable(config_json).unwrap();
+        let config = Config::from_serializable(config_json, &ConfigDir(None)).unwrap();
         assert!(!config.rule_registry.is_rule_active(VALID_RULE_NAME));
     }
 
     #[test]
     fn test_from_serializable_invalid() {
         let invalid_config = vec![1, 2, 3]; // Not a table/object
-        assert!(Config::from_serializable(invalid_config).is_err());
+        assert!(Config::from_serializable(invalid_config, &ConfigDir(None)).is_err());
     }
 }
