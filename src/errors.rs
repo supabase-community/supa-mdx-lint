@@ -1,3 +1,6 @@
+use std::fmt::Display;
+
+use anyhow::Result;
 use markdown::mdast::Node;
 use serde::{Deserialize, Serialize};
 
@@ -16,8 +19,31 @@ pub enum LintLevel {
     Warning,
 }
 
+impl Display for LintLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LintLevel::Error => write!(f, "ERROR"),
+            LintLevel::Warning => write!(f, "WARN"),
+        }
+    }
+}
+
+impl TryFrom<&str> for LintLevel {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self> {
+        let value = value.trim().to_lowercase();
+        match value.as_str() {
+            "error" => Ok(Self::Error),
+            "warn" => Ok(Self::Warning),
+            _ => Err(anyhow::anyhow!("Invalid lint level: {value}")),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LintError {
+    pub level: LintLevel,
     pub message: String,
     pub location: Location,
     pub fix: Option<Vec<LintFix>>,
@@ -115,18 +141,29 @@ pub struct LintFixReplace {
 }
 
 impl LintError {
-    pub fn new(message: String, location: Location, fix: Option<Vec<LintFix>>) -> Self {
+    pub fn new(
+        message: String,
+        level: LintLevel,
+        location: Location,
+        fix: Option<Vec<LintFix>>,
+    ) -> Self {
         Self {
+            level,
             message,
             location,
             fix,
         }
     }
 
-    pub fn from_node(node: &Node, context: &RuleContext, message: &str) -> Option<Self> {
+    pub fn from_node(
+        node: &Node,
+        context: &RuleContext,
+        message: &str,
+        level: LintLevel,
+    ) -> Option<Self> {
         if let Some(position) = node.position() {
             let location = Location::from_position(position, context);
-            Some(Self::new(message.into(), location, None))
+            Some(Self::new(message.into(), level, location, None))
         } else {
             None
         }
@@ -136,9 +173,10 @@ impl LintError {
         node: &Node,
         context: &RuleContext,
         message: &str,
+        level: LintLevel,
         fix: Vec<LintFix>,
     ) -> Option<Self> {
-        let mut lint_error = Self::from_node(node, context, message)?;
+        let mut lint_error = Self::from_node(node, context, message, level)?;
         lint_error.fix = Some(fix);
         Some(lint_error)
     }

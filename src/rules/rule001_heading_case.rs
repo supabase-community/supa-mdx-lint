@@ -4,7 +4,7 @@ use supa_mdx_macros::RuleName;
 
 use crate::{
     document::{Location, Point, UnadjustedPoint},
-    errors::{LintError, LintFix, LintFixReplace},
+    errors::{LintError, LintFix, LintFixReplace, LintLevel},
     utils::{split_first_word, HasChildren},
 };
 
@@ -21,6 +21,10 @@ pub struct Rule001HeadingCase {
 }
 
 impl Rule for Rule001HeadingCase {
+    fn default_level(&self) -> LintLevel {
+        LintLevel::Error
+    }
+
     fn setup(&mut self, settings: Option<&RuleSettings>) {
         if let Some(settings) = settings {
             let regex_settings = RegexSettings {
@@ -39,7 +43,7 @@ impl Rule for Rule001HeadingCase {
         }
     }
 
-    fn check(&self, ast: &Node, context: &RuleContext) -> Option<Vec<LintError>> {
+    fn check(&self, ast: &Node, context: &RuleContext, level: LintLevel) -> Option<Vec<LintError>> {
         if !matches!(ast, Node::Heading(_)) {
             return None;
         };
@@ -51,7 +55,13 @@ impl Rule for Rule001HeadingCase {
         let lint_error = if fixes.is_empty() {
             None
         } else {
-            LintError::from_node_with_fix(ast, context, "Heading should be sentence case", fixes)
+            LintError::from_node_with_fix(
+                ast,
+                context,
+                "Heading should be sentence case",
+                level,
+                fixes,
+            )
         };
 
         lint_error.map(|lint_error| vec![lint_error])
@@ -290,7 +300,7 @@ mod tests {
         let heading = create_heading_node("This is a correct heading", 1);
         let context = create_rule_context();
 
-        let result = rule.check(&heading, &context);
+        let result = rule.check(&heading, &context, LintLevel::Error);
         assert!(result.is_none());
     }
 
@@ -300,7 +310,7 @@ mod tests {
         let heading = create_heading_node("this should fail", 1);
         let context = create_rule_context();
 
-        let result = rule.check(&heading, &context);
+        let result = rule.check(&heading, &context, LintLevel::Error);
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -333,7 +343,7 @@ mod tests {
         let heading = create_heading_node("This Should Fail", 1);
         let context = create_rule_context();
 
-        let result = rule.check(&heading, &context);
+        let result = rule.check(&heading, &context, LintLevel::Error);
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -383,7 +393,7 @@ mod tests {
         let heading = create_heading_node("This is an API heading", 1);
         let context = create_rule_context();
 
-        let result = rule.check(&heading, &context);
+        let result = rule.check(&heading, &context, LintLevel::Error);
         assert!(result.is_none());
     }
 
@@ -396,7 +406,7 @@ mod tests {
         let heading = create_heading_node("the quick brown fox", 1);
         let context = create_rule_context();
 
-        let result = rule.check(&heading, &context);
+        let result = rule.check(&heading, &context, LintLevel::Error);
         assert!(result.is_none());
     }
 
@@ -409,7 +419,7 @@ mod tests {
         });
         let context = create_rule_context();
 
-        let result = rule.check(&paragraph, &context);
+        let result = rule.check(&paragraph, &context, LintLevel::Error);
         assert!(result.is_none());
     }
 
@@ -422,7 +432,7 @@ mod tests {
         let heading = create_heading_node("This is about New York City", 1);
         let context = create_rule_context();
 
-        let result = rule.check(&heading, &context);
+        let result = rule.check(&heading, &context, LintLevel::Error);
         assert!(result.is_none());
     }
 
@@ -436,7 +446,7 @@ mod tests {
         let heading = create_heading_node("This is about New York City", 1);
         let context = create_rule_context();
 
-        let result = rule.check(&heading, &context);
+        let result = rule.check(&heading, &context, LintLevel::Error);
         assert!(result.is_none());
     }
 
@@ -449,7 +459,7 @@ mod tests {
         let heading = create_heading_node("This is an API-related topic", 1);
         let context = create_rule_context();
 
-        let result = rule.check(&heading, &context);
+        let result = rule.check(&heading, &context, LintLevel::Error);
         assert!(result.is_none());
     }
 
@@ -462,7 +472,7 @@ mod tests {
         let heading = create_heading_node("the quick brown fox", 1);
         let context = create_rule_context();
 
-        let result = rule.check(&heading, &context);
+        let result = rule.check(&heading, &context, LintLevel::Error);
         assert!(result.is_none());
     }
 
@@ -475,7 +485,7 @@ mod tests {
         let heading = create_heading_node("This is an API call", 1);
         let context = create_rule_context();
 
-        let result = rule.check(&heading, &context);
+        let result = rule.check(&heading, &context, LintLevel::Error);
         assert!(result.is_some());
 
         let result = result.unwrap();
@@ -509,7 +519,7 @@ mod tests {
         let heading = create_heading_node("The basics of API authentication in OAuth", 1);
         let context = create_rule_context();
 
-        let result = rule.check(&heading, &context);
+        let result = rule.check(&heading, &context, LintLevel::Error);
         assert!(result.is_none());
     }
 }
