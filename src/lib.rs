@@ -227,7 +227,7 @@ impl Linter {
         check_only_rules: RuleFilter,
     ) -> Result<Vec<LintOutput>> {
         let parse_result = parse(string)?;
-        let rule_context = RuleContext::new(parse_result, check_only_rules);
+        let rule_context = RuleContext::new(parse_result, check_only_rules)?;
         match self.config.rule_registry.run(&rule_context) {
             Ok(diagnostics) => {
                 let source = match source.0 {

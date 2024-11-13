@@ -4,6 +4,7 @@ use std::num::NonZeroUsize;
 use tsify::Tsify;
 
 use crate::rules::RuleContext;
+use crate::utils::NonZeroLineRange;
 
 /// A point in the source document, adjusted for frontmatter lines.
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize, Tsify)]
@@ -178,6 +179,24 @@ impl Location {
         let start = AdjustedPoint::from_unadjusted_point(start, context);
         let end = AdjustedPoint::from_unadjusted_point(end, context);
         Self { start, end }
+    }
+
+    pub fn overlaps_lines<LineRange: NonZeroLineRange>(&self, other: &LineRange) -> bool {
+        self.start.line >= other.start_line()
+            && other
+                .end_line()
+                .map(|end_line| self.start.line <= end_line)
+                .unwrap_or(true)
+            || self.end.line >= other.start_line()
+                && other
+                    .end_line()
+                    .map(|end_line| self.end.line <= end_line)
+                    .unwrap_or(true)
+            || other.start_line() >= self.start.line && other.start_line() <= self.end.line
+            || other
+                .end_line()
+                .map(|end_line| end_line >= self.start.line && end_line <= self.end.line)
+                .unwrap_or(false)
     }
 
     #[cfg(test)]
