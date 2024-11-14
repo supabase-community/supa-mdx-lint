@@ -52,15 +52,20 @@ struct Args {
 }
 
 fn setup_logging(args: &Args) -> Result<LevelFilter> {
-    let log_level = if args.silent {
+    #[allow(unused_mut)]
+    let mut log_level = if args.silent {
         LevelFilter::Off
-    } else if args.trace {
-        LevelFilter::Trace
     } else if args.debug {
         LevelFilter::Debug
     } else {
         LevelFilter::Info
     };
+
+    #[cfg(debug_assertions)]
+    if args.trace {
+        log_level = LevelFilter::Trace;
+    }
+
     TermLogger::init(
         log_level,
         LogConfig::default(),
