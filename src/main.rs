@@ -130,8 +130,8 @@ fn execute() -> Result<Result<()>> {
             writeln!(
                 stdout,
                 "Fixed {num_errors_fixed} error{} in {num_files_fixed} file{}",
-                if num_errors_fixed > 1 { "s" } else { "" },
-                if num_files_fixed > 1 { "s" } else { "" },
+                if num_errors_fixed != 1 { "s" } else { "" },
+                if num_files_fixed != 1 { "s" } else { "" },
             )?;
             writeln!(stdout, "Checking for oustanding errors...")?;
             writeln!(stdout)?;
