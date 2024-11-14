@@ -21,6 +21,7 @@ mod rules;
 mod utils;
 
 pub use crate::config::Config;
+pub use crate::errors::LintLevel;
 pub use crate::output::{rdf::RdfFormatter, simple::SimpleFormatter, LintOutput, OutputFormatter};
 pub use crate::utils::is_lintable;
 
