@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use itertools::Itertools;
 use log::{debug, warn};
 use markdown::{mdast::Node, to_mdast, Constructs, ParseOptions};
 use regex::Regex;
@@ -288,11 +289,13 @@ impl LintDisables {
     /// corresponding disables.
     fn collect_lint_disables(
         ast: &Node,
+        next_node: Option<&Node>,
     ) -> Result<HashMap<String, Vec<LintDisable>>, DisableParseError> {
         let mut disables = HashMap::<String, Vec<LintDisable>>::new();
 
         fn collect_lint_disables_internal(
             ast: &Node,
+            next_node: Option<&Node>,
             disables: &mut HashMap<String, Vec<LintDisable>>,
             #[allow(non_snake_case)] ALL_MARKER: &str,
         ) -> std::result::Result<(), DisableParseError> {
@@ -369,7 +372,17 @@ impl LintDisables {
                                     return Err(DisableParseError::new("Could not disable all rules because underlying node is missing line number."));
                                 };
                                 let end_line = if next_line_only {
-                                    Some(start_line.unwrap() + 2)
+                                    match next_node.and_then(|node| node.position()) {
+                                        Some(position) => {
+                                            let next_node_start = position.start.line;
+                                            if next_node_start > start_line.unwrap() {
+                                                Some(next_node_start + 1)
+                                            } else {
+                                                Some(start_line.unwrap() + 2)
+                                            }
+                                        }
+                                        None => Some(start_line.unwrap() + 2),
+                                    }
                                 } else {
                                     None
                                 };
@@ -401,7 +414,17 @@ impl LintDisables {
                                     return Err(DisableParseError::new(format!("Could not disable rule {} because underlying node is missing line number.", rule_name)));
                                 };
                                 let end_line = if next_line_only {
-                                    Some(start_line.unwrap() + 2)
+                                    match next_node.and_then(|node| node.position()) {
+                                        Some(position) => {
+                                            let next_node_start = position.start.line;
+                                            if next_node_start > start_line.unwrap() {
+                                                Some(next_node_start + 1)
+                                            } else {
+                                                Some(start_line.unwrap() + 2)
+                                            }
+                                        }
+                                        None => Some(start_line.unwrap() + 2),
+                                    }
                                 } else {
                                     None
                                 };
@@ -421,8 +444,10 @@ impl LintDisables {
                 }
                 _ => {
                     if let Some(children) = ast.children() {
-                        for child in children {
-                            collect_lint_disables_internal(child, disables, ALL_MARKER)?;
+                        for node_pair in children.iter().zip_longest(children.iter().skip(1)) {
+                            let child = node_pair.clone().left().unwrap();
+                            let next = node_pair.right();
+                            collect_lint_disables_internal(child, next, disables, ALL_MARKER)?;
                         }
                     }
 
@@ -430,7 +455,7 @@ impl LintDisables {
                 }
             }
         }
-        collect_lint_disables_internal(ast, &mut disables, LintDisables::all_marker())?;
+        collect_lint_disables_internal(ast, next_node, &mut disables, LintDisables::all_marker())?;
 
         for (_, value) in disables.iter_mut() {
             value.sort_by_key(|k| k.line_range.start);
@@ -481,7 +506,7 @@ impl TryFrom<&Node> for LintDisables {
     type Error = DisableParseError;
 
     fn try_from(node: &Node) -> Result<Self, DisableParseError> {
-        let disables = LintDisables::collect_lint_disables(node)?;
+        let disables = LintDisables::collect_lint_disables(node, None)?;
         Ok(Self(disables))
     }
 }
@@ -744,5 +769,23 @@ This should error because there was no disable"#;
 
         let parse_result = parse(input).unwrap();
         assert!(TryInto::<LintDisables>::try_into(&parse_result.ast).is_err());
+    }
+
+    #[test]
+    fn test_collect_lint_disables_skip_blank_lines() {
+        let input = r#"{/* supa-mdx-lint-disable-next-line foo */}
+
+This line is ignored
+This line is not ignored"#;
+
+        let parse_result = parse(input).unwrap();
+        let disables: LintDisables = (&parse_result.ast).try_into().unwrap();
+        debug!("Disables: {:?}", disables);
+
+        assert_eq!(disables.0.len(), 1);
+        assert_eq!(
+            disables.0["foo"][0].line_range.end,
+            Some(NonZeroUsize::new(4).unwrap())
+        );
     }
 }
