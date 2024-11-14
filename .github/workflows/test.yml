@@ -32,6 +32,8 @@ jobs:
         run: cargo clippy
       - name: rust tests
         run: cargo test
+      - name: release build
+        run: cargo build --release
 
   js_tests:
     runs-on: ubuntu-latest
