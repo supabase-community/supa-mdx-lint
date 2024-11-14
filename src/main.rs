@@ -11,7 +11,7 @@ use glob::glob;
 use log::{debug, error};
 use simplelog::{ColorChoice, Config as LogConfig, LevelFilter, TermLogger, TerminalMode};
 use supa_mdx_lint::{
-    is_lintable, Config, LintOutput, LintTarget, Linter, LinterBuilder, OutputFormatter,
+    is_lintable, Config, LintLevel, LintOutput, LintTarget, Linter, LinterBuilder, OutputFormatter,
 };
 
 const DEFAULT_CONFIG_FILE: &str = "supa-mdx-lint.config.toml";
@@ -145,7 +145,10 @@ fn execute() -> Result<Result<()>> {
 
     stdout.flush()?;
 
-    if diagnostics.iter().any(|d| !d.errors().is_empty()) {
+    if diagnostics
+        .iter()
+        .any(|d| d.errors().iter().any(|e| e.level == LintLevel::Error))
+    {
         Ok(Err(anyhow::anyhow!("Linting errors found")))
     } else {
         Ok(Ok(()))
