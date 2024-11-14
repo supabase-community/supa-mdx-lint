@@ -80,19 +80,19 @@ impl SimpleFormatter {
             (0, num_warnings) => &format!(
                 "🟡 Found {} warning{}",
                 num_warnings,
-                if num_warnings > 1 { "s" } else { "" }
+                if num_warnings != 1 { "s" } else { "" }
             ),
             (num_errors, 0) => &format!(
                 "🔴 Found {} error{}",
                 num_errors,
-                if num_errors > 1 { "s" } else { "" }
+                if num_errors != 1 { "s" } else { "" }
             ),
             (num_errors, num_warnings) => &format!(
                 "🔴 Found {} error{} and {} warning{}",
                 num_errors,
-                if num_errors > 1 { "s" } else { "" },
+                if num_errors != 1 { "s" } else { "" },
                 num_warnings,
-                if num_warnings > 1 { "s" } else { "" }
+                if num_warnings != 1 { "s" } else { "" }
             ),
         };
 
@@ -100,7 +100,7 @@ impl SimpleFormatter {
             io,
             "🔍 {} source{} linted",
             seen_files.len(),
-            if seen_files.len() > 1 { "s" } else { "" }
+            if seen_files.len() != 1 { "s" } else { "" }
         )?;
         writeln!(io, "{}", diagnostic_message)?;
         Ok(())
