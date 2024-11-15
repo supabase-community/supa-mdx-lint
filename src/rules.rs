@@ -13,11 +13,17 @@ use crate::{
 };
 
 mod rule001_heading_case;
+mod rule002_admonition_types;
 
 use rule001_heading_case::Rule001HeadingCase;
+use rule002_admonition_types::Rule002AdmonitionTypes;
 
-static ALL_RULES: Lazy<Vec<Box<dyn Rule>>> =
-    Lazy::new(|| vec![Box::new(Rule001HeadingCase::default())]);
+static ALL_RULES: Lazy<Vec<Box<dyn Rule>>> = Lazy::new(|| {
+    vec![
+        Box::new(Rule001HeadingCase::default()),
+        Box::new(Rule002AdmonitionTypes::default()),
+    ]
+});
 
 #[allow(private_bounds)] // RuleClone is used within this module tree only
 pub trait Rule: Send + Sync + Debug + RuleName + RuleClone {
@@ -90,6 +96,26 @@ impl RuleSettings {
             .map(|s| toml::Value::String(s.to_string()))
             .collect();
         Self::from_key_value(key, toml::Value::Array(array))
+    }
+
+    fn get_array_of_strings(&self, key: &str) -> Option<Vec<String>> {
+        let table = &self.0;
+        if let Some(toml::Value::Array(array)) = table.get(key) {
+            let mut vec = Vec::new();
+            for value in array {
+                if let toml::Value::String(string) = value {
+                    vec.push(string.to_lowercase());
+                }
+            }
+
+            if vec.is_empty() {
+                return None;
+            } else {
+                return Some(vec);
+            }
+        }
+
+        None
     }
 
     fn get_array_of_regexes(
