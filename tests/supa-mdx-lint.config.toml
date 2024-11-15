@@ -1,4 +1,4 @@
-ignore_patterns = ["*00x.mdx"]
+ignore_patterns = ["*00x.mdx", "rule*/**"]
 
 [Rule001HeadingCase]
 may_uppercase = ["Supabase"]
