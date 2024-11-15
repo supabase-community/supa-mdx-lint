@@ -1,3 +1,4 @@
+use markdown::mdast::Node;
 use markdown::unist::{Point as UnistPoint, Position};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -31,6 +32,7 @@ impl AdjustedPoint {
     pub fn from_unadjusted_point(point: UnadjustedPoint, context: &RuleContext) -> Self {
         let mut this = Self::new(point.line.get(), point.column.get(), point.offset);
         this.add_lines(context.frontmatter_lines());
+        this.offset += context.frontmatter_offset();
         this
     }
 }
@@ -203,6 +205,32 @@ impl Location {
         let start = AdjustedPoint::from_unadjusted_point(start, context);
         let end = AdjustedPoint::from_unadjusted_point(end, context);
         Self { start, end }
+    }
+
+    pub fn maybe_from_node_with_offset(
+        node: &Node,
+        start_offset: usize,
+        end_offset: usize,
+        context: &RuleContext,
+    ) -> Option<Self> {
+        match node.position() {
+            None => None,
+            Some(position) => {
+                let mut start = UnadjustedPoint::from(&position.start);
+                let source_text =
+                    &context.source_content()[position.start.offset..position.end.offset];
+
+                let text_to_skip = &source_text[..start_offset];
+                let text_between = &source_text[start_offset..start_offset + end_offset];
+
+                start.move_over_text(text_to_skip);
+
+                let mut end = start.clone();
+                end.move_over_text(text_between);
+
+                Some(Self::from_unadjusted_points(start, end, context))
+            }
+        }
     }
 
     pub fn merge(a: Self, b: Self) -> Self {

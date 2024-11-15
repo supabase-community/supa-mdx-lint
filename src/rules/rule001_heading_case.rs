@@ -330,6 +330,7 @@ mod tests {
                     position: None,
                 }),
                 frontmatter_lines: 0,
+                frontmatter_offset: 0,
                 frontmatter: None,
             },
             check_only_rules: None,

@@ -197,6 +197,14 @@ impl<'ctx> RuleContext<'ctx> {
     pub fn frontmatter_lines(&self) -> usize {
         self.parse_result.frontmatter_lines
     }
+
+    pub fn frontmatter_offset(&self) -> usize {
+        self.parse_result.frontmatter_offset
+    }
+
+    pub fn source_content(&self) -> &str {
+        self.parse_result.source_content
+    }
 }
 
 #[derive(Debug)]
@@ -383,6 +391,7 @@ mod tests {
             source_content: "",
             ast: text_node.clone(),
             frontmatter_lines: 0,
+            frontmatter_offset: 0,
             frontmatter: None,
         };
         let context = RuleContext::new(parse_result, Some(&["MockRule"])).unwrap();
@@ -416,6 +425,7 @@ mod tests {
             source_content: "",
             ast: text_node.clone(),
             frontmatter_lines: 0,
+            frontmatter_offset: 0,
             frontmatter: None,
         };
         let context = RuleContext::new(parse_result, None).unwrap();

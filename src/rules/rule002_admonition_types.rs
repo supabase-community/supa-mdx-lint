@@ -4,7 +4,7 @@ use regex::Regex;
 use supa_mdx_macros::RuleName;
 
 use crate::{
-    document::{Location, Point, UnadjustedPoint},
+    document::Location,
     errors::{LintError, LintLevel},
 };
 
@@ -114,13 +114,13 @@ impl Rule002AdmonitionTypes {
                     if let Some(match_result) =
                         type_regex.captures(node_source).and_then(|cap| cap.get(1))
                     {
-                        let mut start_point: UnadjustedPoint =
-                            node.position().unwrap().start.clone().into();
-                        start_point.move_over_text(&node_source[..match_result.start()]);
-                        let mut end_point: UnadjustedPoint = start_point.clone();
-                        end_point.move_over_text("type");
-                        let location =
-                            Location::from_unadjusted_points(start_point, end_point, context);
+                        let location = Location::maybe_from_node_with_offset(
+                            node,
+                            match_result.start(),
+                            "type".len(),
+                            context,
+                        )
+                        .unwrap(); // None is if node has no position, but we checked for that above
 
                         return Some(LintError {
                             level,
