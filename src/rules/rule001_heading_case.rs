@@ -324,6 +324,7 @@ mod tests {
     fn create_rule_context<'ctx>() -> RuleContext<'ctx> {
         RuleContext {
             parse_result: ParseResult {
+                source_content: "",
                 ast: Node::Root(markdown::mdast::Root {
                     children: vec![],
                     position: None,

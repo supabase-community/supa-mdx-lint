@@ -1,8 +1,12 @@
-use log::trace;
+use log::{trace, warn};
 use markdown::mdast::Node;
+use regex::Regex;
 use supa_mdx_macros::RuleName;
 
-use crate::errors::{LintError, LintLevel};
+use crate::{
+    document::{Location, Point, UnadjustedPoint},
+    errors::{LintError, LintLevel},
+};
 
 use super::{Rule, RuleContext, RuleName, RuleSettings};
 
@@ -101,6 +105,37 @@ impl Rule002AdmonitionTypes {
         level: LintLevel,
         type_name: &str,
     ) -> Option<LintError> {
+        let node_source = node
+            .position()
+            .map(|pos| &context.parse_result.source_content[pos.start.offset..pos.end.offset]);
+        if let Some(node_source) = node_source {
+            match Regex::new(r#"\b(type)\s*=\s*["']"#) {
+                Ok(type_regex) => {
+                    if let Some(match_result) =
+                        type_regex.captures(node_source).and_then(|cap| cap.get(1))
+                    {
+                        let mut start_point: UnadjustedPoint =
+                            node.position().unwrap().start.clone().into();
+                        start_point.move_over_text(&node_source[..match_result.start()]);
+                        let mut end_point: UnadjustedPoint = start_point.clone();
+                        end_point.move_over_text("type");
+                        let location =
+                            Location::from_unadjusted_points(start_point, end_point, context);
+
+                        return Some(LintError {
+                            level,
+                            message: self.message(Some(type_name)),
+                            location,
+                            fix: None,
+                        });
+                    }
+                }
+                Err(_) => {
+                    warn!("Error extracting type from admonition to fine-tune lint location: {node_source}");
+                }
+            }
+        }
+
         LintError::from_node(node, context, &self.message(Some(type_name)), level)
     }
 }
@@ -117,7 +152,11 @@ mod tests {
 
     #[test]
     fn test_admonition_types_wrong_type() {
-        let mdx = r#"<Admonition type="wrong">
+        let mdx = r#"---
+title: Hello
+---
+
+<Admonition type="wrong">
 Some text.
 </Admonition>"#;
 
@@ -129,7 +168,12 @@ Some text.
         let result = rule.check(admonition, &context, LintLevel::Error);
 
         assert!(result.is_some());
-        assert!(result.unwrap().len() == 1);
+        assert!(result.as_ref().unwrap().len() == 1);
+        let location = &result.as_ref().unwrap().get(0).unwrap().location;
+        assert!(location.start().line.get() == 5);
+        assert!(location.start().column.get() == 13);
+        assert!(location.end().line.get() == 5);
+        assert!(location.end().column.get() == 17);
     }
 
     #[test]

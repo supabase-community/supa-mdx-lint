@@ -172,14 +172,14 @@ impl RuleSettings {
 pub type RuleFilter<'filter> = Option<&'filter [&'filter str]>;
 
 pub struct RuleContext<'ctx> {
-    parse_result: ParseResult,
+    parse_result: ParseResult<'ctx>,
     check_only_rules: RuleFilter<'ctx>,
     disables: LintDisables,
 }
 
 impl<'ctx> RuleContext<'ctx> {
     pub fn new(
-        parse_result: ParseResult,
+        parse_result: ParseResult<'ctx>,
         check_only_rules: Option<&'ctx [&'ctx str]>,
     ) -> Result<Self> {
         let disables = (&parse_result.ast).try_into().inspect_err(|err| {
@@ -380,6 +380,7 @@ mod tests {
         };
 
         let parse_result = ParseResult {
+            source_content: "",
             ast: text_node.clone(),
             frontmatter_lines: 0,
             frontmatter: None,
@@ -412,6 +413,7 @@ mod tests {
         };
 
         let parse_result = ParseResult {
+            source_content: "",
             ast: text_node.clone(),
             frontmatter_lines: 0,
             frontmatter: None,

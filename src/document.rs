@@ -78,6 +78,12 @@ impl From<&UnistPoint> for UnadjustedPoint {
     }
 }
 
+impl From<UnistPoint> for UnadjustedPoint {
+    fn from(point: UnistPoint) -> Self {
+        Self::from(&point)
+    }
+}
+
 pub trait Point {
     fn column(&self) -> usize;
     fn offset(&self) -> usize;
