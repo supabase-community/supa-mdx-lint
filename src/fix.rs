@@ -11,7 +11,6 @@ use crate::{
     app_error::AppError,
     document::{AdjustedPoint, Location},
     output::LintOutput,
-    parser::extract_frontmatter,
     Linter,
 };
 
@@ -308,12 +307,9 @@ impl Linter {
         let file = diagnostic.file_path();
         debug!("Fixing errors in {file}");
 
-        let original_content = fs::read_to_string(file).map_err(|err| {
+        let mut content = fs::read_to_string(file).map_err(|err| {
             AppError::FileSystemError(format!("reading file {file} for auto-fixing"), err)
         })?;
-        let (_frontmatter_lines, frontmatter_offset, _frontmatter, content) =
-            extract_frontmatter(&original_content);
-        let mut content = content.to_string();
 
         let fixes_to_apply = Self::calculate_fixes_to_apply(file, diagnostic);
         debug!("Fixes to apply for file {file}: {fixes_to_apply:#?}");
@@ -349,9 +345,7 @@ impl Linter {
             }
         }
 
-        let final_content = format!("{}{}", &original_content[..frontmatter_offset], content);
-
-        fs::write(diagnostic.file_path(), final_content).map_err(|err| {
+        fs::write(diagnostic.file_path(), content).map_err(|err| {
             AppError::FileSystemError(format!("writing file {file} post-fixing"), err)
         })?;
 

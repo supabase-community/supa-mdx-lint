@@ -56,13 +56,7 @@ impl Rule for Rule001HeadingCase {
         let lint_error = if fixes.is_empty() {
             None
         } else {
-            LintError::from_node_with_fix(
-                ast,
-                context,
-                "Heading should be sentence case",
-                level,
-                fixes,
-            )
+            LintError::from_node_with_fix(ast, context, &self.message(), level, fixes)
         };
 
         lint_error.map(|lint_error| vec![lint_error])
@@ -76,6 +70,10 @@ enum Case {
 }
 
 impl Rule001HeadingCase {
+    fn message(&self) -> String {
+        "Heading should be sentence case".to_string()
+    }
+
     fn check_text_sentence_case(
         &self,
         text: &Text,
@@ -326,11 +324,13 @@ mod tests {
     fn create_rule_context<'ctx>() -> RuleContext<'ctx> {
         RuleContext {
             parse_result: ParseResult {
+                source_content: "",
                 ast: Node::Root(markdown::mdast::Root {
                     children: vec![],
                     position: None,
                 }),
                 frontmatter_lines: 0,
+                frontmatter_offset: 0,
                 frontmatter: None,
             },
             check_only_rules: None,

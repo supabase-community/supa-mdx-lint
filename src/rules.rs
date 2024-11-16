@@ -11,11 +11,17 @@ use crate::{
 };
 
 mod rule001_heading_case;
+mod rule002_admonition_types;
 
 use rule001_heading_case::Rule001HeadingCase;
+use rule002_admonition_types::Rule002AdmonitionTypes;
 
-static ALL_RULES: Lazy<Vec<Box<dyn Rule>>> =
-    Lazy::new(|| vec![Box::new(Rule001HeadingCase::default())]);
+static ALL_RULES: Lazy<Vec<Box<dyn Rule>>> = Lazy::new(|| {
+    vec![
+        Box::new(Rule001HeadingCase::default()),
+        Box::new(Rule002AdmonitionTypes::default()),
+    ]
+});
 
 #[allow(private_bounds)] // RuleClone is used within this module tree only
 pub trait Rule: Send + Sync + Debug + RuleName + RuleClone {
@@ -90,6 +96,26 @@ impl RuleSettings {
         Self::from_key_value(key, toml::Value::Array(array))
     }
 
+    fn get_array_of_strings(&self, key: &str) -> Option<Vec<String>> {
+        let table = &self.0;
+        if let Some(toml::Value::Array(array)) = table.get(key) {
+            let mut vec = Vec::new();
+            for value in array {
+                if let toml::Value::String(string) = value {
+                    vec.push(string.to_lowercase());
+                }
+            }
+
+            if vec.is_empty() {
+                return None;
+            } else {
+                return Some(vec);
+            }
+        }
+
+        None
+    }
+
     fn get_array_of_regexes(
         &self,
         key: &str,
@@ -146,14 +172,14 @@ impl RuleSettings {
 pub type RuleFilter<'filter> = Option<&'filter [&'filter str]>;
 
 pub struct RuleContext<'ctx> {
-    parse_result: ParseResult,
+    parse_result: ParseResult<'ctx>,
     check_only_rules: RuleFilter<'ctx>,
     disables: LintDisables,
 }
 
 impl<'ctx> RuleContext<'ctx> {
     pub fn new(
-        parse_result: ParseResult,
+        parse_result: ParseResult<'ctx>,
         check_only_rules: Option<&'ctx [&'ctx str]>,
     ) -> Result<Self> {
         let disables = (&parse_result.ast).try_into().inspect_err(|err| {
@@ -170,6 +196,14 @@ impl<'ctx> RuleContext<'ctx> {
 
     pub fn frontmatter_lines(&self) -> usize {
         self.parse_result.frontmatter_lines
+    }
+
+    pub fn frontmatter_offset(&self) -> usize {
+        self.parse_result.frontmatter_offset
+    }
+
+    pub fn source_content(&self) -> &str {
+        self.parse_result.source_content
     }
 }
 
@@ -354,8 +388,10 @@ mod tests {
         };
 
         let parse_result = ParseResult {
+            source_content: "",
             ast: text_node.clone(),
             frontmatter_lines: 0,
+            frontmatter_offset: 0,
             frontmatter: None,
         };
         let context = RuleContext::new(parse_result, Some(&["MockRule"])).unwrap();
@@ -386,8 +422,10 @@ mod tests {
         };
 
         let parse_result = ParseResult {
+            source_content: "",
             ast: text_node.clone(),
             frontmatter_lines: 0,
+            frontmatter_offset: 0,
             frontmatter: None,
         };
         let context = RuleContext::new(parse_result, None).unwrap();

@@ -14,18 +14,22 @@ use crate::{
 type Frontmatter = Box<dyn Any>;
 
 #[derive(Debug)]
-pub struct ParseResult {
+pub struct ParseResult<'res> {
     pub ast: Node,
+    pub source_content: &'res str,
     pub frontmatter_lines: usize,
+    pub frontmatter_offset: usize,
     pub frontmatter: Option<Frontmatter>,
 }
 
 pub fn parse(input: &str) -> Result<ParseResult> {
-    let (frontmatter_lines, _frontmatter_offset, frontmatter, content) = extract_frontmatter(input);
+    let (frontmatter_lines, frontmatter_offset, frontmatter, content) = extract_frontmatter(input);
     let ast = parse_internal(content)?;
     Ok(ParseResult {
         ast,
+        source_content: content,
         frontmatter_lines,
+        frontmatter_offset,
         frontmatter,
     })
 }
