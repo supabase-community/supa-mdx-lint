@@ -130,7 +130,7 @@ fn execute() -> Result<Result<()>> {
     debug!("Config path is {config_path:?}");
 
     let config = Config::from_config_file(config_path)?;
-    let linter = LinterBuilder::new().configure(config).build()?;
+    let linter = LinterBuilder.configure(config).build()?;
     debug!("Linter built: {linter:#?}");
 
     let mut diagnostics = get_diagnostics(&args.target, &linter)?;

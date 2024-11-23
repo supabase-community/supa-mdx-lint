@@ -4,9 +4,9 @@ use regex::Regex;
 use supa_mdx_macros::RuleName;
 
 use crate::{
-    document::{Location, Point, UnadjustedPoint},
     errors::{LintError, LintLevel},
     fix::{LintFix, LintFixReplace},
+    geometry::{AdjustedOffset, AdjustedRange, DenormalizedLocation},
     utils::{split_first_word_at_whitespace_and_colons, HasChildren},
 };
 
@@ -215,38 +215,33 @@ impl Rule001HeadingCase {
             }
         };
 
-        let mut chars = node.value.chars();
-        let mut text_to_move_over = String::new();
-        let mut i = 0;
-        while i < index {
-            if let Some(ch) = chars.next() {
-                text_to_move_over.push(ch);
-                i += ch.len_utf8();
-            }
-        }
-
         let start_point = node
             .position
             .as_ref()
-            .map(|p| UnadjustedPoint::from(&p.start))
+            .map(|p| AdjustedOffset::from_unist(&p.start, context))
             .map(|mut p| {
-                p.move_over_text(&text_to_move_over);
+                p.increment(index);
                 p
             });
-        let end_point = start_point.clone().map(|mut p| {
-            p.move_over_text(first_word);
+        let end_point = start_point.map(|mut p| {
+            p.increment(first_word.len());
             p
         });
 
         match (start_point, end_point) {
-            (Some(start), Some(end)) => (
-                Some(LintFix::Replace(LintFixReplace {
-                    location: Location::from_unadjusted_points(start, end, context),
-                    text: replacement_word,
-                })),
-                rest,
-                split_on_colon,
-            ),
+            (Some(start), Some(end)) => {
+                let location = AdjustedRange::new(start, end);
+                let location = DenormalizedLocation::from_offset_range(location, context);
+
+                (
+                    Some(LintFix::Replace(LintFixReplace {
+                        location,
+                        text: replacement_word,
+                    })),
+                    rest,
+                    split_on_colon,
+                )
+            }
             _ => (None, rest, split_on_colon),
         }
     }
@@ -297,74 +292,37 @@ impl Rule001HeadingCase {
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroUsize;
-
-    use markdown::{
-        mdast::{Heading, Text},
-        unist::Position,
-    };
-
-    use crate::parser::{parse, LintDisables, ParseResult};
+    use crate::parser::parse;
 
     use super::*;
-
-    fn create_heading_node(content: &str, level: u8) -> Node {
-        Node::Heading(Heading {
-            depth: level,
-            children: vec![Node::Text(Text {
-                value: content.to_string(),
-                position: Some(Position::new(
-                    1,
-                    3,
-                    2,
-                    1,
-                    content.len() + 3,
-                    content.len() + 2,
-                )),
-            })],
-            position: Some(Position::new(
-                1,
-                1,
-                2,
-                1,
-                content.len() + 3,
-                content.len() + 2,
-            )),
-        })
-    }
-
-    fn create_rule_context<'ctx>() -> RuleContext<'ctx> {
-        RuleContext {
-            parse_result: ParseResult {
-                ast: Node::Root(markdown::mdast::Root {
-                    children: vec![],
-                    position: None,
-                }),
-                frontmatter_lines: 0,
-                frontmatter: None,
-            },
-            check_only_rules: None,
-            disables: LintDisables::default(),
-        }
-    }
 
     #[test]
     fn test_correct_sentence_case() {
         let rule = Rule001HeadingCase::default();
-        let heading = create_heading_node("This is a correct heading", 1);
-        let context = create_rule_context();
+        let mdx = "# This is a correct heading";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
     #[test]
     fn test_lowercase_first_word() {
         let rule = Rule001HeadingCase::default();
-        let heading = create_heading_node("this should fail", 1);
-        let context = create_rule_context();
+        let mdx = "# this should fail";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -380,12 +338,12 @@ mod tests {
         match fix {
             LintFix::Replace(fix) => {
                 assert_eq!(fix.text, "This");
-                assert_eq!(fix.location.start().line, NonZeroUsize::new(1).unwrap());
-                assert_eq!(fix.location.start().column, NonZeroUsize::new(3).unwrap());
-                assert_eq!(fix.location.start().offset, 2);
-                assert_eq!(fix.location.end().line, NonZeroUsize::new(1).unwrap());
-                assert_eq!(fix.location.end().column, NonZeroUsize::new(7).unwrap());
-                assert_eq!(fix.location.end().offset, 6);
+                assert_eq!(fix.location.start.row, 0);
+                assert_eq!(fix.location.start.column, 2);
+                assert_eq!(fix.location.offset_range.start, AdjustedOffset::from(2));
+                assert_eq!(fix.location.end.row, 0);
+                assert_eq!(fix.location.end.column, 6);
+                assert_eq!(fix.location.offset_range.end, AdjustedOffset::from(6));
             }
             _ => panic!("Unexpected fix type"),
         }
@@ -394,10 +352,15 @@ mod tests {
     #[test]
     fn test_uppercase_following_words() {
         let rule = Rule001HeadingCase::default();
-        let heading = create_heading_node("This Should Fail", 1);
-        let context = create_rule_context();
+        let mdx = "# This Should Fail";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -413,12 +376,12 @@ mod tests {
         match fix_one {
             LintFix::Replace(fix) => {
                 assert_eq!(fix.text, "should");
-                assert_eq!(fix.location.start().line, NonZeroUsize::new(1).unwrap());
-                assert_eq!(fix.location.start().column, NonZeroUsize::new(8).unwrap());
-                assert_eq!(fix.location.start().offset, 7);
-                assert_eq!(fix.location.end().line, NonZeroUsize::new(1).unwrap());
-                assert_eq!(fix.location.end().column, NonZeroUsize::new(14).unwrap());
-                assert_eq!(fix.location.end().offset, 13);
+                assert_eq!(fix.location.start.row, 0);
+                assert_eq!(fix.location.start.column, 7);
+                assert_eq!(fix.location.offset_range.start, AdjustedOffset::from(7));
+                assert_eq!(fix.location.end.row, 0);
+                assert_eq!(fix.location.end.column, 13);
+                assert_eq!(fix.location.offset_range.end, AdjustedOffset::from(13));
             }
             _ => panic!("Unexpected fix type"),
         }
@@ -427,12 +390,12 @@ mod tests {
         match fix_two {
             LintFix::Replace(fix) => {
                 assert_eq!(fix.text, "fail");
-                assert_eq!(fix.location.start().line, NonZeroUsize::new(1).unwrap());
-                assert_eq!(fix.location.start().column, NonZeroUsize::new(15).unwrap());
-                assert_eq!(fix.location.start().offset, 14);
-                assert_eq!(fix.location.end().line, NonZeroUsize::new(1).unwrap());
-                assert_eq!(fix.location.end().column, NonZeroUsize::new(19).unwrap());
-                assert_eq!(fix.location.end().offset, 18);
+                assert_eq!(fix.location.start.row, 0);
+                assert_eq!(fix.location.start.column, 14);
+                assert_eq!(fix.location.offset_range.start, AdjustedOffset::from(14));
+                assert_eq!(fix.location.end.row, 0);
+                assert_eq!(fix.location.end.column, 18);
+                assert_eq!(fix.location.offset_range.end, AdjustedOffset::from(18));
             }
             _ => panic!("Unexpected fix type"),
         }
@@ -444,10 +407,15 @@ mod tests {
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
         rule.setup(Some(&settings));
 
-        let heading = create_heading_node("This is an API heading", 1);
-        let context = create_rule_context();
+        let mdx = "# This is an API heading";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -457,23 +425,30 @@ mod tests {
         let settings = RuleSettings::with_array_of_strings("may_lowercase", vec!["the"]);
         rule.setup(Some(&settings));
 
-        let heading = create_heading_node("the quick brown fox", 1);
-        let context = create_rule_context();
+        let mdx = "# the quick brown fox";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
     #[test]
     fn test_non_heading_node() {
         let rule = Rule001HeadingCase::default();
-        let paragraph = Node::Paragraph(markdown::mdast::Paragraph {
-            children: vec![],
-            position: None,
-        });
-        let context = create_rule_context();
+        let mdx = "not a heading";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&paragraph, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -483,10 +458,15 @@ mod tests {
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["New York City"]);
         rule.setup(Some(&settings));
 
-        let heading = create_heading_node("This is about New York City", 1);
-        let context = create_rule_context();
+        let mdx = "# This is about New York City";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -497,10 +477,15 @@ mod tests {
             RuleSettings::with_array_of_strings("may_uppercase", vec!["New York", "New York City"]);
         rule.setup(Some(&settings));
 
-        let heading = create_heading_node("This is about New York City", 1);
-        let context = create_rule_context();
+        let mdx = "# This is about New York City";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -510,10 +495,15 @@ mod tests {
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
         rule.setup(Some(&settings));
 
-        let heading = create_heading_node("This is an API-related topic", 1);
-        let context = create_rule_context();
+        let mdx = "# This is an API-related topic";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -523,10 +513,15 @@ mod tests {
         let settings = RuleSettings::with_array_of_strings("may_lowercase", vec!["(the|a|an)"]);
         rule.setup(Some(&settings));
 
-        let heading = create_heading_node("the quick brown fox", 1);
-        let context = create_rule_context();
+        let mdx = "# the quick brown fox";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -536,10 +531,15 @@ mod tests {
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["[A-Z]{4,}"]);
         rule.setup(Some(&settings));
 
-        let heading = create_heading_node("This is an API call", 1);
-        let context = create_rule_context();
+        let mdx = "# This is an API call";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let result = result.unwrap();
@@ -553,12 +553,12 @@ mod tests {
         match fix {
             LintFix::Replace(fix) => {
                 assert_eq!(fix.text, "api");
-                assert_eq!(fix.location.start().line, NonZeroUsize::new(1).unwrap());
-                assert_eq!(fix.location.start().column, NonZeroUsize::new(14).unwrap());
-                assert_eq!(fix.location.start().offset, 13);
-                assert_eq!(fix.location.end().line, NonZeroUsize::new(1).unwrap());
-                assert_eq!(fix.location.end().column, NonZeroUsize::new(17).unwrap());
-                assert_eq!(fix.location.end().offset, 16);
+                assert_eq!(fix.location.start.row, 0);
+                assert_eq!(fix.location.start.column, 13);
+                assert_eq!(fix.location.offset_range.start, AdjustedOffset::from(13));
+                assert_eq!(fix.location.end.row, 0);
+                assert_eq!(fix.location.end.column, 16);
+                assert_eq!(fix.location.offset_range.end, AdjustedOffset::from(16));
             }
             _ => panic!("Unexpected fix type"),
         }
@@ -571,10 +571,15 @@ mod tests {
             RuleSettings::with_array_of_strings("may_uppercase", vec!["Content Delivery Network"]);
         rule.setup(Some(&settings));
 
-        let heading = create_heading_node("Content Delivery Network latency", 1);
-        let context = create_rule_context();
+        let mdx = "# Content Delivery Network latency";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -584,10 +589,15 @@ mod tests {
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["Edge Functions"]);
         rule.setup(Some(&settings));
 
-        let heading = create_heading_node("Deno (Edge Functions)", 1);
-        let context = create_rule_context();
+        let mdx = "# Deno (Edge Functions)";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -597,10 +607,15 @@ mod tests {
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API", "OAuth"]);
         rule.setup(Some(&settings));
 
-        let heading = create_heading_node("The basics of API authentication in OAuth", 1);
-        let context = create_rule_context();
+        let mdx = "# The basics of API authentication in OAuth";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -609,10 +624,15 @@ mod tests {
         let mut rule = Rule001HeadingCase::default();
         rule.setup(None);
 
-        let heading = create_heading_node("Bonus: Profile photos", 1);
-        let context = create_rule_context();
+        let mdx = "# Bonus: Profile photos";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -621,10 +641,15 @@ mod tests {
         let mut rule = Rule001HeadingCase::default();
         rule.setup(None);
 
-        let heading = create_heading_node("Step 1: Do a thing", 1);
-        let context = create_rule_context();
+        let mdx = "# Step 1: Do a thing";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -635,10 +660,13 @@ mod tests {
 
         let markdown = "# `inline_code` (in a heading) can have `ArbitraryCase`";
         let parse_result = parse(markdown).unwrap();
-        let heading = parse_result.ast.children().unwrap().get(0).unwrap();
-        let context = create_rule_context();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -649,10 +677,13 @@ mod tests {
 
         let markdown = "# 384 dimensions for vector";
         let parse_result = parse(markdown).unwrap();
-        let heading = parse_result.ast.children().unwrap().get(0).unwrap();
-        let context = create_rule_context();
+        let context = RuleContext::new(parse_result, None).unwrap();
 
-        let result = rule.check(&heading, &context, LintLevel::Error);
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 }

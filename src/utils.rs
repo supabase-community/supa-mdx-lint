@@ -1,11 +1,6 @@
-use std::{num::NonZeroUsize, path::Path};
+use std::path::Path;
 
 use markdown::mdast::Node;
-
-pub fn set_panic_hook() {
-    #[cfg(feature = "console_error_panic_hook")]
-    console_error_panic_hook::set_once();
-}
 
 #[macro_export]
 macro_rules! log {
@@ -74,9 +69,4 @@ pub fn split_first_word_at_whitespace_and_colons(s: &str) -> (&str, &str, bool) 
 pub fn is_lintable(path: impl AsRef<Path>) -> bool {
     let path = path.as_ref();
     path.is_dir() || path.extension().map_or(false, |ext| ext == "mdx")
-}
-
-pub trait NonZeroLineRange {
-    fn start_line(&self) -> NonZeroUsize;
-    fn end_line(&self) -> Option<NonZeroUsize>;
 }

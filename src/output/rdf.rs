@@ -5,9 +5,9 @@ use log::{debug, warn};
 use serde::Serialize;
 
 use crate::{
-    document::{AdjustedPoint, Location},
     errors::LintLevel,
     fix::LintFix,
+    geometry::{AdjustedPoint, DenormalizedLocation},
 };
 
 use super::LintOutput;
@@ -45,11 +45,17 @@ struct RdfRange {
     end: RdfPosition,
 }
 
-impl From<&Location> for RdfRange {
-    fn from(location: &Location) -> Self {
+impl From<DenormalizedLocation> for RdfRange {
+    fn from(location: DenormalizedLocation) -> Self {
+        Self::from(&location)
+    }
+}
+
+impl From<&DenormalizedLocation> for RdfRange {
+    fn from(location: &DenormalizedLocation) -> Self {
         Self {
-            start: location.start().into(),
-            end: location.end().into(),
+            start: (&location.start).into(),
+            end: (&location.end).into(),
         }
     }
 }
@@ -63,8 +69,8 @@ struct RdfPosition {
 impl From<&AdjustedPoint> for RdfPosition {
     fn from(point: &AdjustedPoint) -> Self {
         Self {
-            line: point.line.into(),
-            column: point.column.into(),
+            line: point.row + 1,
+            column: point.column + 1,
         }
     }
 }
@@ -79,13 +85,7 @@ impl<'fix> RdfSuggestion<'fix> {
     fn from_lint_fix(fix: &'fix LintFix) -> Self {
         match fix {
             LintFix::Insert(fix) => Self {
-                range: RdfRange {
-                    start: (&fix.point).into(),
-                    end: RdfPosition {
-                        line: fix.point.line.into(),
-                        column: Into::<usize>::into(fix.point.column) + 1,
-                    },
-                },
+                range: (&fix.location).into(),
                 text: &fix.text,
             },
             LintFix::Delete(fix) => Self {
@@ -147,7 +147,6 @@ impl RdfFormatter {
 mod tests {
     use super::*;
     use crate::{
-        document::Location,
         errors::LintError,
         fix::{LintFix, LintFixDelete},
     };
@@ -158,7 +157,7 @@ mod tests {
         let error = LintError {
             level: LintLevel::Error,
             message: "This is an error".to_string(),
-            location: Location::dummy(1, 1, 0, 1, 2, 1),
+            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
             fix: None,
         };
 
@@ -174,7 +173,7 @@ mod tests {
 
         let result = String::from_utf8(result).unwrap();
         let result = result.trim();
-        let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":2}}},"severity":"ERROR"}"#;
+        let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}"#;
         assert_eq!(result, expected);
     }
 
@@ -184,9 +183,9 @@ mod tests {
         let error = LintError {
             level: LintLevel::Error,
             message: "This is an error".to_string(),
-            location: Location::dummy(1, 1, 0, 1, 9, 8),
+            location: DenormalizedLocation::dummy(0, 8, 0, 0, 0, 8),
             fix: Some(vec![LintFix::Delete(LintFixDelete {
-                location: Location::dummy(1, 1, 0, 1, 9, 8),
+                location: DenormalizedLocation::dummy(0, 8, 0, 0, 0, 8),
             })]),
         };
         let output = LintOutput {
@@ -211,13 +210,13 @@ mod tests {
         let error_1 = LintError {
             level: LintLevel::Error,
             message: "This is an error".to_string(),
-            location: Location::dummy(1, 1, 0, 1, 2, 1),
+            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
             fix: None,
         };
         let error_2 = LintError {
             level: LintLevel::Error,
             message: "This is another error".to_string(),
-            location: Location::dummy(2, 1, 10, 2, 2, 11),
+            location: DenormalizedLocation::dummy(0, 7, 0, 0, 4, 2),
             fix: None,
         };
 
@@ -233,8 +232,8 @@ mod tests {
 
         let result = String::from_utf8(result).unwrap();
         let result = result.trim();
-        let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":2}}},"severity":"ERROR"}
-{"message":"This is another error","location":{"path":"test.md","range":{"start":{"line":2,"column":1},"end":{"line":2,"column":2}}},"severity":"ERROR"}"#;
+        let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
+{"message":"This is another error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":5,"column":3}}},"severity":"ERROR"}"#;
         assert_eq!(result, expected);
     }
 
@@ -244,13 +243,13 @@ mod tests {
         let error_1 = LintError {
             level: LintLevel::Error,
             message: "This is an error".to_string(),
-            location: Location::dummy(1, 1, 0, 1, 2, 1),
+            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
             fix: None,
         };
         let error_2 = LintError {
             level: LintLevel::Error,
             message: "This is another error".to_string(),
-            location: Location::dummy(2, 1, 10, 2, 2, 11),
+            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
             fix: None,
         };
 
@@ -274,10 +273,10 @@ mod tests {
 
         let result = String::from_utf8(result).unwrap();
         let result = result.trim();
-        let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":2}}},"severity":"ERROR"}
-{"message":"This is another error","location":{"path":"test.md","range":{"start":{"line":2,"column":1},"end":{"line":2,"column":2}}},"severity":"ERROR"}
-{"message":"This is an error","location":{"path":"test2.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":2}}},"severity":"ERROR"}
-{"message":"This is another error","location":{"path":"test2.md","range":{"start":{"line":2,"column":1},"end":{"line":2,"column":2}}},"severity":"ERROR"}"#;
+        let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
+{"message":"This is another error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
+{"message":"This is an error","location":{"path":"test2.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
+{"message":"This is another error","location":{"path":"test2.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}"#;
         assert_eq!(result, expected);
     }
 }

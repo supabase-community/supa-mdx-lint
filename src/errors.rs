@@ -4,13 +4,11 @@ use anyhow::Result;
 use markdown::mdast::Node;
 use serde::{Deserialize, Serialize};
 
-#[cfg(target_arch = "wasm32")]
-use tsify::Tsify;
-
-use crate::{document::Location, fix::LintFix, rules::RuleContext};
-
-#[cfg(target_arch = "wasm32")]
-use crate::fix::JsLintFix;
+use crate::{
+    fix::LintFix,
+    geometry::{AdjustedPoint, AdjustedRange, DenormalizedLocation},
+    rules::RuleContext,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
@@ -45,47 +43,26 @@ impl TryFrom<&str> for LintLevel {
 pub struct LintError {
     pub level: LintLevel,
     pub message: String,
-    pub location: Location,
+    pub location: DenormalizedLocation,
     pub fix: Option<Vec<LintFix>>,
-}
-
-#[cfg(target_arch = "wasm32")]
-#[derive(Debug, Deserialize, Serialize, Tsify)]
-#[tsify(into_wasm_abi)]
-pub struct JsLintError {
-    pub message: String,
-    pub location: Location,
-    pub fix: Option<Vec<JsLintFix>>,
-}
-
-#[cfg(target_arch = "wasm32")]
-impl From<&LintError> for JsLintError {
-    fn from(value: &LintError) -> Self {
-        Self {
-            message: value.message.clone(),
-            location: value.location.clone(),
-            fix: value
-                .fix
-                .as_ref()
-                .map(|fixes| fixes.iter().map(|f| f.into()).collect::<Vec<JsLintFix>>()),
-        }
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-impl From<LintError> for JsLintError {
-    fn from(value: LintError) -> Self {
-        (&value).into()
-    }
 }
 
 impl LintError {
     pub fn new(
         message: String,
         level: LintLevel,
-        location: Location,
+        location: AdjustedRange,
         fix: Option<Vec<LintFix>>,
+        context: &RuleContext,
     ) -> Self {
+        let start = AdjustedPoint::from_adjusted_offset(&location.start, context.rope());
+        let end = AdjustedPoint::from_adjusted_offset(&location.end, context.rope());
+        let location = DenormalizedLocation {
+            offset_range: location,
+            start,
+            end,
+        };
+
         Self {
             level,
             message,
@@ -101,8 +78,8 @@ impl LintError {
         level: LintLevel,
     ) -> Option<Self> {
         if let Some(position) = node.position() {
-            let location = Location::from_position(position, context);
-            Some(Self::new(message.into(), level, location, None))
+            let location = AdjustedRange::from_unadjusted_position(position, context);
+            Some(Self::new(message.into(), level, location, None, context))
         } else {
             None
         }
