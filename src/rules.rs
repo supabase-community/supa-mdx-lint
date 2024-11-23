@@ -7,7 +7,9 @@ use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
     errors::{LintError, LintLevel},
+    geometry::AdjustedOffset,
     parser::{LintDisables, ParseResult},
+    rope::Rope,
 };
 
 mod rule001_heading_case;
@@ -152,24 +154,44 @@ pub struct RuleContext<'ctx> {
 }
 
 impl<'ctx> RuleContext<'ctx> {
-    pub fn new(
+    pub(crate) fn new(
         parse_result: ParseResult,
         check_only_rules: Option<&'ctx [&'ctx str]>,
     ) -> Result<Self> {
-        let disables = (&parse_result.ast).try_into().inspect_err(|err| {
+        let mut ctx = Self {
+            parse_result,
+            check_only_rules,
+            disables: Default::default(),
+        };
+
+        let disables = LintDisables::new(ctx.ast(), &ctx).inspect_err(|err| {
             error!("Error parsing disable directives from file: {}", err);
         })?;
         debug!("Disables: {:?}", disables);
+        ctx.disables = disables;
 
-        Ok(Self {
-            parse_result,
-            check_only_rules,
-            disables,
-        })
+        Ok(ctx)
     }
 
-    pub fn frontmatter_lines(&self) -> usize {
-        self.parse_result.frontmatter_lines
+    #[cfg(test)]
+    pub(crate) fn new_parse_only_for_testing(parse_result: ParseResult) -> Self {
+        Self {
+            parse_result,
+            check_only_rules: Default::default(),
+            disables: Default::default(),
+        }
+    }
+
+    pub(crate) fn ast(&self) -> &Node {
+        &self.parse_result.ast
+    }
+
+    pub(crate) fn rope(&self) -> &Rope {
+        &self.parse_result.rope
+    }
+
+    pub fn content_start_offset(&self) -> &AdjustedOffset {
+        &self.parse_result.content_start_offset
     }
 }
 
@@ -289,8 +311,10 @@ mod tests {
         Arc,
     };
 
+    use crate::parser::parse;
+
     use super::*;
-    use markdown::mdast::{Node, Text};
+    use markdown::mdast::Node;
     use supa_mdx_macros::RuleName;
 
     #[derive(Clone, Default, Debug, RuleName)]
@@ -337,11 +361,6 @@ mod tests {
 
     #[test]
     fn test_check_node_with_filter() {
-        let text_node = Node::Text(Text {
-            value: "test".into(),
-            position: None,
-        });
-
         let mock_rule_1 = MockRule::default();
         let mock_rule_2 = MockRule2::default();
         let check_count_1 = mock_rule_1.check_count.clone();
@@ -353,27 +372,19 @@ mod tests {
             configured_levels: Default::default(),
         };
 
-        let parse_result = ParseResult {
-            ast: text_node.clone(),
-            frontmatter_lines: 0,
-            frontmatter: None,
-        };
+        let mdx = "text";
+        let parse_result = parse(mdx).unwrap();
         let context = RuleContext::new(parse_result, Some(&["MockRule"])).unwrap();
 
         let mut errors = Vec::new();
-        registry.check_node(&text_node, &context, &mut errors);
+        registry.check_node(context.ast(), &context, &mut errors);
 
-        assert_eq!(check_count_1.load(Ordering::Relaxed), 1);
+        assert!(check_count_1.load(Ordering::Relaxed) > 1);
         assert_eq!(check_count_2.load(Ordering::Relaxed), 0);
     }
 
     #[test]
     fn test_check_node_without_filter() {
-        let text_node = Node::Text(Text {
-            value: "test".into(),
-            position: None,
-        });
-
         let mock_rule_1 = MockRule::default();
         let mock_rule_2 = MockRule2::default();
         let check_count_1 = mock_rule_1.check_count.clone();
@@ -385,17 +396,14 @@ mod tests {
             configured_levels: Default::default(),
         };
 
-        let parse_result = ParseResult {
-            ast: text_node.clone(),
-            frontmatter_lines: 0,
-            frontmatter: None,
-        };
+        let mdx = "test";
+        let parse_result = parse(mdx).unwrap();
         let context = RuleContext::new(parse_result, None).unwrap();
 
         let mut errors = Vec::new();
-        registry.check_node(&text_node, &context, &mut errors);
+        registry.check_node(context.ast(), &context, &mut errors);
 
-        assert_eq!(check_count_1.load(Ordering::Relaxed), 1);
-        assert_eq!(check_count_2.load(Ordering::Relaxed), 1);
+        assert!(check_count_1.load(Ordering::Relaxed) > 1);
+        assert!(check_count_2.load(Ordering::Relaxed) > 1);
     }
 }

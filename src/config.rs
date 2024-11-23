@@ -63,7 +63,6 @@ impl Config {
     ///
     /// Rule003NotApplied = false
     /// ```
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn from_config_file<P: AsRef<Path>>(config_file: P) -> Result<Self> {
         let config_path = config_file.as_ref().to_path_buf();
         let config_dir = config_path.parent().ok_or_else(|| {
@@ -81,7 +80,6 @@ impl Config {
         Self::from_serializable(parsed, &config_dir)
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn process_includes(raw_str: &str, base_dir: &Path) -> Result<toml::Table> {
         let table: toml::Table = toml::from_str(raw_str)?;
         let mut processed_table = toml::Table::new();
@@ -235,19 +233,16 @@ mod tests {
 
     use serde_json::json;
 
-    #[cfg(not(target_arch = "wasm32"))]
     use tempfile::NamedTempFile;
 
     const VALID_RULE_NAME: &str = "Rule001HeadingCase";
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn create_temp_config_file(content: &str) -> NamedTempFile {
         let file = NamedTempFile::new().unwrap();
         std::fs::write(&file, content).unwrap();
         file
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_from_config_file_valid() {
         let content = format!(
@@ -263,7 +258,6 @@ option2 = "value"
         assert!(config.rule_registry.is_rule_active(VALID_RULE_NAME));
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_config_with_includes() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
@@ -293,7 +287,6 @@ option2 = "value"
         Ok(())
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_ignores_invalid_rule_name() {
         let content = r#"
@@ -309,7 +302,6 @@ option2 = "value"
         assert!(config.rule_registry.is_rule_active(VALID_RULE_NAME));
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_from_config_file_invalid() {
         let content = "invalid toml content";

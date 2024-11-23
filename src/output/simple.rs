@@ -31,13 +31,14 @@ impl SimpleFormatter {
 
         for output in output.iter() {
             for error in output.errors.iter() {
-                written = true;
+                written |= true;
+
                 match writeln!(
                     io,
                     "{}:{}:{}: [{}] {}",
                     output.file_path,
-                    error.location.start().line,
-                    error.location.start().column,
+                    error.location.start.row + 1,
+                    error.location.start.column + 1,
                     error.level,
                     error.message,
                 ) {
@@ -111,8 +112,8 @@ impl SimpleFormatter {
 mod tests {
     use super::*;
     use crate::{
-        document::Location,
         errors::{LintError, LintLevel},
+        geometry::DenormalizedLocation,
     };
 
     #[test]
@@ -121,7 +122,7 @@ mod tests {
         let error = LintError {
             level: LintLevel::Error,
             message: "This is an error".to_string(),
-            location: Location::dummy(1, 1, 0, 1, 2, 1),
+            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
             fix: None,
         };
 
@@ -146,7 +147,7 @@ mod tests {
         let error = LintError {
             level: LintLevel::Warning,
             message: "This is a warning".to_string(),
-            location: Location::dummy(1, 1, 0, 1, 2, 1),
+            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
             fix: None,
         };
         let output = LintOutput {
@@ -170,13 +171,13 @@ mod tests {
         let error1 = LintError {
             level: LintLevel::Error,
             message: "This is an error".to_string(),
-            location: Location::dummy(1, 1, 0, 1, 2, 1),
+            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
             fix: None,
         };
         let error2 = LintError {
             level: LintLevel::Warning,
             message: "This is a warning".to_string(),
-            location: Location::dummy(2, 1, 10, 1, 2, 11),
+            location: DenormalizedLocation::dummy(14, 46, 3, 0, 4, 2),
             fix: None,
         };
         let output = LintOutput {
@@ -190,7 +191,7 @@ mod tests {
         formatter.format(&output, &mut result).unwrap();
         assert_eq!(
             String::from_utf8(result).unwrap(),
-            "test.md:1:1: [ERROR] This is an error\ntest.md:2:1: [WARN] This is a warning\n\n🔍 1 source linted\n🔴 Found 1 error and 1 warning\n"
+            "test.md:1:1: [ERROR] This is an error\ntest.md:4:1: [WARN] This is a warning\n\n🔍 1 source linted\n🔴 Found 1 error and 1 warning\n"
         );
     }
 
@@ -218,13 +219,13 @@ mod tests {
         let error_1 = LintError {
             level: LintLevel::Error,
             message: "This is an error".to_string(),
-            location: Location::dummy(1, 1, 0, 1, 2, 1),
+            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
             fix: None,
         };
         let error_2 = LintError {
             level: LintLevel::Error,
             message: "This is another error".to_string(),
-            location: Location::dummy(2, 1, 10, 2, 2, 11),
+            location: DenormalizedLocation::dummy(14, 46, 3, 0, 4, 2),
             fix: None,
         };
 
@@ -239,7 +240,7 @@ mod tests {
         formatter.format(&output, &mut result).unwrap();
         assert_eq!(
             String::from_utf8(result).unwrap(),
-            "test.md:1:1: [ERROR] This is an error\ntest.md:2:1: [ERROR] This is another error\n\n🔍 1 source linted\n🔴 Found 2 errors\n"
+            "test.md:1:1: [ERROR] This is an error\ntest.md:4:1: [ERROR] This is another error\n\n🔍 1 source linted\n🔴 Found 2 errors\n"
         );
     }
 
@@ -249,13 +250,13 @@ mod tests {
         let error_1 = LintError {
             level: LintLevel::Error,
             message: "This is an error".to_string(),
-            location: Location::dummy(1, 1, 0, 1, 2, 1),
+            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
             fix: None,
         };
         let error_2 = LintError {
             level: LintLevel::Error,
             message: "This is another error".to_string(),
-            location: Location::dummy(2, 1, 10, 2, 2, 11),
+            location: DenormalizedLocation::dummy(14, 46, 3, 0, 4, 2),
             fix: None,
         };
 
@@ -268,13 +269,13 @@ mod tests {
         let error_3 = LintError {
             level: LintLevel::Error,
             message: "This is an error".to_string(),
-            location: Location::dummy(1, 1, 0, 1, 2, 1),
+            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
             fix: None,
         };
         let error_4 = LintError {
             level: LintLevel::Error,
             message: "This is another error".to_string(),
-            location: Location::dummy(2, 1, 10, 2, 2, 11),
+            location: DenormalizedLocation::dummy(14, 46, 3, 0, 4, 2),
             fix: None,
         };
 
@@ -290,7 +291,7 @@ mod tests {
         formatter.format(&output, &mut result).unwrap();
         assert_eq!(
             String::from_utf8(result).unwrap(),
-            "test.md:1:1: [ERROR] This is an error\ntest.md:2:1: [ERROR] This is another error\ntest2.md:1:1: [ERROR] This is an error\ntest2.md:2:1: [ERROR] This is another error\n\n🔍 2 sources linted\n🔴 Found 4 errors\n"
+            "test.md:1:1: [ERROR] This is an error\ntest.md:4:1: [ERROR] This is another error\ntest2.md:1:1: [ERROR] This is an error\ntest2.md:4:1: [ERROR] This is another error\n\n🔍 2 sources linted\n🔴 Found 4 errors\n"
         );
     }
 }

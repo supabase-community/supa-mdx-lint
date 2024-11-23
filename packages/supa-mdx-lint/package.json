@@ -8,7 +8,6 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "prepare": "wasm-pack build --target nodejs --out-dir ./packages/supa-mdx-lint/pkg",
     "test": "vitest"
   },
   "files": [
