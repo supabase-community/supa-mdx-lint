@@ -50,7 +50,7 @@ impl Rule002AdmonitionTypes {
     }
 
     fn check_ast(&self, node: &Node, context: &RuleContext, level: LintLevel) -> Option<LintError> {
-        trace!("Checking ast for node: {node:?}");
+        trace!("Checking AST for node: {node:#?}");
 
         match node {
             Node::MdxJsxFlowElement(element)

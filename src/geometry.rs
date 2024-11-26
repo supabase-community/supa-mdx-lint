@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::ops::{Add, Deref, DerefMut, Range};
+use std::ops::{Add, Deref, DerefMut, Range, SubAssign};
 
 use serde::{Deserialize, Serialize};
 
@@ -52,6 +52,12 @@ impl Add for AdjustedOffset {
 
     fn add(self, rhs: Self) -> Self::Output {
         Self(self.0 + rhs.0)
+    }
+}
+
+impl SubAssign for AdjustedOffset {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
     }
 }
 
@@ -267,6 +273,48 @@ impl DenormalizedLocation {
     }
 }
 
+#[derive(Debug, Default)]
+pub(crate) struct RangeSet(Vec<AdjustedRange>);
+
+impl RangeSet {
+    pub(crate) fn new() -> Self {
+        Default::default()
+    }
+
+    pub(crate) fn push(&mut self, range: AdjustedRange) {
+        match self.overlaps_impl(&range) {
+            Ok(index) => {
+                self.0[index] = AdjustedRange::span_between(&self.0[index], &range);
+            }
+            Err(index) => {
+                self.0.insert(index, range);
+            }
+        }
+    }
+
+    pub(crate) fn completely_contains(&self, range: &AdjustedRange) -> bool {
+        match self.overlaps_impl(range) {
+            Err(_) => false,
+            Ok(index) => {
+                let potential_container = &self.0[index];
+                potential_container.start <= range.start && potential_container.end >= range.end
+            }
+        }
+    }
+
+    fn overlaps_impl(&self, range: &AdjustedRange) -> Result<usize, usize> {
+        self.0.binary_search_by(|probe| {
+            if probe.end < range.start {
+                Ordering::Less
+            } else if probe.start > range.end {
+                Ordering::Greater
+            } else {
+                Ordering::Equal
+            }
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{AdjustedOffset, AdjustedPoint, AdjustedRange, DenormalizedLocation};
@@ -295,5 +343,89 @@ mod tests {
                 },
             }
         }
+    }
+
+    #[test]
+    fn test_range_set_merges_overlapping_ranges() {
+        let mut set = super::RangeSet::new();
+
+        let range1 = AdjustedRange::new(AdjustedOffset::from(0), AdjustedOffset::from(5));
+        let range2 = AdjustedRange::new(AdjustedOffset::from(3), AdjustedOffset::from(8));
+
+        set.push(range1);
+        set.push(range2);
+
+        assert_eq!(set.0.len(), 1);
+        assert_eq!(set.0[0].start, AdjustedOffset::from(0));
+        assert_eq!(set.0[0].end, AdjustedOffset::from(8));
+    }
+
+    #[test]
+    fn test_range_set_merges_adjacent_ranges() {
+        let mut set = super::RangeSet::new();
+
+        let range1 = AdjustedRange::new(AdjustedOffset::from(0), AdjustedOffset::from(5));
+        let range2 = AdjustedRange::new(AdjustedOffset::from(5), AdjustedOffset::from(8));
+
+        set.push(range1);
+        set.push(range2);
+
+        assert_eq!(set.0.len(), 1);
+        assert_eq!(set.0[0].start, AdjustedOffset::from(0));
+        assert_eq!(set.0[0].end, AdjustedOffset::from(8));
+
+        let mut set = super::RangeSet::new();
+
+        let range1 = AdjustedRange::new(AdjustedOffset::from(5), AdjustedOffset::from(8));
+        let range2 = AdjustedRange::new(AdjustedOffset::from(0), AdjustedOffset::from(5));
+
+        set.push(range1);
+        set.push(range2);
+
+        assert_eq!(set.0.len(), 1);
+        assert_eq!(set.0[0].start, AdjustedOffset::from(0));
+        assert_eq!(set.0[0].end, AdjustedOffset::from(8));
+    }
+
+    #[test]
+    fn test_range_set_keeps_non_overlapping_ranges_separate() {
+        let mut set = super::RangeSet::new();
+
+        let range1 = AdjustedRange::new(AdjustedOffset::from(0), AdjustedOffset::from(3));
+        let range2 = AdjustedRange::new(AdjustedOffset::from(5), AdjustedOffset::from(8));
+
+        set.push(range1);
+        set.push(range2);
+
+        assert_eq!(set.0.len(), 2);
+        assert_eq!(set.0[0].start, AdjustedOffset::from(0));
+        assert_eq!(set.0[0].end, AdjustedOffset::from(3));
+        assert_eq!(set.0[1].start, AdjustedOffset::from(5));
+        assert_eq!(set.0[1].end, AdjustedOffset::from(8));
+    }
+
+    #[test]
+    fn test_range_set_completely_contains() {
+        let mut set = super::RangeSet::new();
+
+        // Add a range from 0-10
+        let container = AdjustedRange::new(AdjustedOffset::from(0), AdjustedOffset::from(10));
+        set.push(container);
+
+        // Test contained range
+        let contained = AdjustedRange::new(AdjustedOffset::from(2), AdjustedOffset::from(8));
+        assert!(set.completely_contains(&contained));
+
+        // Test partially overlapping range
+        let partial = AdjustedRange::new(AdjustedOffset::from(5), AdjustedOffset::from(12));
+        assert!(!set.completely_contains(&partial));
+
+        // Test non-overlapping range
+        let outside = AdjustedRange::new(AdjustedOffset::from(15), AdjustedOffset::from(20));
+        assert!(!set.completely_contains(&outside));
+
+        // Test exact same range
+        let same = AdjustedRange::new(AdjustedOffset::from(0), AdjustedOffset::from(10));
+        assert!(set.completely_contains(&same));
     }
 }

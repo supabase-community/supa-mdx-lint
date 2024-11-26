@@ -85,10 +85,16 @@ impl<'rope> Iterator for WordIterator<'rope> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let next_word_data = self.parser.parse(self.rope);
-        if let Some(mut next_word_data) = next_word_data {
-            next_word_data.0 += self.offset_from_parent;
+
+        if let Some(next_word_data) = next_word_data {
+            Some((
+                next_word_data.0 + self.offset_from_parent,
+                next_word_data.1,
+                next_word_data.2,
+            ))
+        } else {
+            None
         }
-        next_word_data
     }
 }
 
@@ -167,7 +173,7 @@ impl WordParser {
                 _ if c.is_alphabetic() => self.consume_other_alphabetic(c),
                 _ if c.is_whitespace() => self.consume_whitespace(c),
                 '\\' => self.consume_escape(),
-                _ if Self::is_punctuation(&c) => self.consume_punctuation(c),
+                _ if is_punctuation(&c) => self.consume_punctuation(c),
                 _ => self.consume_other(c),
             };
 
@@ -390,31 +396,6 @@ impl WordParser {
             }
             _ => self.tracking_offset,
         }
-    }
-
-    fn is_punctuation(c: &char) -> bool {
-        *c == '!'
-            || *c == '-'
-            || *c == '–'
-            || *c == '—'
-            || *c == '―'
-            || *c == '('
-            || *c == ')'
-            || *c == '['
-            || *c == ']'
-            || *c == '{'
-            || *c == '}'
-            || *c == ':'
-            || *c == '\''
-            || *c == '‘'
-            || *c == '’'
-            || *c == '“'
-            || *c == '”'
-            || *c == '"'
-            || *c == '?'
-            || *c == ','
-            || *c == '.'
-            || *c == ';'
     }
 
     fn punc_triggers_capitalization_std(c: &char) -> bool {
@@ -781,4 +762,29 @@ mod tests {
             );
         }
     }
+}
+
+pub fn is_punctuation(c: &char) -> bool {
+    *c == '!'
+        || *c == '-'
+        || *c == '–'
+        || *c == '—'
+        || *c == '―'
+        || *c == '('
+        || *c == ')'
+        || *c == '['
+        || *c == ']'
+        || *c == '{'
+        || *c == '}'
+        || *c == ':'
+        || *c == '\''
+        || *c == '‘'
+        || *c == '’'
+        || *c == '“'
+        || *c == '”'
+        || *c == '"'
+        || *c == '?'
+        || *c == ','
+        || *c == '.'
+        || *c == ';'
 }
