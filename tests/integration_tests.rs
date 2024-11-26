@@ -6,7 +6,7 @@ use std::process::Command;
 fn integration_test_no_args() {
     let mut cmd = Command::cargo_bin("supa-mdx-lint").unwrap();
     cmd.assert().failure().stderr(predicate::str::contains(
-        "the following required arguments were not provided",
+        "The following required arguments were not provided",
     ));
 }
 
@@ -74,4 +74,17 @@ fn integration_test_file_level_disables() {
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("No errors or warnings found"));
+}
+
+#[test]
+fn integration_test_multiple_targets() {
+    let mut cmd = Command::cargo_bin("supa-mdx-lint").unwrap();
+    cmd.arg("tests/good001.mdx")
+        .arg("tests/bad001.mdx")
+        .arg("--config")
+        .arg("tests/supa-mdx-lint.config.toml");
+    cmd.assert()
+        .failure()
+        .stdout(predicate::str::contains("2 sources linted"))
+        .stdout(predicate::str::contains("Found 2 errors"));
 }
