@@ -83,7 +83,7 @@ impl Rule001HeadingCase {
         next_word_capital: &mut NextWordCapital,
         context: &RuleContext,
     ) {
-        let mut remaining_text = text.value.to_string();
+        let mut remaining_text = text.value.as_str();
         let mut char_index = 0;
 
         while !remaining_text.is_empty() {
@@ -102,7 +102,7 @@ impl Rule001HeadingCase {
                 next_alphabetic_index += 1;
             }
 
-            remaining_text = remaining_text[next_alphabetic_index..].to_string();
+            remaining_text = &remaining_text[next_alphabetic_index..];
             char_index += next_alphabetic_index;
 
             if remaining_text.is_empty() {
@@ -116,7 +116,7 @@ impl Rule001HeadingCase {
             if next_word_capital.0 {
                 if first_char.is_lowercase() {
                     let (match_result, rest, split_on_colon) = self.create_text_lint_fix(
-                        &remaining_text,
+                        remaining_text,
                         text,
                         char_index,
                         Case::Lower,
@@ -134,26 +134,26 @@ impl Rule001HeadingCase {
                     let exception = self
                         .may_uppercase
                         .iter()
-                        .find(|pattern| pattern.is_match(&remaining_text));
+                        .find(|pattern| pattern.is_match(remaining_text));
                     if exception.is_some() {
-                        let match_result = exception.unwrap().find(&remaining_text).unwrap();
-                        remaining_text = remaining_text[match_result.end()..].to_string();
+                        let match_result = exception.unwrap().find(remaining_text).unwrap();
+                        remaining_text = &remaining_text[match_result.end()..];
                         if !remaining_text.starts_with(':') {
                             next_word_capital.0 = false;
                         }
                     } else {
                         let (first_word, rest, split_on_colon) =
-                            split_first_word_at_whitespace_and_colons(&remaining_text);
+                            split_first_word_at_whitespace_and_colons(remaining_text);
                         if !split_on_colon {
                             next_word_capital.0 = false;
                         }
                         char_index += first_word.len();
-                        remaining_text = rest.to_string();
+                        remaining_text = rest;
                     }
                 }
             } else if first_char.is_uppercase() {
                 let (match_result, rest, split_on_colon) = self.create_text_lint_fix(
-                    &remaining_text,
+                    remaining_text,
                     text,
                     char_index,
                     Case::Upper,
@@ -169,24 +169,24 @@ impl Rule001HeadingCase {
                 remaining_text = rest;
             } else {
                 let (first_word, rest, split_on_colon) =
-                    split_first_word_at_whitespace_and_colons(&remaining_text);
+                    split_first_word_at_whitespace_and_colons(remaining_text);
                 if split_on_colon {
                     next_word_capital.0 = true;
                 }
                 char_index += first_word.len();
-                remaining_text = rest.to_string();
+                remaining_text = rest;
             }
         }
     }
 
-    fn create_text_lint_fix(
+    fn create_text_lint_fix<'node>(
         &self,
-        text: &str,
-        node: &Text,
+        text: &'node str,
+        node: &'node Text,
         index: usize,
         case: Case,
         context: &RuleContext,
-    ) -> (Option<LintFix>, String, bool) {
+    ) -> (Option<LintFix>, &'node str, bool) {
         let patterns = match case {
             Case::Upper => &self.may_uppercase,
             Case::Lower => &self.may_lowercase,
@@ -199,7 +199,7 @@ impl Rule001HeadingCase {
 
         for pattern in patterns {
             if let Some(m) = pattern.find(text) {
-                return (None, text[m.end()..].to_string(), false);
+                return (None, &text[m.end()..], false);
             }
         }
 
@@ -242,10 +242,10 @@ impl Rule001HeadingCase {
                     location: Location::from_unadjusted_points(start, end, context),
                     text: replacement_word,
                 })),
-                rest.to_string(),
+                rest,
                 split_on_colon,
             ),
-            _ => (None, rest.to_string(), split_on_colon),
+            _ => (None, rest, split_on_colon),
         }
     }
 
