@@ -59,6 +59,7 @@ impl Rule for Rule001HeadingCase {
             LintError::from_node_with_fix(
                 ast,
                 context,
+                self.name(),
                 "Heading should be sentence case",
                 level,
                 fixes,
