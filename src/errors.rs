@@ -41,6 +41,7 @@ impl TryFrom<&str> for LintLevel {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LintError {
+    pub rule: String,
     pub level: LintLevel,
     pub message: String,
     pub location: DenormalizedLocation,
@@ -49,6 +50,7 @@ pub struct LintError {
 
 impl LintError {
     pub fn new(
+        rule: impl AsRef<str>,
         message: String,
         level: LintLevel,
         location: AdjustedRange,
@@ -64,6 +66,7 @@ impl LintError {
         };
 
         Self {
+            rule: rule.as_ref().into(),
             level,
             message,
             location,
@@ -74,12 +77,20 @@ impl LintError {
     pub fn from_node(
         node: &Node,
         context: &RuleContext,
+        rule: impl AsRef<str>,
         message: &str,
         level: LintLevel,
     ) -> Option<Self> {
         if let Some(position) = node.position() {
             let location = AdjustedRange::from_unadjusted_position(position, context);
-            Some(Self::new(message.into(), level, location, None, context))
+            Some(Self::new(
+                rule,
+                message.into(),
+                level,
+                location,
+                None,
+                context,
+            ))
         } else {
             None
         }
@@ -88,11 +99,12 @@ impl LintError {
     pub fn from_node_with_fix(
         node: &Node,
         context: &RuleContext,
+        rule: impl AsRef<str>,
         message: &str,
         level: LintLevel,
         fix: Vec<LintFix>,
     ) -> Option<Self> {
-        let mut lint_error = Self::from_node(node, context, message, level)?;
+        let mut lint_error = Self::from_node(node, context, rule, message, level)?;
         lint_error.fix = Some(fix);
         Some(lint_error)
     }

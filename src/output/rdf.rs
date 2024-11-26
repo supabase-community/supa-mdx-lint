@@ -155,6 +155,7 @@ mod tests {
     fn test_rdf_formatter() {
         let file_path = "test.md".to_string();
         let error = LintError {
+            rule: "MockRule".to_string(),
             level: LintLevel::Error,
             message: "This is an error".to_string(),
             location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
@@ -181,6 +182,7 @@ mod tests {
     fn test_rdf_formatter_with_fixes() {
         let file_path = "test.md".to_string();
         let error = LintError {
+            rule: "MockRule".to_string(),
             level: LintLevel::Error,
             message: "This is an error".to_string(),
             location: DenormalizedLocation::dummy(0, 8, 0, 0, 0, 8),
@@ -208,12 +210,14 @@ mod tests {
     fn test_rdf_formatter_multiple_errors() {
         let file_path = "test.md".to_string();
         let error_1 = LintError {
+            rule: "MockRule".to_string(),
             level: LintLevel::Error,
             message: "This is an error".to_string(),
             location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
             fix: None,
         };
         let error_2 = LintError {
+            rule: "MockRule".to_string(),
             level: LintLevel::Error,
             message: "This is another error".to_string(),
             location: DenormalizedLocation::dummy(0, 7, 0, 0, 4, 2),
@@ -241,12 +245,14 @@ mod tests {
     fn test_rdf_formatter_multiple_files() {
         let file_path_1 = "test.md".to_string();
         let error_1 = LintError {
+            rule: "MockRule".to_string(),
             level: LintLevel::Error,
             message: "This is an error".to_string(),
             location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
             fix: None,
         };
         let error_2 = LintError {
+            rule: "MockRule".to_string(),
             level: LintLevel::Error,
             message: "This is another error".to_string(),
             location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
