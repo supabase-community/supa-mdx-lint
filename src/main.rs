@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use clap::{ArgGroup, Parser};
+use clap::{error::ErrorKind, ArgGroup, CommandFactory, Parser};
 use glob::glob;
 use log::{debug, error};
 use simplelog::{ColorChoice, Config as LogConfig, LevelFilter, TermLogger, TerminalMode};
@@ -23,8 +23,8 @@ const DEFAULT_CONFIG_FILE: &str = "supa-mdx-lint.config.toml";
                 .args(&["debug", "silent", "trace"]),
         ))]
 struct Args {
-    /// (Glob of) files or directories to lint
-    target: String,
+    /// (Globs of) files or directories to lint
+    target: Vec<String>,
 
     /// Sets a custom config file
     #[arg(short, long, value_name = "FILE")]
@@ -77,17 +77,22 @@ fn setup_logging(args: &Args) -> Result<LevelFilter> {
     Ok(log_level)
 }
 
-fn get_diagnostics(target: &str, linter: &Linter) -> Result<Vec<LintOutput>> {
-    let target = glob(target).context("Failed to parse glob pattern")?;
-    let targets = target
-        .into_iter()
-        .filter_map(|res| res.ok())
-        .filter(|path| is_lintable(path))
-        .map(LintTarget::FileOrDirectory);
+fn get_diagnostics(targets: &[String], linter: &Linter) -> Result<Vec<LintOutput>> {
+    let mut all_targets = Vec::new();
+
+    for target in targets.iter() {
+        let target = glob(target).context("Failed to parse glob pattern")?;
+        target
+            .into_iter()
+            .filter_map(|res| res.ok())
+            .filter(|path| is_lintable(path))
+            .map(LintTarget::FileOrDirectory)
+            .for_each(|target| all_targets.push(target));
+    }
     debug!("Lint targets: {targets:#?}");
 
     let mut diagnostics = Vec::new();
-    for target in targets {
+    for target in all_targets {
         match linter.lint(&target) {
             Ok(mut result) => {
                 debug!("Successfully linted {target:?}");
@@ -107,6 +112,15 @@ fn execute() -> Result<Result<()>> {
 
     let log_level = setup_logging(&args)?;
     debug!("Log level set to {log_level}");
+
+    if args.target.is_empty() {
+        let mut cmd = Args::command();
+        cmd.error(
+            ErrorKind::MissingRequiredArgument,
+            "The following required arguments were not provided:\n    [TARGET]",
+        )
+        .exit();
+    };
 
     let current_dir = env::current_dir().context("Failed to get current directory")?;
     let config_path = args.config.map_or_else(
