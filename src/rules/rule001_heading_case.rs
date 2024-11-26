@@ -87,15 +87,23 @@ impl Rule001HeadingCase {
         let mut char_index = 0;
 
         while !remaining_text.is_empty() {
-            if remaining_text.starts_with(": ") {
-                next_word_capital.0 = true;
+            let mut chars = remaining_text.chars();
+            let mut next_alphabetic_index = 0;
+            while let Some(c) = chars.next().and_then(|c| {
+                if c.is_ascii_alphabetic() {
+                    None
+                } else {
+                    Some(c)
+                }
+            }) {
+                if c == ':' {
+                    next_word_capital.0 = true;
+                }
+                next_alphabetic_index += 1;
             }
 
-            let current_length = remaining_text.len();
-            remaining_text = remaining_text
-                .trim_start_matches(|c: char| !c.is_ascii_alphabetic())
-                .to_string();
-            char_index += current_length - remaining_text.len();
+            remaining_text = remaining_text[next_alphabetic_index..].to_string();
+            char_index += next_alphabetic_index;
 
             if remaining_text.is_empty() {
                 break;
@@ -600,6 +608,18 @@ mod tests {
         rule.setup(None);
 
         let heading = create_heading_node("Bonus: Profile photos", 1);
+        let context = create_rule_context();
+
+        let result = rule.check(&heading, &context, LintLevel::Error);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_can_capitalize_after_colon_with_number() {
+        let mut rule = Rule001HeadingCase::default();
+        rule.setup(None);
+
+        let heading = create_heading_node("Step 1: Do a thing", 1);
         let context = create_rule_context();
 
         let result = rule.check(&heading, &context, LintLevel::Error);
