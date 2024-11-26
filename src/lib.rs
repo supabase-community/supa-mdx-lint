@@ -158,9 +158,13 @@ mod tests {
     #[test]
     fn test_lint_valid_string() -> Result<()> {
         let config = Config::default();
-        let linter = LinterBuilder.configure(config).build()?;
+        let mut linter = LinterBuilder.configure(config).build()?;
+        linter
+            .config
+            .rule_registry
+            .deactivate_all_but("Rule001HeadingCase");
 
-        let valid_mdx = "# Hello, world!\n\nThis is valid MDX document.";
+        let valid_mdx = "# Hello, world!\n\nThis is a valid document.";
         let result = linter.lint(&LintTarget::String(valid_mdx.to_string()))?;
 
         assert!(
@@ -174,9 +178,13 @@ mod tests {
     #[test]
     fn test_lint_invalid_string() -> Result<()> {
         let config = Config::default();
-        let linter = LinterBuilder.configure(config).build()?;
+        let mut linter = LinterBuilder.configure(config).build()?;
+        linter
+            .config
+            .rule_registry
+            .deactivate_all_but("Rule001HeadingCase");
 
-        let invalid_mdx = "# Incorrect Heading\n\nThis is an invalid MDX document.";
+        let invalid_mdx = "# Incorrect Heading\n\nThis is an invalid document.";
         let result = linter.lint(&LintTarget::String(invalid_mdx.to_string()))?;
 
         assert!(

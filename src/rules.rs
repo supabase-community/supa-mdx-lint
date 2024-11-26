@@ -13,14 +13,17 @@ use crate::{
 
 mod rule001_heading_case;
 mod rule002_admonition_types;
+mod rule003_spelling;
 
 use rule001_heading_case::Rule001HeadingCase;
 use rule002_admonition_types::Rule002AdmonitionTypes;
+use rule003_spelling::Rule003Spelling;
 
 fn get_all_rules() -> Vec<Box<dyn Rule>> {
     vec![
         Box::new(Rule001HeadingCase::default()),
         Box::new(Rule002AdmonitionTypes::default()),
+        Box::new(Rule003Spelling::default()),
     ]
 }
 
@@ -62,10 +65,18 @@ pub struct RuleSettings(toml::Value);
 
 #[derive(Default)]
 pub struct RegexSettings {
-    /// Regex should only be matched against beginning of string.
-    pub match_beginning: bool,
+    pub beginning: Option<RegexBeginning>,
     /// Regex should only match if it matches up to the end of the word.
-    pub match_word_boundary_at_end: bool,
+    pub ending: Option<RegexEnding>,
+}
+
+pub enum RegexBeginning {
+    VeryBeginning,
+    WordBoundary,
+}
+
+pub enum RegexEnding {
+    WordBoundary,
 }
 
 impl RuleSettings {
@@ -129,11 +140,33 @@ impl RuleSettings {
                 if let toml::Value::String(pattern) = value {
                     let mut pattern = pattern.to_string();
                     if let Some(settings) = settings {
-                        if settings.match_beginning && !pattern.starts_with('^') {
-                            pattern = format!("^{}", pattern);
+                        match settings.beginning {
+                            Some(RegexBeginning::VeryBeginning) => {
+                                if !pattern.starts_with('^') {
+                                    pattern = format!("^{}", pattern);
+                                }
+                            }
+                            Some(RegexBeginning::WordBoundary) => {
+                                if !pattern.starts_with("\\b")
+                                    && !pattern.starts_with("\\s")
+                                    && !pattern.starts_with("^")
+                                {
+                                    pattern = format!("(?:^|\\s|\\b){}", pattern);
+                                }
+                            }
+                            None => {}
                         }
-                        if settings.match_word_boundary_at_end && !pattern.ends_with("\\b") {
-                            pattern = format!("{}\\b", pattern);
+                        #[allow(clippy::single_match)]
+                        match settings.ending {
+                            Some(RegexEnding::WordBoundary) => {
+                                if !pattern.ends_with("\\b")
+                                    && !pattern.ends_with("\\s")
+                                    && !pattern.ends_with("$")
+                                {
+                                    pattern = format!(r#"{}(?:\s|\b|$|[.,!?'"-])"#, pattern);
+                                }
+                            }
+                            None => {}
                         }
                     }
 
@@ -261,6 +294,11 @@ impl RuleRegistry {
     #[cfg(test)]
     pub fn is_rule_active(&self, rule_name: &str) -> bool {
         self.rules.iter().any(|rule| rule.name() == rule_name)
+    }
+
+    #[cfg(test)]
+    pub fn deactivate_all_but(&mut self, rule_name: &str) {
+        self.rules.retain(|rule| rule.name() == rule_name)
     }
 
     pub fn setup(&mut self, settings: &HashMap<String, RuleSettings>) -> Result<()> {

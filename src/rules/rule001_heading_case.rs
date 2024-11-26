@@ -11,12 +11,14 @@ use crate::{
     fix::{LintFix, LintFixReplace},
     geometry::{AdjustedOffset, AdjustedRange, DenormalizedLocation},
     utils::{
+        mdast::HasChildren,
         words::{Capitalize, CapitalizeTriggerPunctuation, WordIterator, WordIteratorOptions},
-        HasChildren,
     },
 };
 
-use super::{RegexSettings, Rule, RuleContext, RuleName, RuleSettings};
+use super::{
+    RegexBeginning, RegexEnding, RegexSettings, Rule, RuleContext, RuleName, RuleSettings,
+};
 
 #[derive(Debug, Clone, RuleName)]
 pub struct Rule001HeadingCase {
@@ -43,8 +45,8 @@ impl Rule for Rule001HeadingCase {
     fn setup(&mut self, settings: Option<&RuleSettings>) {
         if let Some(settings) = settings {
             let regex_settings = RegexSettings {
-                match_beginning: true,
-                match_word_boundary_at_end: true,
+                beginning: Some(RegexBeginning::VeryBeginning),
+                ending: Some(RegexEnding::WordBoundary),
             };
 
             if let Some(vec) = settings.get_array_of_regexes("may_uppercase", Some(&regex_settings))
@@ -192,7 +194,7 @@ impl Rule001HeadingCase {
             if let Some(match_result) = pattern.find(&text) {
                 debug!("Found exception match: {match_result:?}");
                 while offset + match_result.len()
-                    >= word_iterator
+                    > word_iterator
                         .curr_index()
                         .expect("WordIterator index should not be queried while unstable")
                 {
@@ -575,6 +577,25 @@ mod tests {
             &context,
             LintLevel::Error,
         );
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_rule001_multi_word_exception_in_middle() {
+        let mut rule = Rule001HeadingCase::default();
+        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["Magic Link"]);
+        rule.setup(Some(&settings));
+
+        let markdown = "### Enabling Magic Link signins";
+        let parse_result = parse(markdown).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
+
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
+
         assert!(result.is_none());
     }
 

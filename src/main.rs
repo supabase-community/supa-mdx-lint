@@ -3,6 +3,7 @@ use std::{
     io::{BufWriter, Write},
     path::PathBuf,
     process,
+    time::Instant,
 };
 
 use anyhow::{Context, Result};
@@ -108,6 +109,8 @@ fn get_diagnostics(targets: &[String], linter: &Linter) -> Result<Vec<LintOutput
 }
 
 fn execute() -> Result<Result<()>> {
+    let start = Instant::now();
+
     let args = Args::parse();
 
     let log_level = setup_logging(&args)?;
@@ -155,6 +158,13 @@ fn execute() -> Result<Result<()>> {
 
     if !args.silent {
         args.format.format(&diagnostics, &mut stdout)?;
+        let duration = start.elapsed().as_secs();
+        writeln!(
+            stdout,
+            "🕚 Done in {} second{}",
+            duration,
+            if duration == 1 { "" } else { "s" }
+        )?;
     }
 
     stdout.flush()?;

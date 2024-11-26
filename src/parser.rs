@@ -2,7 +2,7 @@ use std::{any::Any, collections::HashMap, error::Error, fmt::Display};
 
 use anyhow::{anyhow, Result};
 use itertools::Itertools;
-use log::{debug, warn};
+use log::{debug, trace, warn};
 use markdown::{mdast::Node, to_mdast, unist, Constructs, ParseOptions};
 use regex::Regex;
 
@@ -28,6 +28,9 @@ pub(crate) struct ParseResult {
 pub(crate) fn parse(input: &str) -> Result<ParseResult> {
     let (content, rope, content_start_offset, frontmatter) = process_raw_content_string(input);
     let ast = parse_internal(content)?;
+
+    trace!("AST: {:#?}", ast);
+
     Ok(ParseResult {
         ast,
         rope,

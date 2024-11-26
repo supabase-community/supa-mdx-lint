@@ -1,0 +1,5 @@
+Rule001HeadingCase = false
+Rule002AdmonitionTypes = false
+
+[Rule003Spelling]
+allow_list = ["Supabase"]
