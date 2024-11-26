@@ -98,6 +98,8 @@ impl Rule001HeadingCase {
             }) {
                 if c == ':' {
                     next_word_capital.0 = true;
+                } else if !c.is_whitespace() {
+                    next_word_capital.0 = false;
                 }
                 next_alphabetic_index += 1;
             }
@@ -109,7 +111,7 @@ impl Rule001HeadingCase {
                 break;
             }
 
-            trace!("Checking remaining text \"{remaining_text}\" at index {char_index} with {next_word_capital:?}");
+            trace!("[Rule001HeadingCase] Checking remaining text \"{remaining_text}\" at index {char_index} with {next_word_capital:?}");
 
             let first_char = remaining_text.chars().next().unwrap();
 
@@ -632,6 +634,20 @@ mod tests {
         rule.setup(None);
 
         let markdown = "# `inline_code` (in a heading) can have `ArbitraryCase`";
+        let parse_result = parse(markdown).unwrap();
+        let heading = parse_result.ast.children().unwrap().get(0).unwrap();
+        let context = create_rule_context();
+
+        let result = rule.check(&heading, &context, LintLevel::Error);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_heading_starts_with_number() {
+        let mut rule = Rule001HeadingCase::default();
+        rule.setup(None);
+
+        let markdown = "# 384 dimensions for vector";
         let parse_result = parse(markdown).unwrap();
         let heading = parse_result.ast.children().unwrap().get(0).unwrap();
         let context = create_rule_context();
