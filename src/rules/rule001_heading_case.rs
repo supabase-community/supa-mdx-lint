@@ -141,6 +141,7 @@ impl Rule001HeadingCase {
                     if exception.is_some() {
                         let match_result = exception.unwrap().find(remaining_text).unwrap();
                         remaining_text = &remaining_text[match_result.end()..];
+                        char_index += match_result.len();
                         if !remaining_text.starts_with(':') {
                             next_word_capital.0 = false;
                         }
@@ -686,5 +687,33 @@ mod tests {
             LintLevel::Error,
         );
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_heading_starts_with_may_uppercase_exception() {
+        let mut rule = Rule001HeadingCase::default();
+        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
+        rule.setup(Some(&settings));
+
+        let markdown = "### API Error codes";
+        let parse_result = parse(markdown).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
+
+        let result = rule
+            .check(
+                context.ast().children().unwrap().first().unwrap(),
+                &context,
+                LintLevel::Error,
+            )
+            .unwrap();
+
+        let fixes = result.get(0).unwrap().fix.as_ref().unwrap();
+        let fix = fixes.get(0).unwrap();
+        match fix {
+            LintFix::Replace(fix) => {
+                assert_eq!(fix.location.start.column, 8);
+            }
+            _ => panic!("Unexpected fix type"),
+        }
     }
 }
