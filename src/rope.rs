@@ -35,6 +35,12 @@ impl From<&str> for Rope {
     }
 }
 
+impl From<String> for Rope {
+    fn from(s: String) -> Self {
+        Self(crop::Rope::from(s))
+    }
+}
+
 impl Rope {
     pub(crate) fn line_column_of_byte(&self, byte_offset: usize) -> (usize, usize) {
         let line = self.line_of_byte(byte_offset);

@@ -4,6 +4,7 @@ use anyhow::Result;
 
 use crate::{app_error, errors::LintError};
 
+pub mod pretty;
 pub mod rdf;
 pub mod simple;
 
@@ -32,6 +33,7 @@ impl LintOutput {
 
 #[derive(Debug, Clone)]
 pub enum OutputFormatter {
+    Pretty(pretty::PrettyFormatter),
     Simple(simple::SimpleFormatter),
     Rdf(rdf::RdfFormatter),
 }
@@ -39,6 +41,7 @@ pub enum OutputFormatter {
 impl OutputFormatter {
     pub fn format<Writer: Write>(&self, output: &[LintOutput], io: &mut Writer) -> Result<()> {
         match self {
+            Self::Pretty(formatter) => formatter.format(output, io),
             Self::Simple(formatter) => formatter.format(output, io),
             Self::Rdf(formatter) => formatter.format(output, io),
         }
@@ -50,6 +53,7 @@ impl FromStr for OutputFormatter {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            "pretty" => Ok(Self::Pretty(pretty::PrettyFormatter)),
             "simple" => Ok(Self::Simple(simple::SimpleFormatter)),
             "rdf" => Ok(Self::Rdf(rdf::RdfFormatter)),
             _ => Err(app_error::ParseError::VariantNotFound),
