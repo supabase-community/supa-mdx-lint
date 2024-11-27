@@ -21,7 +21,7 @@ pub enum LintFix {
 
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub struct LintFixInsert {
-    /// Text is inserted in front of this point
+    /// Text is inserted in front of the start point. The end point is ignored.
     pub location: DenormalizedLocation,
     pub text: String,
 }
@@ -175,10 +175,23 @@ impl LintFix {
                     &delete_a.location.offset_range,
                     &delete_b.location.offset_range,
                 );
+                let start = if delete_a.location.offset_range.start
+                    < delete_b.location.offset_range.start
+                {
+                    delete_a.location.start
+                } else {
+                    delete_b.location.start
+                };
+                let end = if delete_a.location.offset_range.end > delete_b.location.offset_range.end
+                {
+                    delete_a.location.end
+                } else {
+                    delete_b.location.end
+                };
                 let location = DenormalizedLocation {
                     offset_range: new_range,
-                    start: delete_a.location.start,
-                    end: delete_b.location.end,
+                    start,
+                    end,
                 };
 
                 Some(LintFix::Delete(LintFixDelete { location }))
