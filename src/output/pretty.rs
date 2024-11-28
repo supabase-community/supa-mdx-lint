@@ -63,31 +63,66 @@ impl PrettyFormatter {
 
                 for line_no in start_line..=end_line {
                     let line = rope.line(line_no);
-                    log::debug!("line: {}", line);
                     let number_graphemes = line.graphemes().count();
-                    writeln!(io, "{}", line)?;
-                    if line_no == start_line {
+
+                    let line_number_display = format!("{}: ", line_no + 1);
+                    let line_number_length = line_number_display.len();
+
+                    if line_no == start_line && line_no == end_line {
+                        writeln!(io, "{}{}", line_number_display, line)?;
+
+                        let (_line, start_col) =
+                            rope.line_column_of_byte(error.location.offset_range.start.into());
+                        let (_line, end_col) =
+                            rope.line_column_of_byte(error.location.offset_range.end.into());
+                        let graphemes_before = line.byte_slice(..start_col).graphemes().count();
+                        let graphemes_within =
+                            line.byte_slice(start_col..end_col).graphemes().count();
+
+                        writeln!(
+                            io,
+                            "{}{}{}{}",
+                            " ".repeat(line_number_length),
+                            " ".repeat(graphemes_before),
+                            "^".repeat(graphemes_within),
+                            " ".repeat(number_graphemes - graphemes_before - graphemes_within)
+                        )?;
+                    } else if line_no == start_line {
+                        writeln!(io, "{}{}", line_number_display, line)?;
+
                         let (_line, col) =
                             rope.line_column_of_byte(error.location.offset_range.start.into());
                         let graphemes_before = line.byte_slice(..col).graphemes().count();
+
                         writeln!(
                             io,
-                            "{}{}",
+                            "{}{}{}",
+                            " ".repeat(line_number_length),
                             " ".repeat(graphemes_before),
                             "^".repeat(number_graphemes - graphemes_before)
                         )?;
                     } else if line_no == end_line {
+                        writeln!(io, "{}{}", " ".repeat(line_number_length), line)?;
+
                         let (_line, col) =
                             rope.line_column_of_byte(error.location.offset_range.end.into());
                         let graphemes_before = line.byte_slice(..col).graphemes().count();
+
                         writeln!(
                             io,
-                            "{}{}",
+                            "{}{}{}",
+                            " ".repeat(line_number_length),
                             "^".repeat(graphemes_before),
                             " ".repeat(number_graphemes - graphemes_before)
                         )?;
                     } else {
-                        writeln!(io, "{}", "^".repeat(number_graphemes))?;
+                        writeln!(io, "{}{}", " ".repeat(line_number_length), line)?;
+                        writeln!(
+                            io,
+                            "{}{}",
+                            " ".repeat(line_number_length),
+                            "^".repeat(number_graphemes)
+                        )?;
                     }
                 }
             }
@@ -186,7 +221,7 @@ mod tests {
         formatter.format(&output, &mut result).unwrap();
         assert_eq!(
             String::from_utf8(result).unwrap(),
-            format!("{file_path}\n{}\n[ERROR: MockRule] This is an error\n# Hello World\n        ^^^^^\n\n🔍 1 source linted\n🔴 Found 1 error\n",
+            format!("{file_path}\n{}\n[ERROR: MockRule] This is an error\n1: # Hello World\n           ^^^^^\n\n🔍 1 source linted\n🔴 Found 1 error\n",
                 "=".repeat(file_path.len()))
         );
     }
@@ -226,7 +261,7 @@ mod tests {
             rule: "MockRule".to_string(),
             level: LintLevel::Error,
             message: "This is another error".to_string(),
-            location: DenormalizedLocation::dummy(23, 28, 3, 8, 3, 13),
+            location: DenormalizedLocation::dummy(23, 28, 2, 8, 2, 13),
             fix: None,
         };
 
@@ -242,7 +277,7 @@ mod tests {
         formatter.format(&output, &mut result).unwrap();
         assert_eq!(
             String::from_utf8(result).unwrap(),
-            format!("{file_path}\n{}\n[ERROR: MockRule] This is an error\n# Hello World\n        ^^^^^\n\n[ERROR: MockRule] This is another error\n# Hello World\n        ^^^^^\n\n🔍 1 source linted\n🔴 Found 2 errors\n",
+            format!("{file_path}\n{}\n[ERROR: MockRule] This is an error\n1: # Hello World\n           ^^^^^\n\n[ERROR: MockRule] This is another error\n3: # Hello World\n           ^^^^^\n\n🔍 1 source linted\n🔴 Found 2 errors\n",
                 "=".repeat(file_path.len()))
         );
     }
@@ -281,7 +316,7 @@ mod tests {
         formatter.format(&output, &mut result).unwrap();
         assert_eq!(
             String::from_utf8(result).unwrap(),
-            format!("{file_path_1}\n{}\n[ERROR: MockRule] This is an error\n# Hello World\n        ^^^^^\n\n{file_path_2}\n{}\n[ERROR: MockRule] This is an error\n# Hello World\n        ^^^^^\n\n🔍 2 sources linted\n🔴 Found 2 errors\n",
+            format!("{file_path_1}\n{}\n[ERROR: MockRule] This is an error\n1: # Hello World\n           ^^^^^\n\n{file_path_2}\n{}\n[ERROR: MockRule] This is an error\n1: # Hello World\n           ^^^^^\n\n🔍 2 sources linted\n🔴 Found 2 errors\n",
                 "=".repeat(file_path_1.len()), "=".repeat(file_path_2.len()))
         );
     }
