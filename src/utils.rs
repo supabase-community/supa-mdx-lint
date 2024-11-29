@@ -1,3 +1,5 @@
+pub(crate) mod words;
+
 use std::path::Path;
 
 use markdown::mdast::Node;
