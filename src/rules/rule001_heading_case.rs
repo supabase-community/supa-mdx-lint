@@ -102,7 +102,7 @@ impl Rule001HeadingCase {
                 } else if !c.is_whitespace() {
                     next_word_capital.0 = false;
                 }
-                next_alphabetic_index += 1;
+                next_alphabetic_index += c.len_utf8();
             }
 
             remaining_text = &remaining_text[next_alphabetic_index..];
