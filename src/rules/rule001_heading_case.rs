@@ -7,7 +7,7 @@ use crate::{
     errors::{LintError, LintLevel},
     fix::{LintFix, LintFixReplace},
     geometry::{AdjustedOffset, AdjustedRange, DenormalizedLocation},
-    utils::{split_first_word_at_whitespace_and_colons, HasChildren},
+    utils::{is_recapitalizing_break, split_first_word_at_break, HasChildren},
 };
 
 use super::{RegexSettings, Rule, RuleContext, RuleName, RuleSettings};
@@ -94,7 +94,7 @@ impl Rule001HeadingCase {
                     Some(c)
                 }
             }) {
-                if c == ':' {
+                if is_recapitalizing_break(c) {
                     next_word_capital.0 = true;
                 } else if !c.is_whitespace() {
                     next_word_capital.0 = false;
@@ -144,7 +144,7 @@ impl Rule001HeadingCase {
                         }
                     } else {
                         let (first_word, rest, split_on_colon) =
-                            split_first_word_at_whitespace_and_colons(remaining_text);
+                            split_first_word_at_break(remaining_text);
                         if !split_on_colon {
                             next_word_capital.0 = false;
                         }
@@ -169,8 +169,7 @@ impl Rule001HeadingCase {
                 char_index += remaining_text.len() - rest.len();
                 remaining_text = rest;
             } else {
-                let (first_word, rest, split_on_colon) =
-                    split_first_word_at_whitespace_and_colons(remaining_text);
+                let (first_word, rest, split_on_colon) = split_first_word_at_break(remaining_text);
                 if split_on_colon {
                     next_word_capital.0 = true;
                 }
@@ -204,7 +203,7 @@ impl Rule001HeadingCase {
             }
         }
 
-        let (first_word, rest, split_on_colon) = split_first_word_at_whitespace_and_colons(text);
+        let (first_word, rest, split_on_colon) = split_first_word_at_break(text);
         let replacement_word = match case {
             Case::Upper => first_word.to_lowercase(),
             Case::Lower => {
@@ -641,6 +640,23 @@ mod tests {
         rule.setup(None);
 
         let mdx = "# Step 1: Do a thing";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
+
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_can_capitalize_after_sentence_break() {
+        let mut rule = Rule001HeadingCase::default();
+        rule.setup(None);
+
+        let mdx = "# 1. Do a thing";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::new(parse_result, None).unwrap();
 
