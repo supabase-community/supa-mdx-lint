@@ -582,7 +582,6 @@ dependencies = [
  "itertools",
  "log",
  "markdown",
- "once_cell",
  "predicates",
  "regex",
  "serde",

@@ -176,10 +176,10 @@ impl Config {
                         }
                     });
                 }
-                toml::Value::Boolean(false) if RuleRegistry::is_valid_rule(&key) => {
+                toml::Value::Boolean(false) if registry.is_valid_rule(&key) => {
                     filtered_rules.insert(key.clone());
                 }
-                toml::Value::Table(table) if RuleRegistry::is_valid_rule(&key) => {
+                toml::Value::Table(table) if registry.is_valid_rule(&key) => {
                     let level = table.get("level");
                     if let Some(toml::Value::String(level)) = level.as_ref() {
                         match TryInto::<LintLevel>::try_into(level.as_str()) {

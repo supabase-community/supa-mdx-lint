@@ -164,6 +164,21 @@ impl DerefMut for AdjustedRange {
     }
 }
 
+impl From<AdjustedRange> for Range<usize> {
+    fn from(range: AdjustedRange) -> Self {
+        Self::from(&range)
+    }
+}
+
+impl From<&AdjustedRange> for Range<usize> {
+    fn from(range: &AdjustedRange) -> Self {
+        Self {
+            start: range.start.into(),
+            end: range.end.into(),
+        }
+    }
+}
+
 impl AdjustedRange {
     pub fn new(start: AdjustedOffset, end: AdjustedOffset) -> Self {
         Self(Range { start, end })

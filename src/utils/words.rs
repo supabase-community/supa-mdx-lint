@@ -63,8 +63,17 @@ impl<'rope> WordIterator<'rope> {
     }
 
     pub fn curr_index(&self) -> Option<usize> {
-        if self.parser.word_start_offset == self.parser.tracking_offset {
+        if let ParseState::Initial = self.parser.state {
+            assert!(self.parser.word_start_offset == self.parser.tracking_offset);
             Some(self.parser.word_start_offset)
+        } else {
+            None
+        }
+    }
+
+    pub fn next_capitalize(&self) -> Option<Capitalize> {
+        if let ParseState::Initial = self.parser.state {
+            Some(self.parser.capitalize)
         } else {
             None
         }
@@ -172,7 +181,8 @@ impl WordParser {
         let saved_start_offset = self.word_start_offset;
         let word_end_offset = self.calculate_final_word_end_offset();
 
-        // Reset offset to parse next word
+        // Reset state to parse next word
+        self.state = ParseState::Initial;
         self.word_start_offset = self.tracking_offset;
 
         if saved_start_offset == word_end_offset {
@@ -258,7 +268,6 @@ impl WordParser {
                 ParserNext::Break(self.word_start_offset, word_end_offset, curr_capitalize)
             }
             ParseState::Whitespace => {
-                self.state = ParseState::Whitespace;
                 self.word_start_offset += c.len_utf8();
                 self.tracking_offset += c.len_utf8();
                 ParserNext::Continue
