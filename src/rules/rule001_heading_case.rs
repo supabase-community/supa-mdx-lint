@@ -1,4 +1,7 @@
-use log::trace;
+use std::{cell::RefCell, ops::Range};
+
+use crop::RopeSlice;
+use log::debug;
 use markdown::mdast::{Node, Text};
 use regex::Regex;
 use supa_mdx_macros::RuleName;
@@ -7,18 +10,29 @@ use crate::{
     errors::{LintError, LintLevel},
     fix::{LintFix, LintFixReplace},
     geometry::{AdjustedOffset, AdjustedRange, DenormalizedLocation},
-    utils::{is_recapitalizing_break, split_first_word_at_break, HasChildren},
+    utils::{
+        words::{Capitalize, CapitalizeTriggerPunctuation, WordIterator, WordIteratorOptions},
+        HasChildren,
+    },
 };
 
 use super::{RegexSettings, Rule, RuleContext, RuleName, RuleSettings};
 
-#[derive(Debug)]
-struct NextWordCapital(bool);
-
-#[derive(Debug, Default, Clone, RuleName)]
+#[derive(Debug, Clone, RuleName)]
 pub struct Rule001HeadingCase {
     may_uppercase: Vec<Regex>,
     may_lowercase: Vec<Regex>,
+    next_word_capital: RefCell<Capitalize>,
+}
+
+impl Default for Rule001HeadingCase {
+    fn default() -> Self {
+        Self {
+            may_uppercase: Vec::new(),
+            may_lowercase: Vec::new(),
+            next_word_capital: RefCell::new(Capitalize::True),
+        }
+    }
 }
 
 impl Rule for Rule001HeadingCase {
@@ -49,24 +63,23 @@ impl Rule for Rule001HeadingCase {
             return None;
         };
 
-        let mut fixes: Vec<LintFix> = Vec::new();
-        let mut next_word_capital = NextWordCapital(true);
-        self.check_ast(ast, &mut fixes, &mut next_word_capital, context);
+        self.reset_mutable_state();
 
-        let lint_error = if fixes.is_empty() {
-            None
-        } else {
-            LintError::from_node_with_fix(ast, context, self.name(), &self.message(), level, fixes)
-        };
-
-        lint_error.map(|lint_error| vec![lint_error])
+        let mut fixes: Option<Vec<LintFix>> = None;
+        self.check_ast(ast, &mut fixes, context);
+        fixes
+            .and_then(|fixes| {
+                LintError::from_node_with_fix(
+                    ast,
+                    context,
+                    self.name(),
+                    &self.message(),
+                    level,
+                    fixes,
+                )
+            })
+            .map(|error| vec![error])
     }
-}
-
-#[derive(Debug)]
-enum Case {
-    Upper,
-    Lower,
 }
 
 impl Rule001HeadingCase {
@@ -74,143 +87,143 @@ impl Rule001HeadingCase {
         "Heading should be sentence case".to_string()
     }
 
+    fn reset_mutable_state(&self) {
+        self.next_word_capital.replace(Capitalize::True);
+    }
+
     fn check_text_sentence_case(
         &self,
         text: &Text,
-        fixes: &mut Vec<LintFix>,
-        next_word_capital: &mut NextWordCapital,
+        fixes: &mut Option<Vec<LintFix>>,
         context: &RuleContext,
     ) {
-        let mut remaining_text = text.value.as_str();
-        let mut char_index = 0;
+        if let Some(position) = text.position.as_ref() {
+            let range = AdjustedRange::from_unadjusted_position(position, context);
+            let rope = context.rope().byte_slice(Into::<Range<usize>>::into(range));
 
-        while !remaining_text.is_empty() {
-            let mut chars = remaining_text.chars();
-            let mut next_alphabetic_index = 0;
-            while let Some(c) = chars.next().and_then(|c| {
-                if c.is_ascii_alphabetic() {
-                    None
-                } else {
-                    Some(c)
+            let mut word_iterator = WordIterator::new(
+                rope,
+                0,
+                WordIteratorOptions {
+                    initial_capitalize: *self.next_word_capital.borrow(),
+                    capitalize_trigger_punctuation: CapitalizeTriggerPunctuation::PlusColon,
+                    ..Default::default()
+                },
+            );
+
+            let mut first_word = *self.next_word_capital.borrow() == Capitalize::True;
+
+            while let Some((offset, word, cap)) = word_iterator.next() {
+                debug!("Got next word: {word:?} at offset {offset} with capitalization {cap:?}");
+                if word.is_empty() {
+                    continue;
                 }
-            }) {
-                if is_recapitalizing_break(c) {
-                    next_word_capital.0 = true;
-                } else if !c.is_whitespace() {
-                    next_word_capital.0 = false;
-                }
-                next_alphabetic_index += c.len_utf8();
-            }
 
-            remaining_text = &remaining_text[next_alphabetic_index..];
-            char_index += next_alphabetic_index;
-
-            if remaining_text.is_empty() {
-                break;
-            }
-
-            trace!("[Rule001HeadingCase] Checking remaining text \"{remaining_text}\" at index {char_index} with {next_word_capital:?}");
-
-            let first_char = remaining_text.chars().next().unwrap();
-
-            if next_word_capital.0 {
-                if first_char.is_lowercase() {
-                    let (match_result, rest, split_on_colon) = self.create_text_lint_fix(
-                        remaining_text,
-                        text,
-                        char_index,
-                        Case::Lower,
-                        context,
-                    );
-                    if let Some(fix) = match_result {
-                        fixes.push(fix);
-                    }
-                    if !split_on_colon {
-                        next_word_capital.0 = false;
-                    }
-                    char_index += remaining_text.len() - rest.len();
-                    remaining_text = rest;
-                } else {
-                    let exception = self
-                        .may_uppercase
-                        .iter()
-                        .find(|pattern| pattern.is_match(remaining_text));
-                    if exception.is_some() {
-                        let match_result = exception.unwrap().find(remaining_text).unwrap();
-                        remaining_text = &remaining_text[match_result.end()..];
-                        char_index += match_result.len();
-                        if !remaining_text.starts_with(':') {
-                            next_word_capital.0 = false;
+                match cap {
+                    Capitalize::True => {
+                        if word.chars().next().unwrap().is_lowercase()
+                            && !self.handle_exception_match(
+                                rope.byte_slice(offset..),
+                                offset,
+                                cap,
+                                &mut word_iterator,
+                            )
+                        {
+                            self.create_text_lint_fix(
+                                word.to_string(),
+                                text,
+                                offset,
+                                cap,
+                                context,
+                                fixes,
+                            );
+                        } else if first_word {
+                            self.handle_exception_match(
+                                rope.byte_slice(offset..),
+                                offset,
+                                Capitalize::False,
+                                &mut word_iterator,
+                            );
                         }
-                    } else {
-                        let (first_word, rest, split_on_colon) =
-                            split_first_word_at_break(remaining_text);
-                        if !split_on_colon {
-                            next_word_capital.0 = false;
+                    }
+                    Capitalize::False => {
+                        if word.chars().next().unwrap().is_uppercase()
+                            && !self.handle_exception_match(
+                                rope.byte_slice(offset..),
+                                offset,
+                                cap,
+                                &mut word_iterator,
+                            )
+                        {
+                            self.create_text_lint_fix(
+                                word.to_string(),
+                                text,
+                                offset,
+                                cap,
+                                context,
+                                fixes,
+                            );
                         }
-                        char_index += first_word.len();
-                        remaining_text = rest;
                     }
                 }
-            } else if first_char.is_uppercase() {
-                let (match_result, rest, split_on_colon) = self.create_text_lint_fix(
-                    remaining_text,
-                    text,
-                    char_index,
-                    Case::Upper,
-                    context,
-                );
-                if let Some(fix) = match_result {
-                    fixes.push(fix);
-                }
-                if split_on_colon {
-                    next_word_capital.0 = true;
-                }
-                char_index += remaining_text.len() - rest.len();
-                remaining_text = rest;
-            } else {
-                let (first_word, rest, split_on_colon) = split_first_word_at_break(remaining_text);
-                if split_on_colon {
-                    next_word_capital.0 = true;
-                }
-                char_index += first_word.len();
-                remaining_text = rest;
+
+                first_word = false;
+                self.next_word_capital
+                    .replace(word_iterator.next_capitalize().unwrap());
             }
         }
     }
 
-    fn create_text_lint_fix<'node>(
+    fn handle_exception_match(
         &self,
-        text: &'node str,
-        node: &'node Text,
-        index: usize,
-        case: Case,
-        context: &RuleContext,
-    ) -> (Option<LintFix>, &'node str, bool) {
-        let patterns = match case {
-            Case::Upper => &self.may_uppercase,
-            Case::Lower => &self.may_lowercase,
+        rope: RopeSlice<'_>,
+        offset: usize,
+        capitalize: Capitalize,
+        word_iterator: &mut WordIterator<'_>,
+    ) -> bool {
+        let patterns = match capitalize {
+            Capitalize::True => &self.may_lowercase,
+            Capitalize::False => &self.may_uppercase,
         };
-        trace!(
-            "Checking text case for {:?} with patterns {:#?}",
-            text,
-            patterns
-        );
 
+        let text = rope.to_string();
+        debug!("Checking for exceptions in {text}");
         for pattern in patterns {
-            if let Some(m) = pattern.find(text) {
-                return (None, &text[m.end()..], false);
+            if let Some(match_result) = pattern.find(&text) {
+                debug!("Found exception match: {match_result:?}");
+                while offset + match_result.len()
+                    >= word_iterator
+                        .curr_index()
+                        .expect("WordIterator index should not be queried while unstable")
+                {
+                    if word_iterator.next().is_none() {
+                        break;
+                    }
+                }
+
+                return true;
             }
         }
 
-        let (first_word, rest, split_on_colon) = split_first_word_at_break(text);
-        let replacement_word = match case {
-            Case::Upper => first_word.to_lowercase(),
-            Case::Lower => {
-                let mut chars = first_word.chars();
+        false
+    }
+
+    fn create_text_lint_fix(
+        &self,
+        word: String,
+        node: &Text,
+        offset: usize,
+        capitalize: Capitalize,
+        context: &RuleContext,
+        fixes: &mut Option<Vec<LintFix>>,
+    ) {
+        let replacement_word = match capitalize {
+            Capitalize::True => {
+                let mut chars = word.chars();
                 let first_char = chars.next().unwrap();
                 first_char.to_uppercase().collect::<String>() + chars.as_str()
             }
+            Capitalize::False => word.to_lowercase(),
         };
 
         let start_point = node
@@ -218,70 +231,54 @@ impl Rule001HeadingCase {
             .as_ref()
             .map(|p| AdjustedOffset::from_unist(&p.start, context))
             .map(|mut p| {
-                p.increment(index);
+                p.increment(offset);
                 p
             });
         let end_point = start_point.map(|mut p| {
-            p.increment(first_word.len());
+            p.increment(word.len());
             p
         });
 
-        match (start_point, end_point) {
-            (Some(start), Some(end)) => {
-                let location = AdjustedRange::new(start, end);
-                let location = DenormalizedLocation::from_offset_range(location, context);
+        if let (Some(start), Some(end)) = (start_point, end_point) {
+            let location = AdjustedRange::new(start, end);
+            let location = DenormalizedLocation::from_offset_range(location, context);
 
-                (
-                    Some(LintFix::Replace(LintFixReplace {
-                        location,
-                        text: replacement_word,
-                    })),
-                    rest,
-                    split_on_colon,
-                )
-            }
-            _ => (None, rest, split_on_colon),
+            let fix = LintFix::Replace(LintFixReplace {
+                location,
+                text: replacement_word,
+            });
+            fixes.get_or_insert_with(Vec::new).push(fix);
         }
     }
 
-    fn check_ast(
-        &self,
-        node: &Node,
-        fixes: &mut Vec<LintFix>,
-        next_word_capital: &mut NextWordCapital,
-        context: &RuleContext,
-    ) {
-        trace!("Checking ast for node: {node:?} with settings: {next_word_capital:?}");
+    fn check_ast(&self, node: &Node, fixes: &mut Option<Vec<LintFix>>, context: &RuleContext) {
+        debug!(
+            "Checking ast for node: {node:?} with next word capital: {:?}",
+            self.next_word_capital
+        );
 
         fn check_children<T: HasChildren>(
             rule: &Rule001HeadingCase,
             node: &T,
-            fixes: &mut Vec<LintFix>,
-            next_word_capital: &mut NextWordCapital,
+            fixes: &mut Option<Vec<LintFix>>,
             context: &RuleContext,
         ) {
             node.get_children()
                 .iter()
-                .for_each(|child| rule.check_ast(child, fixes, next_word_capital, context));
+                .for_each(|child| rule.check_ast(child, fixes, context));
         }
 
         match node {
-            Node::Text(text) => {
-                self.check_text_sentence_case(text, fixes, next_word_capital, context)
-            }
-            Node::Emphasis(emphasis) => {
-                check_children(self, emphasis, fixes, next_word_capital, context)
-            }
-            Node::Link(link) => check_children(self, link, fixes, next_word_capital, context),
+            Node::Text(text) => self.check_text_sentence_case(text, fixes, context),
+            Node::Emphasis(emphasis) => check_children(self, emphasis, fixes, context),
+            Node::Link(link) => check_children(self, link, fixes, context),
             Node::LinkReference(link_reference) => {
-                check_children(self, link_reference, fixes, next_word_capital, context)
+                check_children(self, link_reference, fixes, context)
             }
-            Node::Strong(strong) => check_children(self, strong, fixes, next_word_capital, context),
-            Node::Heading(heading) => {
-                check_children(self, heading, fixes, next_word_capital, context)
-            }
+            Node::Strong(strong) => check_children(self, strong, fixes, context),
+            Node::Heading(heading) => check_children(self, heading, fixes, context),
             Node::InlineCode(_) => {
-                next_word_capital.0 = false;
+                self.next_word_capital.replace(Capitalize::False);
             }
             _ => {}
         }
@@ -295,7 +292,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_correct_sentence_case() {
+    fn test_rule001_correct_sentence_case() {
         let rule = Rule001HeadingCase::default();
         let mdx = "# This is a correct heading";
         let parse_result = parse(mdx).unwrap();
@@ -310,7 +307,7 @@ mod tests {
     }
 
     #[test]
-    fn test_lowercase_first_word() {
+    fn test_rule001_lowercase_first_word() {
         let rule = Rule001HeadingCase::default();
         let mdx = "# this should fail";
         let parse_result = parse(mdx).unwrap();
@@ -348,7 +345,7 @@ mod tests {
     }
 
     #[test]
-    fn test_uppercase_following_words() {
+    fn test_rule001_uppercase_following_words() {
         let rule = Rule001HeadingCase::default();
         let mdx = "# This Should Fail";
         let parse_result = parse(mdx).unwrap();
@@ -400,7 +397,7 @@ mod tests {
     }
 
     #[test]
-    fn test_may_uppercase() {
+    fn test_rule001_may_uppercase() {
         let mut rule = Rule001HeadingCase::default();
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
         rule.setup(Some(&settings));
@@ -418,7 +415,7 @@ mod tests {
     }
 
     #[test]
-    fn test_may_lowercase() {
+    fn test_rule001_may_lowercase() {
         let mut rule = Rule001HeadingCase::default();
         let settings = RuleSettings::with_array_of_strings("may_lowercase", vec!["the"]);
         rule.setup(Some(&settings));
@@ -436,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    fn test_non_heading_node() {
+    fn test_rule001_non_heading_node() {
         let rule = Rule001HeadingCase::default();
         let mdx = "not a heading";
         let parse_result = parse(mdx).unwrap();
@@ -451,7 +448,7 @@ mod tests {
     }
 
     #[test]
-    fn test_may_uppercase_multi_word() {
+    fn test_rule001_may_uppercase_multi_word() {
         let mut rule = Rule001HeadingCase::default();
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["New York City"]);
         rule.setup(Some(&settings));
@@ -469,7 +466,7 @@ mod tests {
     }
 
     #[test]
-    fn test_multiple_exception_matches() {
+    fn test_rule001_multiple_exception_matches() {
         let mut rule = Rule001HeadingCase::default();
         let settings =
             RuleSettings::with_array_of_strings("may_uppercase", vec!["New York", "New York City"]);
@@ -488,7 +485,7 @@ mod tests {
     }
 
     #[test]
-    fn test_may_uppercase_partial_match() {
+    fn test_rule001_may_uppercase_partial_match() {
         let mut rule = Rule001HeadingCase::default();
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
         rule.setup(Some(&settings));
@@ -506,7 +503,7 @@ mod tests {
     }
 
     #[test]
-    fn test_may_lowercase_regex() {
+    fn test_rule001_may_lowercase_regex() {
         let mut rule = Rule001HeadingCase::default();
         let settings = RuleSettings::with_array_of_strings("may_lowercase", vec!["(the|a|an)"]);
         rule.setup(Some(&settings));
@@ -524,7 +521,7 @@ mod tests {
     }
 
     #[test]
-    fn test_may_uppercase_regex_fails() {
+    fn test_rule001_may_uppercase_regex_fails() {
         let mut rule = Rule001HeadingCase::default();
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["[A-Z]{4,}"]);
         rule.setup(Some(&settings));
@@ -563,7 +560,7 @@ mod tests {
     }
 
     #[test]
-    fn test_multi_word_exception_at_start() {
+    fn test_rule001_multi_word_exception_at_start() {
         let mut rule = Rule001HeadingCase::default();
         let settings =
             RuleSettings::with_array_of_strings("may_uppercase", vec!["Content Delivery Network"]);
@@ -582,7 +579,7 @@ mod tests {
     }
 
     #[test]
-    fn test_brackets_around_exception() {
+    fn test_rule001_brackets_around_exception() {
         let mut rule = Rule001HeadingCase::default();
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["Edge Functions"]);
         rule.setup(Some(&settings));
@@ -600,7 +597,7 @@ mod tests {
     }
 
     #[test]
-    fn test_complex_heading() {
+    fn test_rule001_complex_heading() {
         let mut rule = Rule001HeadingCase::default();
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API", "OAuth"]);
         rule.setup(Some(&settings));
@@ -618,7 +615,7 @@ mod tests {
     }
 
     #[test]
-    fn test_can_capitalize_after_colon() {
+    fn test_rule001_can_capitalize_after_colon() {
         let mut rule = Rule001HeadingCase::default();
         rule.setup(None);
 
@@ -635,7 +632,7 @@ mod tests {
     }
 
     #[test]
-    fn test_can_capitalize_after_colon_with_number() {
+    fn test_rule001_can_capitalize_after_colon_with_number() {
         let mut rule = Rule001HeadingCase::default();
         rule.setup(None);
 
@@ -652,7 +649,7 @@ mod tests {
     }
 
     #[test]
-    fn test_can_capitalize_after_sentence_break() {
+    fn test_rule001_can_capitalize_after_sentence_break() {
         let mut rule = Rule001HeadingCase::default();
         rule.setup(None);
 
@@ -669,7 +666,7 @@ mod tests {
     }
 
     #[test]
-    fn test_no_flag_inline_code() {
+    fn test_rule001_no_flag_inline_code() {
         let mut rule = Rule001HeadingCase::default();
         rule.setup(None);
 
@@ -686,7 +683,7 @@ mod tests {
     }
 
     #[test]
-    fn test_heading_starts_with_number() {
+    fn test_rule001_heading_starts_with_number() {
         let mut rule = Rule001HeadingCase::default();
         rule.setup(None);
 
@@ -703,7 +700,7 @@ mod tests {
     }
 
     #[test]
-    fn test_heading_starts_with_may_uppercase_exception() {
+    fn test_rule001_heading_starts_with_may_uppercase_exception() {
         let mut rule = Rule001HeadingCase::default();
         let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
         rule.setup(Some(&settings));
@@ -728,5 +725,22 @@ mod tests {
             }
             _ => panic!("Unexpected fix type"),
         }
+    }
+
+    #[test]
+    fn test_rule001_heading_contains_link() {
+        let mut rule = Rule001HeadingCase::default();
+        rule.setup(None);
+
+        let markdown = "## Filtering with [regular expressions](https://en.wikipedia.org/wiki/Regular_expression)";
+        let parse_result = parse(markdown).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
+
+        let result = rule.check(
+            context.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
+        assert!(result.is_none());
     }
 }

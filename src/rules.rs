@@ -1,7 +1,6 @@
 use anyhow::Result;
 use log::{debug, error, warn};
 use markdown::mdast::Node;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{collections::HashMap, fmt::Debug};
 
@@ -18,15 +17,15 @@ mod rule002_admonition_types;
 use rule001_heading_case::Rule001HeadingCase;
 use rule002_admonition_types::Rule002AdmonitionTypes;
 
-static ALL_RULES: Lazy<Vec<Box<dyn Rule>>> = Lazy::new(|| {
+fn get_all_rules() -> Vec<Box<dyn Rule>> {
     vec![
         Box::new(Rule001HeadingCase::default()),
         Box::new(Rule002AdmonitionTypes::default()),
     ]
-});
+}
 
 #[allow(private_bounds)] // RuleClone is used within this module tree only
-pub trait Rule: Send + Sync + Debug + RuleName + RuleClone {
+pub trait Rule: Debug + RuleName + RuleClone {
     fn default_level(&self) -> LintLevel;
     fn setup(&mut self, _settings: Option<&RuleSettings>) {}
     fn check(&self, ast: &Node, context: &RuleContext, level: LintLevel) -> Option<Vec<LintError>>;
@@ -236,19 +235,15 @@ enum RuleRegistryState {
 
 impl RuleRegistry {
     pub fn new() -> Self {
-        let mut rules = Vec::<Box<dyn Rule>>::with_capacity(ALL_RULES.len());
-        ALL_RULES.iter().for_each(|rule| {
-            rules.push(rule.clone());
-        });
         Self {
             state: RuleRegistryState::PreSetup,
-            rules,
+            rules: get_all_rules(),
             configured_levels: Default::default(),
         }
     }
 
-    pub fn is_valid_rule(rule_name: &str) -> bool {
-        ALL_RULES.iter().any(|rule| rule.name() == rule_name)
+    pub fn is_valid_rule(&self, rule_name: &str) -> bool {
+        self.rules.iter().any(|rule| rule.name() == rule_name)
     }
 
     pub fn deactivate_rule(&mut self, rule_name: &str) {
