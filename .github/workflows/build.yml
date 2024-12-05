@@ -1,0 +1,206 @@
+# Adapted from https://github.com/getsentry/sentry-cli
+# See original license: https://github.com/getsentry/sentry-cli/blob/master/LICENSE
+
+name: build
+
+on:
+  push:
+    branches:
+      - "build-testing"
+
+jobs:
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: i686
+            target: i686-unknown-linux-musl
+            container: i686-musl
+          - arch: x86_64
+            target: x86_64-unknown-linux-musl
+            container: x86_64-musl
+          - arch: armv7
+            target: armv7-unknown-linux-musleabi
+            container: armv7-musleabi
+          - arch: aarch64
+            target: aarch64-unknown-linux-musl
+            container: aarch64-musl
+
+    name: Linux ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Build in Docker
+        run: scripts/build-in-docker.sh
+        env:
+          TARGET: ${{ matrix.target }}
+          DOCKER_TAG: ${{ matrix.container }}
+
+      - run: mv target/${{ matrix.target }}/release/supa-mdx-lint supa-mdx-lint-Linux-${{ matrix.arch }}
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 #v4.4.3
+        with:
+          name: artifact-bin-linux-${{ matrix.arch }}
+          path: supa-mdx-lint-Linux-${{ matrix.arch }}
+          if-no-files-found: "error"
+#
+#   macos:
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         include:
+#           - arch: x86_64
+#             target: x86_64-apple-darwin
+#           - arch: arm64
+#             target: aarch64-apple-darwin
+#
+#     name: macOS ${{ matrix.arch }}
+#     runs-on: macos-latest
+#
+#     steps:
+#       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+#       - uses: dtolnay/rust-toolchain@stable
+#         with:
+#           targets: ${{ matrix.target }}
+#
+#       - run: cargo build --target=${{ matrix.target }} --release --locked
+#
+#       - run: mv target/${{ matrix.target }}/release/supa-mdx-lint supa-mdx-lint-Darwin-${{ matrix.arch }}
+#       - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 #v4.4.3
+#         with:
+#           name: artifact-bin-macos-${{ matrix.arch }}
+#           path: sentry-cli-Darwin-${{ matrix.arch }}
+#           if-no-files-found: "error"
+#
+#   macos_universal:
+#     needs: macos
+#     name: macOS universal
+#     runs-on: macos-latest
+#
+#     steps:
+#       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 #v4.1.8
+#         with:
+#           pattern: artifact-bin-macos-*
+#           merge-multiple: true
+#
+#       - name: Link universal binary
+#         run: lipo -create -output supa-mdx-lint-Darwin-universal supa-mdx-lint-Darwin-x86_64 supa-mdx-lint-Darwin-arm64
+#
+#       - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 #v4.4.3
+#         with:
+#           name: artifact-bin-macos-universal
+#           path: supa-mdx-lint-Darwin-universal
+#           if-no-files-found: "error"
+#
+#   windows:
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         arch: [i686, x86_64]
+#
+#     name: Windows ${{ matrix.arch }}
+#     runs-on: windows-2019
+#
+#     steps:
+#       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+#       - uses: dtolnay/rust-toolchain@stable
+#         with:
+#           targets: ${{ matrix.target }}-pc-windows-msvc
+#
+#       - run: cargo build --target=${{ matrix.target }} --release --locked
+#
+#       - run: mv target/release/supa-mdx-lint.exe supa-mdx-lint-Windows-${{ matrix.arch }}.exe
+#
+#       - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 #v4.4.3
+#         with:
+#           name: artifact-bin-windows-${{ matrix.arch }}
+#           path: supa-mdx-lint-Windows-${{ matrix.arch }}.exe
+#           if-no-files-found: "error"
+#   node:
+#     name: NPM Package
+#     runs-on: ubuntu-latest
+#     needs: [linux, macos, macos_universal, windows]
+#
+#     steps:
+#       - uses: actions/checkout@v2
+#
+#       - uses: actions/setup-node@v1
+#         with:
+#           node-version: "20.10.0"
+#
+#       - name: Download compiled binaries
+#         uses: actions/download-artifact@v4
+#         with:
+#           pattern: artifact-bin-*
+#           merge-multiple: true
+#
+#       - name: Calculate and store checksums
+#         shell: bash
+#         run: |
+#           sha256sum sentry-cli-* | awk '{printf("%s=%s\n", $2, $1)}' > checksums.txt
+#           cat checksums.txt
+#
+#       - run: npm pack
+#
+#       - uses: actions/upload-artifact@v4
+#         with:
+#           name: artifact-pkg-node
+#           path: "*.tgz"
+#           if-no-files-found: "error"
+#
+#   npm-distributions:
+#     name: "Build NPM distributions"
+#     runs-on: ubuntu-latest
+#     needs: [linux, macos, macos_universal, windows]
+#     steps:
+#       - uses: actions/checkout@v3
+#       - uses: actions/setup-node@v4
+#         with:
+#           node-version: "20.10.0"
+#       - uses: actions/download-artifact@v4
+#         with:
+#           pattern: artifact-bin-*
+#           merge-multiple: true
+#           path: binary-artifacts
+#       - name: Move binaries into distribution packages
+#         run: |
+#           mv binary-artifacts/sentry-cli-Darwin-universal npm-binary-distributions/darwin/bin/sentry-cli
+#           mv binary-artifacts/sentry-cli-Linux-armv7 npm-binary-distributions/linux-arm/bin/sentry-cli
+#           mv binary-artifacts/sentry-cli-Linux-aarch64 npm-binary-distributions/linux-arm64/bin/sentry-cli
+#           mv binary-artifacts/sentry-cli-Linux-i686 npm-binary-distributions/linux-i686/bin/sentry-cli
+#           mv binary-artifacts/sentry-cli-Linux-x86_64 npm-binary-distributions/linux-x64/bin/sentry-cli
+#           mv binary-artifacts/sentry-cli-Windows-i686.exe npm-binary-distributions/win32-i686/bin/sentry-cli.exe
+#           mv binary-artifacts/sentry-cli-Windows-x86_64.exe npm-binary-distributions/win32-x64/bin/sentry-cli.exe
+#       - name: Remove binary placeholders
+#         run: rm -rf npm-binary-distributions/*/bin/.gitkeep
+#       - name: Make Linux binaries executable
+#         run: chmod +x npm-binary-distributions/*/bin/sentry-cli
+#       - name: Package distribution packages
+#         run: |
+#           for dir in npm-binary-distributions/*; do
+#             cd $dir
+#             npm pack
+#             cd -
+#           done
+#
+#       - name: Upload packaged npm binary distributions
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: artifact-npm-binary-distributions
+#           path: npm-binary-distributions/*/*.tgz
+#           if-no-files-found: "error"
+#
+#   merge:
+#     name: Create Release Artifact
+#     runs-on: ubuntu-latest
+#     needs:
+#       [linux, macos, macos_universal, windows, npm-distributions, node, python]
+#     steps:
+#       - uses: actions/upload-artifact/merge@v4
+#         with:
+#           # Craft expects release assets to be a single artifact named after the sha.
+#           name: ${{ github.sha }}
+#           pattern: artifact-*
+#           delete-merged: true
