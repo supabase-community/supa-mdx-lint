@@ -93,31 +93,35 @@ jobs:
           name: artifact-bin-macos-universal
           path: supa-mdx-lint-Darwin-universal
           if-no-files-found: "error"
-#
-#   windows:
-#     strategy:
-#       fail-fast: false
-#       matrix:
-#         arch: [i686, x86_64]
-#
-#     name: Windows ${{ matrix.arch }}
-#     runs-on: windows-2019
-#
-#     steps:
-#       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-#       - uses: dtolnay/rust-toolchain@stable
-#         with:
-#           targets: ${{ matrix.target }}-pc-windows-msvc
-#
-#       - run: cargo build --target=${{ matrix.target }} --release --locked
-#
-#       - run: mv target/release/supa-mdx-lint.exe supa-mdx-lint-Windows-${{ matrix.arch }}.exe
-#
-#       - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 #v4.4.3
-#         with:
-#           name: artifact-bin-windows-${{ matrix.arch }}
-#           path: supa-mdx-lint-Windows-${{ matrix.arch }}.exe
-#           if-no-files-found: "error"
+
+  windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: i686
+            target: i686-pc-windows-msvc
+          - arch: x86_64
+            target: x86_64-pc-windows-msvc
+
+    name: Windows ${{ matrix.arch }}
+    runs-on: windows-2019
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - run: cargo build --target=${{ matrix.target }} --release --locked
+
+      - run: mv target/${{ matrix.target }}/release/supa-mdx-lint.exe supa-mdx-lint-Windows-${{ matrix.arch }}.exe
+
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 #v4.4.3
+        with:
+          name: artifact-bin-windows-${{ matrix.arch }}
+          path: supa-mdx-lint-Windows-${{ matrix.arch }}.exe
+          if-no-files-found: "error"
 #   node:
 #     name: NPM Package
 #     runs-on: ubuntu-latest
