@@ -1,0 +1,13 @@
+{
+  "name": "@supabase/supa-mdx-lint-win32-x64",
+  "version": "0.1.6-pre",
+  "engines": {
+    "node": ">=10"
+  },
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ]
+}

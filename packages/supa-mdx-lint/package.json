@@ -1,29 +1,26 @@
 {
-  "name": "supa-mdx-lint",
-  "version": "0.1.0",
-  "type": "module",
-  "main": "dist/index.js",
+  "name": "@supabase/supa-mdx-lint",
+  "version": "0.1.6-pre",
+  "main": "src/index.js",
   "scripts": {
-    "build": "tsc",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "test": "vitest"
   },
-  "files": [
-    "dist",
-    "pkg",
-    "src/index.ts"
-  ],
   "devDependencies": {
     "@supa-mdx-lint/eslint-config": "*",
     "@types/node": "^22.7.5",
     "eslint": "^9.13.0",
-    "prettier": "^3.3.3",
-    "typescript": "^5.6.3",
-    "vitest": "^2.1.2"
+    "prettier": "^3.3.3"
   },
-  "dependencies": {
-    "toml": "^3.0.0"
+  "optionalDependencies": {
+    "@supabase/supa-mdx-lint-darwin": "0.1.6-pre",
+    "@supabase/supa-mdx-lint-linux-arm": "0.1.6-pre",
+    "@supabase/supa-mdx-lint-linux-arm64": "0.1.6-pre",
+    "@supabase/supa-mdx-lint-linux-i686": "0.1.6-pre",
+    "@supabase/supa-mdx-lint-linux-x64": "0.1.6-pre",
+    "@supabase/supa-mdx-lint-win32-i686": "0.1.6-pre",
+    "@supabase/supa-mdx-lint-win32-x64": "0.1.6-pre"
   }
 }
