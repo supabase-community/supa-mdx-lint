@@ -1,0 +1,15 @@
+{
+  "name": "@supabase/supa-mdx-lint-linux-i686",
+  "version": "0.1.6-pre",
+  "engines": {
+    "node": ">=10"
+  },
+  "os": [
+    "linux",
+    "freebsd"
+  ],
+  "cpu": [
+    "x86",
+    "ia32"
+  ]
+}
