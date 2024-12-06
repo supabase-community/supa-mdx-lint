@@ -122,6 +122,7 @@ function getBinaryPath() {
   }
 
   const { packageName, subpath } = getDistributionForThisPlatform();
+  console.log("Expected package location: %s/%s", packageName, subpath);
 
   if (packageName === undefined) {
     throwUnsupportedPlatformError();
