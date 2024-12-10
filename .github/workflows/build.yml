@@ -196,3 +196,151 @@ jobs:
           name: artifact-npm-binary-distributions
           path: npm-binary-distributions/*/*.tgz
           if-no-files-found: "error"
+
+  test-linux:
+    runs-on: ubuntu-latest
+    needs: [node, npm-distributions]
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18, 20, 22]
+    steps:
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: ${{ matrix.node-version }}
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: artifact-npm-binary-distributions
+          path: ./npm-binary-distributions
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: artifact-pkg-node
+          path: ./node-pkg
+      - name: Create package.json
+        run: |
+          mkdir test
+          cd test
+          cat <<EOF > package.json
+          {
+            "name": "test",
+            "version": "1.0.0",
+            "description": "",
+            "main": "index.js",
+            "scripts": {
+              "lint": "supa-mdx-lint --version"
+            },
+            "keywords": [],
+            "author": "",
+            "license": "ISC"
+          }
+          EOF
+      - name: Install test packages
+        working-directory: test
+        run: |
+          npm install ../npm-binary-distributions/linux-x64/*.tgz
+          npm install ../node-pkg/*.tgz
+      - name: Test lint script
+        working-directory: test
+        run: npm run lint
+
+  test-macos:
+    runs-on: macos-latest
+    needs: [node, npm-distributions]
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18, 20, 22]
+    steps:
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: ${{ matrix.node-version }}
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: artifact-npm-binary-distributions
+          path: ./npm-binary-distributions
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: artifact-pkg-node
+          path: ./node-pkg
+      - name: Create package.json
+        run: |
+          mkdir test
+          cd test
+          cat <<EOF > package.json
+          {
+            "name": "test",
+            "version": "1.0.0",
+            "description": "",
+            "main": "index.js",
+            "scripts": {
+              "lint": "supa-mdx-lint --version"
+            },
+            "keywords": [],
+            "author": "",
+            "license": "ISC"
+          }
+          EOF
+      - name: Install test packages
+        working-directory: test
+        run: |
+          npm install ../npm-binary-distributions/darwin/*.tgz
+          npm install ../node-pkg/*.tgz
+      - name: Test lint script
+        working-directory: test
+        run: npm run lint
+
+  test-windows:
+    runs-on: windows-latest
+    needs: [node, npm-distributions]
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18, 20, 22]
+    steps:
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: ${{ matrix.node-version }}
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: artifact-npm-binary-distributions
+          path: ./npm-binary-distributions
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: artifact-pkg-node
+          path: ./node-pkg
+      - name: Create package.json
+        shell: pwsh
+        run: |
+          mkdir test
+          cd test
+          $json = @"
+          {
+            "name": "test",
+            "version": "1.0.0",
+            "description": "",
+            "main": "index.js",
+            "scripts": {
+              "lint": "supa-mdx-lint --version"
+            },
+            "keywords": [],
+            "author": "",
+            "license": "ISC"
+          }
+          "@
+          $json | Out-File -FilePath package.json -Encoding utf8
+      - name: Install binary
+        shell: pwsh
+        run: |
+          cd test
+          $tarballPath = Get-ChildItem -Path ..\npm-binary-distributions\win32-x64\*.tgz | Select-Object -First 1
+          npm install $tarballPath
+      - name: Install node package
+        shell: pwsh
+        run: |
+          cd test
+          $tarballPath = Get-ChildItem -Path ..\node-pkg\*.tgz | Select-Object -First 1
+          npm install $tarballPath
+      - name: Test lint script
+        working-directory: test
+        run: |
+          npm run lint
