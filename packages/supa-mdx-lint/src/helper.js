@@ -127,9 +127,8 @@ function getBinaryPath() {
     throwUnsupportedPlatformError();
   }
 
-  let compatibleBinaryPath;
   try {
-    compatibleBinaryPath = require.resolve(`${packageName}/${subpath}`);
+    return require.resolve(`${packageName}/${subpath}`);
   } catch {
     const otherInstalledDistribution = BINARY_DISTRIBUTIONS.find(
       ({ packageName, subpath }) => {
@@ -155,8 +154,6 @@ To fix this, avoid copying the "node_modules" folder, and instead freshly instal
 It seems like none of the "@supabase/supa-mdx-lint" package's optional dependencies got installed. Please make sure your package manager is configured to install optional dependencies. If you are using npm to install your dependencies, please don't set the "--no-optional", "--ignore-optional", or "--omit=optional" flags. supa-mdx-lint needs the "optionalDependencies" feature in order to install its binary.`);
     }
   }
-
-  return compatibleBinaryPath;
 }
 
 /**
