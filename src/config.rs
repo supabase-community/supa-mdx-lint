@@ -1,5 +1,5 @@
 use anyhow::Result;
-use glob::Pattern;
+use glob::{MatchOptions, Pattern};
 use log::{debug, error, warn};
 use std::{
     collections::{HashMap, HashSet},
@@ -10,6 +10,7 @@ use std::{
 use crate::{
     errors::LintLevel,
     rules::{RuleRegistry, RuleSettings},
+    utils::path::{normalize_path, IsGlob},
 };
 
 const IGNORE_GLOBS_KEY: &str = "ignore_patterns";
@@ -165,12 +166,13 @@ impl Config {
                                 None => &std::env::current_dir().unwrap(),
                             };
                             let glob = root_dir.join(glob);
-                            match Pattern::new(&glob.to_string_lossy()) {
+                            let glob_str = normalize_path(&glob, IsGlob(true));
+                            match Pattern::new(&glob_str) {
                                 Ok(glob) => {
                                     ignore_globs.insert(glob);
                                 }
                                 Err(err) => {
-                                    warn!("Failed to parse ignore pattern {glob:?}: {err:?}");
+                                    warn!("Failed to parse ignore pattern {glob_str}: {err:?}");
                                 }
                             }
                         }
@@ -212,14 +214,21 @@ impl Config {
         } else {
             path
         };
-        debug!("Checking if path {path:?} is ignored");
+        let path_str = normalize_path(path, IsGlob(false));
+        debug!("Checking if {path_str} is ignored");
 
-        let is_ignored = self
-            .ignore_globs
-            .iter()
-            .any(|pattern| pattern.matches_path(path));
+        let is_ignored = self.ignore_globs.iter().any(|pattern| {
+            pattern.matches_with(
+                &path_str,
+                MatchOptions {
+                    case_sensitive: true,
+                    require_literal_separator: true,
+                    require_literal_leading_dot: false,
+                },
+            )
+        });
         debug!(
-            "Path {path:?} is {}ignored",
+            "Path {path_str} is {}ignored",
             if is_ignored { "" } else { "not " }
         );
         is_ignored

@@ -1,4 +1,5 @@
 pub(crate) mod mdast;
+pub(crate) mod path;
 pub(crate) mod words;
 
 use std::path::Path;
