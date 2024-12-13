@@ -1,6 +1,6 @@
 {
   "name": "@supabase/supa-mdx-lint",
-  "version": "0.1.6-pre",
+  "version": "0.1.6-alpha",
   "main": "src/index.js",
   "bin": {
     "supa-mdx-lint": "src/index.js"
