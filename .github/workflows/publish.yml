@@ -1,0 +1,54 @@
+name: publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "The run ID of the build that you want to publish"
+        required: true
+        type: number
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download binary distributions
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 #v4.1.8
+        with:
+          run_id: ${{ github.event.inputs.run_id }}
+          name: artifact-npm-binary-distributions
+          path: ./npm-binary-distributions
+
+      - name: Download main Node package
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 #v4.1.8
+        with:
+          run_id: ${{ github.event.inputs.run_id }}
+          name: artifact-pkg-node
+          path: ./node-pkg
+
+      - name: Set up Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "20.10.0"
+          registry-url: "https://registry.npmjs.org"
+          scope: "supabase"
+
+      - name: Publish binary distrubutions
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+        run: |
+          for tarball in npm-binary-distributions/*/*.tgz; do
+            npm publish "$tarball"
+          done
+
+      - name: Publish Node package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+        run: |
+          for tarball in node-pkg/*.tgz; do
+            npm publish "$tarball"
+          done
