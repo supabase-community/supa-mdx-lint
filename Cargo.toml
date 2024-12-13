@@ -2,7 +2,7 @@
 name = "supa-mdx-lint"
 description = "Lint MDX files according to the Supabase style guide"
 author = "Charis Lam"
-version = "0.1.6-pre"
+version = "0.1.6-alpha"
 edition = "2021"
 
 [dependencies]

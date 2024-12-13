@@ -1,6 +1,6 @@
 {
   "name": "@supabase/supa-mdx-lint-linux-i686",
-  "version": "0.1.6-pre",
+  "version": "0.1.6-alpha",
   "engines": {
     "node": ">=10"
   },
