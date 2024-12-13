@@ -43,7 +43,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
         run: |
-          for tarball in npm-binary-distributions/*/*.tgz; do
+          for tarball in ./npm-binary-distributions/*/*.tgz; do
             npm publish --access public "$tarball"
           done
 
@@ -51,6 +51,6 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
         run: |
-          for tarball in node-pkg/*.tgz; do
+          for tarball in ./node-pkg/*.tgz; do
             npm publish --access public "$tarball"
           done
