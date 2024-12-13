@@ -1,0 +1,123 @@
+name: smoke-test
+
+on:
+  schedule:
+    - cron: "23 1 * * *"
+  workflow_dispatch:
+
+jobs:
+  test-ubuntu:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+
+    steps:
+      - name: Set up Node
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Create test directory
+        run: mkdir test
+      - name: Create package.json
+        working-directory: test
+        run: |
+          cat <<EOF > package.json
+          {
+            "name": "test",
+            "version": "1.0.0",
+            "description": "",
+            "main": "index.js",
+            "scripts": {
+              "lint": "supa-mdx-lint --version"
+            },
+            "keywords": [],
+            "author": "",
+            "license": "ISC"
+          }
+          EOF
+      - name: Install supa-mdx-lint
+        working-directory: test
+        run: npm install @supabase/supa-mdx-lint
+      - name: Test linter
+        working-directory: test
+        run: npm run lint
+
+  test-macos:
+    runs-on: macos-latest
+
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+
+    steps:
+      - name: Set up Node
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Create test directory
+        run: mkdir test
+      - name: Create package.json
+        working-directory: test
+        run: |
+          cat <<EOF > package.json
+          {
+            "name": "test",
+            "version": "1.0.0",
+            "description": "",
+            "main": "index.js",
+            "scripts": {
+              "lint": "supa-mdx-lint --version"
+            },
+            "keywords": [],
+            "author": "",
+            "license": "ISC"
+          }
+          EOF
+      - name: Install supa-mdx-lint
+        working-directory: test
+        run: npm install @supabase/supa-mdx-lint
+      - name: Test linter
+        working-directory: test
+        run: npm run lint
+
+  test-windows:
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+
+    steps:
+      - name: Set up Node
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Create test directory
+        run: mkdir test
+      - name: Create package.json
+        shell: pwsh
+        working-directory: test
+        run: |
+          $json = @"
+          {
+            "name": "test",
+            "version": "1.0.0",
+            "description": "",
+            "main": "index.js",
+            "scripts": {
+              "lint": "supa-mdx-lint --version"
+            },
+            "keywords": [],
+            "author": "",
+            "license": "ISC"
+          }
+          "@
+          $json | Out-File -FilePath package.json -Encoding utf8
+      - name: Install supa-mdx-lint
+        working-directory: test
+        run: npm install @supabase/supa-mdx-lint
+      - name: Test linter
+        working-directory: test
+        run: npm run lint
