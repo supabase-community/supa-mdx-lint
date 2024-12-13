@@ -156,6 +156,13 @@ It seems like none of the "@supabase/supa-mdx-lint" package's optional dependenc
   }
 }
 
+class LinterError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.code = code;
+  }
+}
+
 /**
  * Runs `supa-mdx-lint` with the given command line arguments.
  *
@@ -177,8 +184,16 @@ async function execute(args) {
     pid.on("error", (err) => {
       reject(err);
     });
-    pid.on("exit", () => {
-      resolve();
+    pid.on("exit", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        const error = new LinterError(
+          `supa-mdx-lint exited with code ${code}`,
+          code,
+        );
+        reject(error);
+      }
     });
   });
 }
