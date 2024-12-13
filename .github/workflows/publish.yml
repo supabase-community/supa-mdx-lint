@@ -19,14 +19,14 @@ jobs:
       - name: Download binary distributions
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 #v4.1.8
         with:
-          run_id: ${{ github.event.inputs.run_id }}
+          run-id: ${{ github.event.inputs.run_id }}
           name: artifact-npm-binary-distributions
           path: ./npm-binary-distributions
 
       - name: Download main Node package
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 #v4.1.8
         with:
-          run_id: ${{ github.event.inputs.run_id }}
+          run-id: ${{ github.event.inputs.run_id }}
           name: artifact-pkg-node
           path: ./node-pkg
 
