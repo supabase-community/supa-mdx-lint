@@ -8,13 +8,12 @@ const helper = require("./helper");
 
 async function main() {
   const args = process.argv.slice(2);
-  await helper.execute(args);
+  try {
+    await helper.execute(args);
+  } catch (err) {
+    process.exit(err.code ?? 1);
+  }
 }
-
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
 
 if (require.main === module) {
   main();
