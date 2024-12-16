@@ -1,6 +1,6 @@
 {
   "name": "@supabase/supa-mdx-lint-darwin",
-  "version": "0.1.6-alpha",
+  "version": "0.1.7-alpha",
   "engines": {
     "node": ">=10"
   },
