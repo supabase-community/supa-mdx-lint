@@ -302,9 +302,8 @@ impl Rule003Spelling {
     fn normalize_word(word: &str) -> Cow<str> {
         let mut word = Cow::Borrowed(word);
 
-        if word.contains(|c| matches!(c, '‘' | '’' | '“' | '”'))
-            || word.chars().any(|c| c.is_uppercase())
-        {
+        let quote_chars = ['‘', '’', '“', '”'];
+        if word.contains(|c| quote_chars.contains(&c)) || word.chars().any(|c| c.is_uppercase()) {
             let modified = word
                 .replace("‘", "'")
                 .replace("’", "'")
