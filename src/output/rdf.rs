@@ -141,6 +141,10 @@ impl RdfFormatter {
 
         Ok(())
     }
+
+    pub(super) fn should_log_metadata(&self) -> bool {
+        false
+    }
 }
 
 #[cfg(test)]
