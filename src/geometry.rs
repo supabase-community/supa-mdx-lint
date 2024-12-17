@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::mem;
 use std::ops::{Add, Deref, DerefMut, Range, SubAssign};
 
 use serde::{Deserialize, Serialize};
@@ -207,6 +208,14 @@ impl AdjustedRange {
         let end = first.end.max(second.end);
         Self(Range { start, end })
     }
+
+    pub fn overlaps_or_abuts(&self, other: &Self) -> bool {
+        if self.start > other.start {
+            other.overlaps_or_abuts(self)
+        } else {
+            self.end >= other.start
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -285,6 +294,23 @@ impl RangeSet {
         match self.overlaps_impl(&range) {
             Ok(index) => {
                 self.0[index] = AdjustedRange::span_between(&self.0[index], &range);
+                if index < self.0.len() - 1 && self.0[index].overlaps_or_abuts(&self.0[index + 1]) {
+                    let taken_vec = mem::take(&mut self.0);
+                    self.0 = taken_vec.into_iter().fold(Vec::new(), |mut accum, range| {
+                        if !accum.is_empty() {
+                            let last_index = accum.len() - 1;
+                            if accum[last_index].overlaps_or_abuts(&range) {
+                                accum[last_index] =
+                                    AdjustedRange::span_between(&accum[last_index], &range);
+                            } else {
+                                accum.push(range);
+                            }
+                        } else {
+                            accum.push(range);
+                        }
+                        accum
+                    });
+                }
             }
             Err(index) => {
                 self.0.insert(index, range);
@@ -303,15 +329,24 @@ impl RangeSet {
     }
 
     fn overlaps_impl(&self, range: &AdjustedRange) -> Result<usize, usize> {
-        self.0.binary_search_by(|probe| {
-            if probe.end < range.start {
-                Ordering::Less
-            } else if probe.start > range.end {
-                Ordering::Greater
-            } else {
-                Ordering::Equal
-            }
-        })
+        self.0
+            .binary_search_by(|probe| {
+                if probe.end < range.start {
+                    Ordering::Less
+                } else if probe.start > range.end {
+                    Ordering::Greater
+                } else {
+                    Ordering::Equal
+                }
+            })
+            .map(|index| {
+                // Ensure we return the first matching index
+                let mut first_index = index;
+                while first_index > 0 && self.0[first_index - 1].overlaps_or_abuts(range) {
+                    first_index -= 1;
+                }
+                first_index
+            })
     }
 }
 
@@ -358,6 +393,27 @@ mod tests {
         assert_eq!(set.0.len(), 1);
         assert_eq!(set.0[0].start, AdjustedOffset::from(0));
         assert_eq!(set.0[0].end, AdjustedOffset::from(8));
+    }
+
+    #[test]
+    fn test_range_set_merges_multiple_overlapping_ranges() {
+        let mut set = super::RangeSet::new();
+
+        let range1 = AdjustedRange::new(AdjustedOffset::from(0), AdjustedOffset::from(5));
+        let range2 = AdjustedRange::new(AdjustedOffset::from(3), AdjustedOffset::from(18));
+        let range3 = AdjustedRange::new(AdjustedOffset::from(10), AdjustedOffset::from(15));
+        let range4 = AdjustedRange::new(AdjustedOffset::from(17), AdjustedOffset::from(20));
+        let range5 = AdjustedRange::new(AdjustedOffset::from(23), AdjustedOffset::from(25));
+
+        set.push(range1);
+        set.push(range3);
+        set.push(range4);
+        set.push(range5);
+        set.push(range2);
+
+        assert_eq!(set.0.len(), 2);
+        assert_eq!(set.0[0].start, AdjustedOffset::from(0));
+        assert_eq!(set.0[0].end, AdjustedOffset::from(20));
     }
 
     #[test]
