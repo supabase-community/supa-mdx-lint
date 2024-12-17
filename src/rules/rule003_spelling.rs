@@ -22,6 +22,7 @@ use super::{
 
 const DICTIONARY: &str = include_str!("./rule003_spelling/dictionary.txt");
 
+#[derive(Debug, Clone)]
 enum HyphenatedPart {
     MaybePrefix,
     MaybeSuffix,
@@ -161,7 +162,7 @@ impl Rule003Spelling {
                 continue;
             }
 
-            if word_as_string.contains('-') {
+            if word_as_string.contains('-') && !self.is_correct_spelling(&word_as_string, None) {
                 // Deal with hyphenated words
                 let mut hyphenated_tokenizer = WordIterator::new(
                     word,
@@ -235,38 +236,46 @@ impl Rule003Spelling {
         level: LintLevel,
         errors: &mut Option<Vec<LintError>>,
     ) {
-        if word.len() < 2 {
+        if self.is_correct_spelling(word, hyphenation) {
             return;
-        }
-
-        if word
-            .chars()
-            .any(|c| !c.is_ascii_alphabetic() && !is_punctuation(&c))
-        {
-            // Ignore words containing non-English alphabet and number
-            return;
-        }
-
-        let word = Self::normalize_word(word);
-        if self.dictionary.contains(word.as_ref()) {
-            return;
-        }
-
-        if let Some(HyphenatedPart::MaybePrefix) = hyphenation {
-            if self.prefixes.contains(word.as_ref()) {
-                return;
-            }
         }
 
         let error = LintError::new(
             self.name(),
-            Rule003Spelling::message(&word),
+            Rule003Spelling::message(word),
             level,
             location,
             None,
             context,
         );
         errors.get_or_insert_with(Vec::new).push(error);
+    }
+
+    fn is_correct_spelling(&self, word: &str, hyphenation: Option<HyphenatedPart>) -> bool {
+        trace!("Checking spelling of word: {word} with hyphenation: {hyphenation:?}");
+        if word.len() < 2 {
+            return true;
+        }
+
+        if word
+            .chars()
+            .any(|c| !c.is_ascii_alphabetic() && !Self::is_included_punctuation(&c))
+        {
+            return true;
+        }
+
+        let word = Self::normalize_word(word);
+        if self.dictionary.contains(word.as_ref()) {
+            return true;
+        }
+
+        if let Some(HyphenatedPart::MaybePrefix) = hyphenation {
+            if self.prefixes.contains(word.as_ref()) {
+                return true;
+            }
+        }
+
+        false
     }
 
     fn normalize_word_range(word: RopeSlice<'_>, offset: usize) -> AdjustedRange {
@@ -326,6 +335,21 @@ impl Rule003Spelling {
         } else {
             word
         }
+    }
+
+    fn is_included_punctuation(c: &char) -> bool {
+        is_punctuation(c)
+            && (*c == '-'
+                || *c == '–'
+                || *c == '—'
+                || *c == '―'
+                || *c == '\''
+                || *c == '‘'
+                || *c == '’'
+                || *c == '“'
+                || *c == '”'
+                || *c == '"'
+                || *c == '.')
     }
 }
 
@@ -669,6 +693,33 @@ mod tests {
 
         let mut rule = Rule003Spelling::default();
         rule.setup(None);
+
+        let errors = rule.check(
+            context
+                .ast()
+                .children()
+                .unwrap()
+                .get(0)
+                .unwrap()
+                .children()
+                .unwrap()
+                .get(0)
+                .unwrap(),
+            &context,
+            LintLevel::Error,
+        );
+        assert!(errors.is_none());
+    }
+
+    #[test]
+    fn test_rule003_bare_prefixes() {
+        let mdx = "pre- and post-world";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::new(parse_result, None).unwrap();
+
+        let mut rule = Rule003Spelling::default();
+        let settings = RuleSettings::with_array_of_strings("prefixes", vec!["pre", "post"]);
+        rule.setup(Some(&settings));
 
         let errors = rule.check(
             context
