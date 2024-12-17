@@ -158,13 +158,20 @@ fn execute() -> Result<Result<()>> {
 
     if !args.silent {
         args.format.format(&diagnostics, &mut stdout)?;
-        let duration = start.elapsed().as_secs();
-        writeln!(
-            stdout,
-            "🕚 Done in {} second{}",
-            duration,
-            if duration == 1 { "" } else { "s" }
-        )?;
+        if args.format.should_log_metadata() {
+            let millis = start.elapsed().as_millis();
+            if millis < 1000 {
+                writeln!(stdout, "🕚 Done in {:.1} seconds", millis as f64 / 1000.0)?;
+            } else {
+                let seconds = millis / 1000;
+                writeln!(
+                    stdout,
+                    "🕚 Done in {} second{}",
+                    seconds,
+                    if seconds == 1 { "" } else { "s" }
+                )?;
+            }
+        }
     }
 
     stdout.flush()?;

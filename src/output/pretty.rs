@@ -183,6 +183,10 @@ impl PrettyFormatter {
         writeln!(io, "{}", diagnostic_message)?;
         Ok(())
     }
+
+    pub(super) fn should_log_metadata(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

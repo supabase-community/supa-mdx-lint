@@ -88,3 +88,14 @@ fn integration_test_multiple_targets() {
         .stdout(predicate::str::contains("2 sources linted"))
         .stdout(predicate::str::contains("Found 2 errors"));
 }
+
+#[test]
+fn integration_test_rdf_no_extra_logs() {
+    let mut cmd = Command::cargo_bin("supa-mdx-lint").unwrap();
+    cmd.arg("tests/good001.mdx")
+        .arg("--config")
+        .arg("tests/supa-mdx-lint.config.toml")
+        .arg("--format")
+        .arg("rdf");
+    cmd.assert().success().stdout(predicate::str::is_empty());
+}

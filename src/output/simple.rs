@@ -58,6 +58,10 @@ impl SimpleFormatter {
 
         Ok(())
     }
+
+    pub(super) fn should_log_metadata(&self) -> bool {
+        true
+    }
 }
 
 impl SimpleFormatter {

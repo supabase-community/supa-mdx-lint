@@ -46,6 +46,14 @@ impl OutputFormatter {
             Self::Rdf(formatter) => formatter.format(output, io),
         }
     }
+
+    pub fn should_log_metadata(&self) -> bool {
+        match self {
+            Self::Pretty(formatter) => formatter.should_log_metadata(),
+            Self::Simple(formatter) => formatter.should_log_metadata(),
+            Self::Rdf(formatter) => formatter.should_log_metadata(),
+        }
+    }
 }
 
 impl FromStr for OutputFormatter {
