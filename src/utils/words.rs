@@ -284,7 +284,15 @@ impl WordParser {
                 ParserNext::Continue
             }
             ParseState::PunctuationTrailing(punctuation) => {
-                let word_end_offset = self.tracking_offset.saturating_sub(punctuation.len());
+                // If the word ends with a hyphen, preserve the hyphen so we
+                // can capture bare prefixes like `pre-` and `post-`
+                let preserve_punctuation = punctuation == "-";
+
+                let word_end_offset = if preserve_punctuation {
+                    self.tracking_offset
+                } else {
+                    self.tracking_offset.saturating_sub(punctuation.len())
+                };
                 let curr_capitalize = self.capitalize;
 
                 if let Some(p) = punctuation.chars().last() {
@@ -429,6 +437,31 @@ impl WordParser {
     }
 }
 
+pub fn is_punctuation(c: &char) -> bool {
+    *c == '!'
+        || *c == '-'
+        || *c == '–'
+        || *c == '—'
+        || *c == '―'
+        || *c == '('
+        || *c == ')'
+        || *c == '['
+        || *c == ']'
+        || *c == '{'
+        || *c == '}'
+        || *c == ':'
+        || *c == '\''
+        || *c == '‘'
+        || *c == '’'
+        || *c == '“'
+        || *c == '”'
+        || *c == '"'
+        || *c == '?'
+        || *c == ','
+        || *c == '.'
+        || *c == ';'
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -527,6 +560,21 @@ mod tests {
         assert_eq!(cap, Capitalize::False);
 
         assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_word_iterator_include_hyphen_on_bare_prefixes() {
+        let rope = Rope::from("pre- and post-world");
+        let slice = rope.byte_slice(..);
+        let mut iter = WordIterator::new(slice, 0, Default::default());
+
+        let (offset, word, _cap) = iter.next().unwrap();
+        assert_eq!(offset, 0);
+        assert_eq!(word.to_string(), "pre-");
+
+        let (offset, word, _cap) = iter.nth(1).unwrap();
+        assert_eq!(offset, 9);
+        assert_eq!(word.to_string(), "post-world");
     }
 
     #[test]
@@ -762,29 +810,4 @@ mod tests {
             );
         }
     }
-}
-
-pub fn is_punctuation(c: &char) -> bool {
-    *c == '!'
-        || *c == '-'
-        || *c == '–'
-        || *c == '—'
-        || *c == '―'
-        || *c == '('
-        || *c == ')'
-        || *c == '['
-        || *c == ']'
-        || *c == '{'
-        || *c == '}'
-        || *c == ':'
-        || *c == '\''
-        || *c == '‘'
-        || *c == '’'
-        || *c == '“'
-        || *c == '”'
-        || *c == '"'
-        || *c == '?'
-        || *c == ','
-        || *c == '.'
-        || *c == ';'
 }
