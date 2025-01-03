@@ -2,7 +2,7 @@ use std::{
     env,
     io::{BufWriter, Write},
     path::PathBuf,
-    process,
+    process::{self, ExitCode},
     time::Instant,
 };
 
@@ -186,12 +186,12 @@ fn execute() -> Result<Result<()>> {
     }
 }
 
-fn main() {
+fn main() -> ExitCode {
     match execute() {
-        Ok(Ok(())) => process::exit(exitcode::OK),
-        Ok(Err(_)) => process::exit(exitcode::DATAERR),
+        Ok(Ok(())) => ExitCode::SUCCESS,
+        Ok(Err(_)) => ExitCode::from(TryInto::<u8>::try_into(exitcode::DATAERR).unwrap()),
         // Not really, but we need to bubble better errors up to get a more
         // meaningful exit code.
-        Err(_) => process::exit(exitcode::SOFTWARE),
+        Err(_) => ExitCode::from(TryInto::<u8>::try_into(exitcode::SOFTWARE).unwrap()),
     }
 }
