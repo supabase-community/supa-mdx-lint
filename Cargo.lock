@@ -584,6 +584,7 @@ dependencies = [
  "markdown",
  "predicates",
  "regex",
+ "regex-syntax",
  "serde",
  "serde_json",
  "serde_yaml",

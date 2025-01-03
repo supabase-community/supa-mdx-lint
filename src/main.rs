@@ -2,7 +2,7 @@ use std::{
     env,
     io::{BufWriter, Write},
     path::PathBuf,
-    process::{self, ExitCode},
+    process::ExitCode,
     time::Instant,
 };
 

@@ -1,5 +1,7 @@
+mod char_tree;
 pub(crate) mod mdast;
 pub(crate) mod path;
+pub(crate) mod regex;
 pub(crate) mod words;
 
 use std::path::Path;
