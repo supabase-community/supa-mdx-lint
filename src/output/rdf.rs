@@ -108,6 +108,20 @@ impl RdfFormatter {
     ) -> Result<()> {
         for output in output.iter() {
             for error in output.errors.iter() {
+                let suggestions = match (error.fix.as_ref(), error.suggestions.as_ref()) {
+                    (None, None) => None,
+                    (fix, suggestions) => {
+                        let mut combined = Vec::new();
+                        if let Some(f) = fix {
+                            combined.extend(f.iter());
+                        }
+                        if let Some(s) = suggestions {
+                            combined.extend(s.iter());
+                        }
+                        Some(combined)
+                    }
+                };
+
                 let rdf_output = RdfOutput {
                     message: &error.message,
                     location: RdfLocation {
@@ -115,10 +129,11 @@ impl RdfFormatter {
                         range: (&error.location).into(),
                     },
                     severity: &error.level,
-                    suggestions: error
-                        .fix
-                        .as_ref()
-                        .map(|fix| fix.iter().map(RdfSuggestion::from_lint_fix).collect()),
+                    suggestions: suggestions.map(|fix| {
+                        fix.iter()
+                            .map(|corr| RdfSuggestion::from_lint_fix(corr))
+                            .collect()
+                    }),
                 };
                 debug!("Writing to ReviewDog output format: {rdf_output:?}");
 
@@ -152,7 +167,7 @@ mod tests {
     use super::*;
     use crate::{
         errors::LintError,
-        fix::{LintCorrection, LintCorrectionDelete},
+        fix::{LintCorrection, LintCorrectionDelete, LintCorrectionReplace},
     };
 
     #[test]
@@ -282,6 +297,67 @@ mod tests {
 {"message":"This is another error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
 {"message":"This is an error","location":{"path":"test2.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
 {"message":"This is another error","location":{"path":"test2.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}"#;
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_rdf_formatter_with_fixes_and_suggestions() {
+        let file_path = "test.md".to_string();
+        let error = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is an error with fixes and suggestions")
+            .location(DenormalizedLocation::dummy(0, 8, 0, 0, 0, 8))
+            .fix(vec![LintCorrection::Delete(LintCorrectionDelete {
+                location: DenormalizedLocation::dummy(0, 8, 0, 0, 0, 8),
+            })])
+            .suggestions(vec![LintCorrection::Replace(LintCorrectionReplace {
+                location: DenormalizedLocation::dummy(0, 8, 0, 0, 0, 8),
+                text: "replacement text".to_string(),
+            })])
+            .call();
+        let output = LintOutput {
+            file_path,
+            errors: vec![error],
+        };
+        let output = vec![output];
+
+        let formatter = RdfFormatter;
+        let mut result = Vec::new();
+        formatter.format(&output, &mut result).unwrap();
+
+        let result = String::from_utf8(result).unwrap();
+        let result = result.trim();
+        let expected = r#"{"message":"This is an error with fixes and suggestions","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}}},"severity":"ERROR","suggestions":[{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":""},{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":"replacement text"}]}"#;
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_rdf_formatter_with_only_suggestions() {
+        let file_path = "test.md".to_string();
+        let error = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is an error with only suggestions")
+            .location(DenormalizedLocation::dummy(0, 8, 0, 0, 0, 8))
+            .suggestions(vec![LintCorrection::Replace(LintCorrectionReplace {
+                location: DenormalizedLocation::dummy(0, 8, 0, 0, 0, 8),
+                text: "replacement text".to_string(),
+            })])
+            .call();
+        let output = LintOutput {
+            file_path,
+            errors: vec![error],
+        };
+        let output = vec![output];
+
+        let formatter = RdfFormatter;
+        let mut result = Vec::new();
+        formatter.format(&output, &mut result).unwrap();
+
+        let result = String::from_utf8(result).unwrap();
+        let result = result.trim();
+        let expected = r#"{"message":"This is an error with only suggestions","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}}},"severity":"ERROR","suggestions":[{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":"replacement text"}]}"#;
         assert_eq!(result, expected);
     }
 }
