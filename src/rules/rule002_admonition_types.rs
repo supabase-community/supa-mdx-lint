@@ -93,7 +93,13 @@ impl Rule002AdmonitionTypes {
         context: &RuleContext,
         level: LintLevel,
     ) -> Option<LintError> {
-        LintError::from_node(node, context, self.name(), &self.message(None), level)
+        LintError::from_node()
+            .node(node)
+            .context(context)
+            .rule(self.name())
+            .message(&self.message(None))
+            .level(level)
+            .call()
     }
 
     fn create_lint_error_wrong_type(
@@ -128,13 +134,14 @@ impl Rule002AdmonitionTypes {
                         let range = AdjustedRange::new(start_point, end_point);
                         let location = DenormalizedLocation::from_offset_range(range, context);
 
-                        return Some(LintError {
-                            rule: self.name().to_string(),
-                            level,
-                            message: self.message(Some(type_name)),
-                            location,
-                            fix: None,
-                        });
+                        return Some(
+                            LintError::from_raw_location()
+                                .rule(self.name())
+                                .level(level)
+                                .message(self.message(Some(type_name)))
+                                .location(location)
+                                .call(),
+                        );
                     }
                 }
                 Err(_) => {
@@ -143,13 +150,13 @@ impl Rule002AdmonitionTypes {
             }
         }
 
-        LintError::from_node(
-            node,
-            context,
-            self.name(),
-            &self.message(Some(type_name)),
-            level,
-        )
+        LintError::from_node()
+            .node(node)
+            .context(context)
+            .rule(self.name())
+            .message(&self.message(Some(type_name)))
+            .level(level)
+            .call()
     }
 }
 

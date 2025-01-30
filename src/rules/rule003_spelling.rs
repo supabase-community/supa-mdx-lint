@@ -253,14 +253,13 @@ impl Rule003Spelling {
             return;
         }
 
-        let error = LintError::new(
-            self.name(),
-            Rule003Spelling::message(word),
-            level,
-            location,
-            None,
-            context,
-        );
+        let error = LintError::builder()
+            .rule(self.name())
+            .message(Rule003Spelling::message(word))
+            .level(level)
+            .location(location)
+            .context(context)
+            .build();
         errors.get_or_insert_with(Vec::new).push(error);
     }
 

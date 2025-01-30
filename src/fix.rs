@@ -13,43 +13,43 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
-pub enum LintFix {
-    Insert(LintFixInsert),
-    Delete(LintFixDelete),
-    Replace(LintFixReplace),
+pub enum LintCorrection {
+    Insert(LintCorrectionInsert),
+    Delete(LintCorrectionDelete),
+    Replace(LintCorrectionReplace),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
-pub struct LintFixInsert {
+pub struct LintCorrectionInsert {
     /// Text is inserted in front of the start point. The end point is ignored.
     pub location: DenormalizedLocation,
     pub text: String,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
-pub struct LintFixDelete {
+pub struct LintCorrectionDelete {
     pub location: DenormalizedLocation,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
-pub struct LintFixReplace {
+pub struct LintCorrectionReplace {
     pub location: DenormalizedLocation,
     pub text: String,
 }
 
-impl PartialOrd for LintFix {
+impl PartialOrd for LintCorrection {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for LintFix {
+impl Ord for LintCorrection {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
-            (LintFix::Insert(insert_a), LintFix::Insert(insert_b)) => {
+            (LintCorrection::Insert(insert_a), LintCorrection::Insert(insert_b)) => {
                 insert_a.location.start.cmp(&insert_b.location.start)
             }
-            (LintFix::Insert(insert), LintFix::Delete(delete)) => {
+            (LintCorrection::Insert(insert), LintCorrection::Delete(delete)) => {
                 if delete.location.start.le(&insert.location.start)
                     && delete.location.end.gt(&insert.location.start)
                 {
@@ -63,7 +63,7 @@ impl Ord for LintFix {
                 // the start and the end point for comparison.
                 delete.location.start.cmp(&insert.location.start)
             }
-            (LintFix::Insert(insert), LintFix::Replace(replace)) => {
+            (LintCorrection::Insert(insert), LintCorrection::Replace(replace)) => {
                 if replace.location.start.le(&insert.location.start)
                     && replace.location.end.gt(&insert.location.start)
                 {
@@ -77,8 +77,8 @@ impl Ord for LintFix {
                 // the start and the end point for comparison.
                 replace.location.start.cmp(&insert.location.start)
             }
-            (LintFix::Delete(_), LintFix::Insert(_)) => other.cmp(self).reverse(),
-            (LintFix::Delete(delete_a), LintFix::Delete(delete_b)) => {
+            (LintCorrection::Delete(_), LintCorrection::Insert(_)) => other.cmp(self).reverse(),
+            (LintCorrection::Delete(delete_a), LintCorrection::Delete(delete_b)) => {
                 let flip = delete_a.location.start.gt(&delete_b.location.start);
                 if flip {
                     return other.cmp(self).reverse();
@@ -93,7 +93,7 @@ impl Ord for LintFix {
 
                 Ordering::Less
             }
-            (LintFix::Delete(delete), LintFix::Replace(replace)) => {
+            (LintCorrection::Delete(delete), LintCorrection::Replace(replace)) => {
                 let flip = delete.location.start.gt(&replace.location.start);
                 if flip {
                     return other.cmp(self).reverse();
@@ -108,8 +108,8 @@ impl Ord for LintFix {
 
                 Ordering::Less
             }
-            (LintFix::Replace(_), LintFix::Insert(_)) => other.cmp(self).reverse(),
-            (LintFix::Replace(replace), LintFix::Delete(delete)) => {
+            (LintCorrection::Replace(_), LintCorrection::Insert(_)) => other.cmp(self).reverse(),
+            (LintCorrection::Replace(replace), LintCorrection::Delete(delete)) => {
                 let flip = replace.location.start.gt(&delete.location.start);
                 if flip {
                     return other.cmp(self).reverse();
@@ -124,7 +124,7 @@ impl Ord for LintFix {
 
                 Ordering::Less
             }
-            (LintFix::Replace(replace_a), LintFix::Replace(replace_b)) => {
+            (LintCorrection::Replace(replace_a), LintCorrection::Replace(replace_b)) => {
                 let flip = replace_a.location.start.gt(&replace_b.location.start);
                 if flip {
                     return other.cmp(self).reverse();
@@ -143,7 +143,7 @@ impl Ord for LintFix {
     }
 }
 
-impl LintFix {
+impl LintCorrection {
     /// Given two conflicting fixes, choose one to apply, or create a new fix
     /// that merges the two. Returns `None` if the's not clear which one to
     /// apply.
@@ -151,25 +151,25 @@ impl LintFix {
     /// Should only be called after checking that the fixes do in fact conflict.
     fn choose_or_merge(self, other: Self) -> Option<Self> {
         match (self, other) {
-            (LintFix::Insert(_), LintFix::Insert(_)) => {
+            (LintCorrection::Insert(_), LintCorrection::Insert(_)) => {
                 // The fixes conflict and it's not clear which one to apply.
                 // Inserting multiple alternate texts in the same place is
                 // likely a mistake.
                 None
             }
-            (LintFix::Insert(_), LintFix::Delete(delete)) => {
+            (LintCorrection::Insert(_), LintCorrection::Delete(delete)) => {
                 // The delete overlaps the insert, so apply the delete.
-                Some(LintFix::Delete(delete))
+                Some(LintCorrection::Delete(delete))
             }
-            (LintFix::Insert(_), LintFix::Replace(replace)) => {
+            (LintCorrection::Insert(_), LintCorrection::Replace(replace)) => {
                 // The replace overlaps the insert, so apply the replace.
-                Some(LintFix::Replace(replace))
+                Some(LintCorrection::Replace(replace))
             }
-            (LintFix::Delete(delete), LintFix::Insert(_)) => {
+            (LintCorrection::Delete(delete), LintCorrection::Insert(_)) => {
                 // The delete overlaps the insert, so apply the delete.
-                Some(LintFix::Delete(delete))
+                Some(LintCorrection::Delete(delete))
             }
-            (LintFix::Delete(delete_a), LintFix::Delete(delete_b)) => {
+            (LintCorrection::Delete(delete_a), LintCorrection::Delete(delete_b)) => {
                 // The deletes overlap, so merge them.
                 let new_range = AdjustedRange::span_between(
                     &delete_a.location.offset_range,
@@ -194,59 +194,59 @@ impl LintFix {
                     end,
                 };
 
-                Some(LintFix::Delete(LintFixDelete { location }))
+                Some(LintCorrection::Delete(LintCorrectionDelete { location }))
             }
-            (LintFix::Delete(delete), LintFix::Replace(replace)) => {
+            (LintCorrection::Delete(delete), LintCorrection::Replace(replace)) => {
                 // If one completely overlaps the other, apply it. Otherwise,
                 // return None.
                 if delete.location.start.lt(&replace.location.start)
                     && delete.location.end.gt(&replace.location.end)
                 {
                     // The delete wraps the replace, so apply the delete.
-                    Some(LintFix::Delete(delete))
+                    Some(LintCorrection::Delete(delete))
                 } else if replace.location.start.lt(&delete.location.start)
                     && replace.location.end.gt(&delete.location.end)
                 {
                     // The replace wraps the delete, so apply the replace.
-                    Some(LintFix::Replace(replace))
+                    Some(LintCorrection::Replace(replace))
                 } else {
                     None
                 }
             }
-            (LintFix::Replace(replace), LintFix::Insert(_)) => {
+            (LintCorrection::Replace(replace), LintCorrection::Insert(_)) => {
                 // The replace overlaps the insert, so apply the replace.
-                Some(LintFix::Replace(replace))
+                Some(LintCorrection::Replace(replace))
             }
-            (LintFix::Replace(replace), LintFix::Delete(delete)) => {
+            (LintCorrection::Replace(replace), LintCorrection::Delete(delete)) => {
                 // If one completely overlaps the other, apply it. Otherwise,
                 // return None.
                 if delete.location.start.lt(&replace.location.start)
                     && delete.location.end.gt(&replace.location.end)
                 {
                     // The delete wraps the replace, so apply the delete.
-                    Some(LintFix::Delete(delete))
+                    Some(LintCorrection::Delete(delete))
                 } else if replace.location.start.lt(&delete.location.start)
                     && replace.location.end.gt(&delete.location.end)
                 {
                     // The replace wraps the delete, so apply the replace.
-                    Some(LintFix::Replace(replace))
+                    Some(LintCorrection::Replace(replace))
                 } else {
                     None
                 }
             }
-            (LintFix::Replace(replace_a), LintFix::Replace(replace_b)) => {
+            (LintCorrection::Replace(replace_a), LintCorrection::Replace(replace_b)) => {
                 // If one completely overlaps the other, apply it. Otherwise,
                 // return None.
                 if replace_b.location.start.lt(&replace_a.location.start)
                     && replace_b.location.end.gt(&replace_a.location.end)
                 {
                     // The replace_b wraps the replace_a, so apply the replace_b.
-                    Some(LintFix::Replace(replace_b))
+                    Some(LintCorrection::Replace(replace_b))
                 } else if replace_a.location.start.lt(&replace_b.location.start)
                     && replace_a.location.end.gt(&replace_b.location.end)
                 {
                     // The replace_a wraps the replace_b, so apply the replace_a.
-                    Some(LintFix::Replace(replace_a))
+                    Some(LintCorrection::Replace(replace_a))
                 } else {
                     None
                 }
@@ -300,20 +300,20 @@ impl Linter {
 
         for fix in fixes_to_apply {
             match fix {
-                LintFix::Insert(lint_fix_insert) => {
+                LintCorrection::Insert(lint_fix_insert) => {
                     rope.insert(
                         lint_fix_insert.location.offset_range.start.into(),
                         lint_fix_insert.text,
                     );
                     errors_fixed += 1;
                 }
-                LintFix::Delete(lint_fix_delete) => {
+                LintCorrection::Delete(lint_fix_delete) => {
                     let start: usize = lint_fix_delete.location.offset_range.start.into();
                     let end: usize = lint_fix_delete.location.offset_range.end.into();
                     rope.replace(start..end, "");
                     errors_fixed += 1;
                 }
-                LintFix::Replace(lint_fix_replace) => {
+                LintCorrection::Replace(lint_fix_replace) => {
                     let start: usize = lint_fix_replace.location.offset_range.start.into();
                     let end: usize = lint_fix_replace.location.offset_range.end.into();
                     rope.replace(start..end, lint_fix_replace.text.as_str());
@@ -330,8 +330,8 @@ impl Linter {
         Ok(errors_fixed)
     }
 
-    fn calculate_fixes_to_apply(file: &str, diagnostic: &LintOutput) -> Vec<LintFix> {
-        let mut requested_fixes: Vec<LintFix> = diagnostic
+    fn calculate_fixes_to_apply(file: &str, diagnostic: &LintOutput) -> Vec<LintCorrection> {
+        let mut requested_fixes: Vec<LintCorrection> = diagnostic
             .errors()
             .iter()
             .filter_map(|err| err.fix.clone())
@@ -343,7 +343,7 @@ impl Linter {
         let requested_fixes = requested_fixes.into_iter().rev();
         debug!("Requested fixes for file {file}: {requested_fixes:#?}");
 
-        let mut fixes_to_apply: Vec<LintFix> = Vec::new();
+        let mut fixes_to_apply: Vec<LintCorrection> = Vec::new();
         for fix in requested_fixes {
             if let Some(last_scheduled_fix) = fixes_to_apply.last() {
                 if last_scheduled_fix.eq(&fix) {
