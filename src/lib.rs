@@ -1,8 +1,10 @@
 use anyhow::{Context, Result};
+use bon::bon;
 use rules::RuleFilter;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::{fs, io::Read};
+use utils::is_lintable;
 
 mod app_error;
 mod config;
@@ -13,12 +15,11 @@ mod output;
 mod parser;
 mod rope;
 mod rules;
-mod utils;
+pub mod utils;
 
 pub use crate::config::Config;
 pub use crate::errors::LintLevel;
 pub use crate::output::{rdf::RdfFormatter, simple::SimpleFormatter, LintOutput, OutputFormatter};
-pub use crate::utils::is_lintable;
 
 use crate::parser::parse;
 use crate::rules::RuleContext;
@@ -36,7 +37,21 @@ pub enum LintTarget {
 
 struct LintSourceReference<'reference>(Option<&'reference Path>);
 
+#[bon]
 impl Linter {
+    #[builder]
+    pub fn new(config: Option<Config>) -> Result<Self> {
+        let mut this = Self {
+            config: config.unwrap_or_default(),
+        };
+
+        this.config
+            .rule_registry
+            .setup(&this.config.rule_specific_settings)?;
+
+        Ok(this)
+    }
+
     pub fn lint(&self, input: &LintTarget) -> Result<Vec<LintOutput>> {
         self.lint_internal(input, None)
     }
@@ -99,7 +114,10 @@ impl Linter {
         check_only_rules: RuleFilter,
     ) -> Result<Vec<LintOutput>> {
         let parse_result = parse(string)?;
-        let rule_context = RuleContext::new(parse_result, check_only_rules)?;
+        let rule_context = RuleContext::builder()
+            .parse_result(parse_result)
+            .maybe_check_only_rules(check_only_rules)
+            .build()?;
         match self.config.rule_registry.run(&rule_context) {
             Ok(diagnostics) => {
                 let source = match source.0 {
@@ -121,29 +139,6 @@ impl Linter {
     }
 }
 
-pub struct LinterBuilder;
-pub struct LinterBuilderWithConfig {
-    config: Config,
-}
-
-impl LinterBuilder {
-    pub fn configure(self, config: Config) -> LinterBuilderWithConfig {
-        LinterBuilderWithConfig { config }
-    }
-}
-
-impl LinterBuilderWithConfig {
-    pub fn build(mut self) -> Result<Linter> {
-        self.config
-            .rule_registry
-            .setup(&self.config.rule_specific_settings)?;
-
-        Ok(Linter {
-            config: self.config,
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -157,8 +152,7 @@ mod tests {
 
     #[test]
     fn test_lint_valid_string() -> Result<()> {
-        let config = Config::default();
-        let mut linter = LinterBuilder.configure(config).build()?;
+        let mut linter = Linter::builder().build()?;
         linter
             .config
             .rule_registry
@@ -177,8 +171,7 @@ mod tests {
 
     #[test]
     fn test_lint_invalid_string() -> Result<()> {
-        let config = Config::default();
-        let mut linter = LinterBuilder.configure(config).build()?;
+        let mut linter = Linter::builder().build()?;
         linter
             .config
             .rule_registry

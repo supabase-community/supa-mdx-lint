@@ -4,6 +4,7 @@ use crop::RopeSlice;
 use log::{debug, trace};
 use markdown::mdast;
 use regex::Regex;
+use suggestions::SuggestionMatcher;
 use supa_mdx_macros::RuleName;
 
 use crate::{
@@ -11,6 +12,7 @@ use crate::{
     geometry::{AdjustedOffset, AdjustedRange, RangeSet},
     utils::{
         self,
+        regex::expand_regex,
         words::{is_punctuation, BreakOnPunctuation, WordIterator, WordIteratorOptions},
     },
     LintLevel,
@@ -20,6 +22,8 @@ use super::{
     RegexBeginning, RegexEnding, RegexSettings, Rule, RuleContext, RuleName, RuleSettings,
 };
 
+mod suggestions;
+
 const DICTIONARY: &str = include_str!("./rule003_spelling/dictionary.txt");
 
 #[derive(Debug, Clone)]
@@ -28,11 +32,12 @@ enum HyphenatedPart {
     MaybeSuffix,
 }
 
-#[derive(Clone, Default, RuleName)]
+#[derive(Default, RuleName)]
 pub(crate) struct Rule003Spelling {
     allow_list: Vec<Regex>,
     prefixes: HashSet<String>,
     dictionary: HashSet<String>,
+    suggestion_matcher: SuggestionMatcher,
 }
 
 impl std::fmt::Debug for Rule003Spelling {
@@ -51,8 +56,6 @@ impl Rule for Rule003Spelling {
     }
 
     fn setup(&mut self, settings: Option<&RuleSettings>) {
-        self.setup_dictionary();
-
         if let Some(settings) = settings {
             if let Some(vec) = settings.get_array_of_regexes(
                 "allow_list",
@@ -68,6 +71,8 @@ impl Rule for Rule003Spelling {
                 self.prefixes = HashSet::from_iter(vec);
             }
         }
+
+        self.setup_dictionary();
     }
 
     fn check(
@@ -98,6 +103,14 @@ impl Rule003Spelling {
                 set.insert(word.to_owned());
             });
         self.dictionary = set;
+
+        let custom_words = self
+            .allow_list
+            .iter()
+            .flat_map(|regex| expand_regex(regex.as_str()).into_iter().flatten())
+            .collect::<Vec<_>>();
+        let suggestion_matcher = SuggestionMatcher::new(&custom_words);
+        self.suggestion_matcher = suggestion_matcher;
     }
 
     fn check_node(
@@ -363,7 +376,10 @@ mod tests {
     fn test_rule003_spelling_good() {
         let mdx = "hello world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut rule = Rule003Spelling::default();
         rule.setup(None);
@@ -389,7 +405,10 @@ mod tests {
     fn test_rule003_spelling_bad() {
         let mdx = "heloo world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut rule = Rule003Spelling::default();
         rule.setup(None);
@@ -422,7 +441,10 @@ mod tests {
     fn test_rule003_with_exception() {
         let mdx = "heloo world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut rule = Rule003Spelling::default();
         let settings = RuleSettings::with_array_of_strings("allow_list", vec!["heloo"]);
@@ -449,7 +471,10 @@ mod tests {
     fn test_rule003_with_repeated_exception() {
         let mdx = "heloo world heloo";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut rule = Rule003Spelling::default();
         let settings = RuleSettings::with_array_of_strings("allow_list", vec!["heloo"]);
@@ -476,7 +501,10 @@ mod tests {
     fn test_rule003_with_regex_exception() {
         let mdx = "Heloo world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut rule = Rule003Spelling::default();
         let settings = RuleSettings::with_array_of_strings("allow_list", vec!["[Hh]eloo"]);
@@ -503,7 +531,10 @@ mod tests {
     fn test_rule003_with_punctuation() {
         let mdx = "heloo, 'asdf' world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut rule = Rule003Spelling::default();
         rule.setup(None);
@@ -542,7 +573,10 @@ mod tests {
         // Shouldn't is in dictionary, but hell'o is not
         let mdx = "hell'o world shouldn't work";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut rule = Rule003Spelling::default();
         rule.setup(None);
@@ -575,7 +609,10 @@ mod tests {
     fn test_rule003_with_multiple_lines() {
         let mdx = "hello world\nhello world\nheloo world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut rule = Rule003Spelling::default();
         rule.setup(None);
@@ -608,7 +645,10 @@ mod tests {
     fn test_rule003_with_prefix() {
         let mdx = "hello pre-world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut rule = Rule003Spelling::default();
         let settings = RuleSettings::with_array_of_strings("prefixes", vec!["pre"]);
@@ -635,7 +675,10 @@ mod tests {
     fn test_rule003_ignore_filenames() {
         let mdx = "use the file hello.toml";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut rule = Rule003Spelling::default();
         let settings = RuleSettings::with_array_of_strings("allow_list", vec!["\\S+\\.toml"]);
@@ -662,7 +705,10 @@ mod tests {
     fn test_rule003_ignore_complex_regex() {
         let mdx = "test a thing [#rest-api-overview]";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut rule = Rule003Spelling::default();
         let settings = RuleSettings::with_array_of_strings("allow_list", vec!["\\[#[A-Za-z-]+\\]"]);
@@ -689,7 +735,10 @@ mod tests {
     fn test_rule003_ignore_emojis() {
         let mdx = "hello 🤝 world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut rule = Rule003Spelling::default();
         rule.setup(None);
@@ -715,7 +764,10 @@ mod tests {
     fn test_rule003_bare_prefixes() {
         let mdx = "pre- and post-world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut rule = Rule003Spelling::default();
         let settings = RuleSettings::with_array_of_strings("prefixes", vec!["pre", "post"]);

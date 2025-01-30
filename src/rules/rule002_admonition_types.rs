@@ -175,7 +175,10 @@ Some text.
 
         let rule = Rule002AdmonitionTypes::default();
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let admonition = context.parse_result.ast.children().unwrap().get(0).unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
@@ -197,7 +200,10 @@ Some text.
 
         let rule = Rule002AdmonitionTypes::default();
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let admonition = context.parse_result.ast.children().unwrap().get(0).unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
@@ -215,7 +221,10 @@ Some text.
         let mut rule = Rule002AdmonitionTypes::default();
         rule.admonition_types = vec!["note".to_string()];
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let admonition = context.parse_result.ast.children().unwrap().get(0).unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
