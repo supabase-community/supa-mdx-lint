@@ -123,13 +123,12 @@ mod tests {
     #[test]
     fn test_simple_formatter() {
         let file_path = "test.md".to_string();
-        let error = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Error,
-            message: "This is an error".to_string(),
-            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
-            fix: None,
-        };
+        let error = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is an error")
+            .location(DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0))
+            .call();
 
         let output = LintOutput {
             file_path,
@@ -149,13 +148,12 @@ mod tests {
     #[test]
     fn test_simple_formatter_warning() {
         let file_path = "test.md".to_string();
-        let error = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Warning,
-            message: "This is a warning".to_string(),
-            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
-            fix: None,
-        };
+        let error = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Warning)
+            .message("This is a warning")
+            .location(DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0))
+            .call();
         let output = LintOutput {
             file_path,
             errors: vec![error],
@@ -174,20 +172,18 @@ mod tests {
     #[test]
     fn test_simple_formatter_warning_and_error() {
         let file_path = "test.md".to_string();
-        let error1 = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Error,
-            message: "This is an error".to_string(),
-            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
-            fix: None,
-        };
-        let error2 = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Warning,
-            message: "This is a warning".to_string(),
-            location: DenormalizedLocation::dummy(14, 46, 3, 0, 4, 2),
-            fix: None,
-        };
+        let error1 = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is an error")
+            .location(DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0))
+            .call();
+        let error2 = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Warning)
+            .message("This is a warning")
+            .location(DenormalizedLocation::dummy(14, 46, 3, 0, 4, 2))
+            .call();
         let output = LintOutput {
             file_path,
             errors: vec![error1, error2],
@@ -224,20 +220,18 @@ mod tests {
     #[test]
     fn test_simple_formatter_multiple_errors() {
         let file_path = "test.md".to_string();
-        let error_1 = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Error,
-            message: "This is an error".to_string(),
-            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
-            fix: None,
-        };
-        let error_2 = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Error,
-            message: "This is another error".to_string(),
-            location: DenormalizedLocation::dummy(14, 46, 3, 0, 4, 2),
-            fix: None,
-        };
+        let error_1 = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is an error")
+            .location(DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0))
+            .call();
+        let error_2 = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is another error")
+            .location(DenormalizedLocation::dummy(14, 46, 3, 0, 4, 2))
+            .call();
 
         let output = LintOutput {
             file_path,
@@ -257,20 +251,18 @@ mod tests {
     #[test]
     fn test_simple_formatter_multiple_files() {
         let file_path_1 = "test.md".to_string();
-        let error_1 = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Error,
-            message: "This is an error".to_string(),
-            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
-            fix: None,
-        };
-        let error_2 = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Error,
-            message: "This is another error".to_string(),
-            location: DenormalizedLocation::dummy(14, 46, 3, 0, 4, 2),
-            fix: None,
-        };
+        let error_1 = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is an error")
+            .location(DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0))
+            .call();
+        let error_2 = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is another error")
+            .location(DenormalizedLocation::dummy(14, 46, 3, 0, 4, 2))
+            .call();
 
         let output_1 = LintOutput {
             file_path: file_path_1,
@@ -278,20 +270,18 @@ mod tests {
         };
 
         let file_path_2 = "test2.md".to_string();
-        let error_3 = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Error,
-            message: "This is an error".to_string(),
-            location: DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0),
-            fix: None,
-        };
-        let error_4 = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Error,
-            message: "This is another error".to_string(),
-            location: DenormalizedLocation::dummy(14, 46, 3, 0, 4, 2),
-            fix: None,
-        };
+        let error_3 = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is an error")
+            .location(DenormalizedLocation::dummy(0, 7, 0, 0, 1, 0))
+            .call();
+        let error_4 = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is another error")
+            .location(DenormalizedLocation::dummy(14, 46, 3, 0, 4, 2))
+            .call();
 
         let output_2 = LintOutput {
             file_path: file_path_2,

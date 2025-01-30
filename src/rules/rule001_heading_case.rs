@@ -8,7 +8,7 @@ use supa_mdx_macros::RuleName;
 
 use crate::{
     errors::{LintError, LintLevel},
-    fix::{LintFix, LintFixReplace},
+    fix::{LintCorrection, LintCorrectionReplace},
     geometry::{AdjustedOffset, AdjustedRange, DenormalizedLocation},
     utils::{
         mdast::HasChildren,
@@ -67,18 +67,18 @@ impl Rule for Rule001HeadingCase {
 
         self.reset_mutable_state();
 
-        let mut fixes: Option<Vec<LintFix>> = None;
+        let mut fixes: Option<Vec<LintCorrection>> = None;
         self.check_ast(ast, &mut fixes, context);
         fixes
             .and_then(|fixes| {
-                LintError::from_node_with_fix(
-                    ast,
-                    context,
-                    self.name(),
-                    &self.message(),
-                    level,
-                    fixes,
-                )
+                LintError::from_node()
+                    .node(ast)
+                    .context(context)
+                    .rule(self.name())
+                    .level(level)
+                    .message(&self.message())
+                    .fix(fixes)
+                    .call()
             })
             .map(|error| vec![error])
     }
@@ -96,7 +96,7 @@ impl Rule001HeadingCase {
     fn check_text_sentence_case(
         &self,
         text: &Text,
-        fixes: &mut Option<Vec<LintFix>>,
+        fixes: &mut Option<Vec<LintCorrection>>,
         context: &RuleContext,
     ) {
         if let Some(position) = text.position.as_ref() {
@@ -217,7 +217,7 @@ impl Rule001HeadingCase {
         offset: usize,
         capitalize: Capitalize,
         context: &RuleContext,
-        fixes: &mut Option<Vec<LintFix>>,
+        fixes: &mut Option<Vec<LintCorrection>>,
     ) {
         let replacement_word = match capitalize {
             Capitalize::True => {
@@ -245,7 +245,7 @@ impl Rule001HeadingCase {
             let location = AdjustedRange::new(start, end);
             let location = DenormalizedLocation::from_offset_range(location, context);
 
-            let fix = LintFix::Replace(LintFixReplace {
+            let fix = LintCorrection::Replace(LintCorrectionReplace {
                 location,
                 text: replacement_word,
             });
@@ -253,7 +253,12 @@ impl Rule001HeadingCase {
         }
     }
 
-    fn check_ast(&self, node: &Node, fixes: &mut Option<Vec<LintFix>>, context: &RuleContext) {
+    fn check_ast(
+        &self,
+        node: &Node,
+        fixes: &mut Option<Vec<LintCorrection>>,
+        context: &RuleContext,
+    ) {
         debug!(
             "Checking ast for node: {node:?} with next word capital: {:?}",
             self.next_word_capital
@@ -262,7 +267,7 @@ impl Rule001HeadingCase {
         fn check_children<T: HasChildren>(
             rule: &Rule001HeadingCase,
             node: &T,
-            fixes: &mut Option<Vec<LintFix>>,
+            fixes: &mut Option<Vec<LintCorrection>>,
             context: &RuleContext,
         ) {
             node.get_children()
@@ -339,7 +344,7 @@ mod tests {
 
         let fix = fixes.get(0).unwrap();
         match fix {
-            LintFix::Replace(fix) => {
+            LintCorrection::Replace(fix) => {
                 assert_eq!(fix.text, "This");
                 assert_eq!(fix.location.start.row, 0);
                 assert_eq!(fix.location.start.column, 2);
@@ -380,7 +385,7 @@ mod tests {
 
         let fix_one = fixes.get(0).unwrap();
         match fix_one {
-            LintFix::Replace(fix) => {
+            LintCorrection::Replace(fix) => {
                 assert_eq!(fix.text, "should");
                 assert_eq!(fix.location.start.row, 0);
                 assert_eq!(fix.location.start.column, 7);
@@ -394,7 +399,7 @@ mod tests {
 
         let fix_two = fixes.get(1).unwrap();
         match fix_two {
-            LintFix::Replace(fix) => {
+            LintCorrection::Replace(fix) => {
                 assert_eq!(fix.text, "fail");
                 assert_eq!(fix.location.start.row, 0);
                 assert_eq!(fix.location.start.column, 14);
@@ -581,7 +586,7 @@ mod tests {
         let fixes = error.fix.clone().unwrap();
         let fix = fixes.get(0).unwrap();
         match fix {
-            LintFix::Replace(fix) => {
+            LintCorrection::Replace(fix) => {
                 assert_eq!(fix.text, "api");
                 assert_eq!(fix.location.start.row, 0);
                 assert_eq!(fix.location.start.column, 13);
@@ -804,7 +809,7 @@ mod tests {
         let fixes = result.get(0).unwrap().fix.as_ref().unwrap();
         let fix = fixes.get(0).unwrap();
         match fix {
-            LintFix::Replace(fix) => {
+            LintCorrection::Replace(fix) => {
                 assert_eq!(fix.location.start.column, 8);
             }
             _ => panic!("Unexpected fix type"),

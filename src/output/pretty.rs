@@ -205,13 +205,12 @@ mod tests {
         let file_path = temp_dir.path().join("test.md");
         fs::write(&file_path, "# Hello World").unwrap();
 
-        let error = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Error,
-            message: "This is an error".to_string(),
-            location: DenormalizedLocation::dummy(8, 13, 0, 8, 0, 13),
-            fix: None,
-        };
+        let error = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is an error")
+            .location(DenormalizedLocation::dummy(8, 13, 0, 8, 0, 13))
+            .call();
 
         let file_path = file_path.to_string_lossy().to_string();
         let output = LintOutput {
@@ -254,20 +253,18 @@ mod tests {
         let file_path = temp_dir.path().join("test.md");
         fs::write(&file_path, "# Hello World\n\n# Hello World").unwrap();
 
-        let error_1 = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Error,
-            message: "This is an error".to_string(),
-            location: DenormalizedLocation::dummy(8, 13, 0, 8, 0, 13),
-            fix: None,
-        };
-        let error_2 = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Error,
-            message: "This is another error".to_string(),
-            location: DenormalizedLocation::dummy(23, 28, 2, 8, 2, 13),
-            fix: None,
-        };
+        let error_1 = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is an error")
+            .location(DenormalizedLocation::dummy(8, 13, 0, 8, 0, 13))
+            .call();
+        let error_2 = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is another error")
+            .location(DenormalizedLocation::dummy(23, 28, 2, 8, 2, 13))
+            .call();
 
         let file_path = file_path.to_string_lossy().to_string();
         let output = LintOutput {
@@ -294,13 +291,12 @@ mod tests {
         let file_path_2 = temp_dir.path().join("test2.md");
         fs::write(&file_path_2, "# Hello World").unwrap();
 
-        let error_1 = LintError {
-            rule: "MockRule".to_string(),
-            level: LintLevel::Error,
-            message: "This is an error".to_string(),
-            location: DenormalizedLocation::dummy(8, 13, 0, 8, 0, 13),
-            fix: None,
-        };
+        let error_1 = LintError::from_raw_location()
+            .rule("MockRule")
+            .level(LintLevel::Error)
+            .message("This is an error")
+            .location(DenormalizedLocation::dummy(8, 13, 0, 8, 0, 13))
+            .call();
 
         let file_path_1 = file_path_1.to_string_lossy().to_string();
         let file_path_2 = file_path_2.to_string_lossy().to_string();

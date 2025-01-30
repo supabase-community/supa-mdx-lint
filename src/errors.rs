@@ -1,11 +1,12 @@
 use std::fmt::Display;
 
 use anyhow::Result;
+use bon::bon;
 use markdown::mdast::Node;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    fix::LintFix,
+    fix::LintCorrection,
     geometry::{AdjustedPoint, AdjustedRange, DenormalizedLocation},
     rules::RuleContext,
 };
@@ -45,17 +46,21 @@ pub struct LintError {
     pub level: LintLevel,
     pub message: String,
     pub location: DenormalizedLocation,
-    pub fix: Option<Vec<LintFix>>,
+    pub fix: Option<Vec<LintCorrection>>,
+    pub suggestions: Option<Vec<LintCorrection>>,
 }
 
+#[bon]
 impl LintError {
-    pub fn new(
+    #[builder]
+    pub fn new<'ctx>(
         rule: impl AsRef<str>,
-        message: String,
+        message: impl Into<String>,
         level: LintLevel,
         location: AdjustedRange,
-        fix: Option<Vec<LintFix>>,
-        context: &RuleContext,
+        fix: Option<Vec<LintCorrection>>,
+        suggestions: Option<Vec<LintCorrection>>,
+        context: &RuleContext<'ctx>,
     ) -> Self {
         let start = AdjustedPoint::from_adjusted_offset(&location.start, context.rope());
         let end = AdjustedPoint::from_adjusted_offset(&location.end, context.rope());
@@ -68,44 +73,59 @@ impl LintError {
         Self {
             rule: rule.as_ref().into(),
             level,
-            message,
+            message: message.into(),
             location,
             fix,
+            suggestions,
         }
     }
 
-    pub fn from_node(
+    #[builder]
+    pub fn from_node<'ctx>(
+        /// The AST node to generate the error location from.
         node: &Node,
-        context: &RuleContext,
+        context: &RuleContext<'ctx>,
+        /// The rule name.
         rule: impl AsRef<str>,
         message: &str,
         level: LintLevel,
+        fix: Option<Vec<LintCorrection>>,
+        suggestions: Option<Vec<LintCorrection>>,
     ) -> Option<Self> {
         if let Some(position) = node.position() {
             let location = AdjustedRange::from_unadjusted_position(position, context);
-            Some(Self::new(
-                rule,
-                message.into(),
-                level,
-                location,
-                None,
-                context,
-            ))
+            Some(
+                Self::builder()
+                    .location(location)
+                    .context(context)
+                    .rule(rule)
+                    .message(message)
+                    .level(level)
+                    .maybe_fix(fix)
+                    .maybe_suggestions(suggestions)
+                    .build(),
+            )
         } else {
             None
         }
     }
 
-    pub fn from_node_with_fix(
-        node: &Node,
-        context: &RuleContext,
+    #[builder]
+    pub fn from_raw_location<'ctx>(
         rule: impl AsRef<str>,
-        message: &str,
+        message: impl Into<String>,
         level: LintLevel,
-        fix: Vec<LintFix>,
-    ) -> Option<Self> {
-        let mut lint_error = Self::from_node(node, context, rule, message, level)?;
-        lint_error.fix = Some(fix);
-        Some(lint_error)
+        location: DenormalizedLocation,
+        fix: Option<Vec<LintCorrection>>,
+        suggestions: Option<Vec<LintCorrection>>,
+    ) -> Self {
+        Self {
+            rule: rule.as_ref().into(),
+            level,
+            message: message.into(),
+            location,
+            fix,
+            suggestions,
+        }
     }
 }
