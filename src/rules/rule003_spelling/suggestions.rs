@@ -1,38 +1,24 @@
+use std::path::PathBuf;
+
 use symspell::{AsciiStringStrategy, SymSpell, Verbosity};
 
-const DICTIONARY_PATH: &str = "./dictionary.txt";
+const DICTIONARY_PATH: &str = "src/rules/rule003_spelling/dictionary.txt";
 
 #[derive(Default)]
 pub struct SuggestionMatcher {
     dictionary: SymSpell<AsciiStringStrategy>,
 }
 
-mod utils {
-    pub(super) fn generate_dummy_dictionary_entries(words: &[impl AsRef<str>]) -> String {
-        // Symspell dictionaries require a frequency to be associated with each
-        // word. Since our exception lists don't have corpus-derived
-        // frequencies, we'll just use a dummy value. This is set relatively
-        // high since any custom exceptions are likely to be highly relevant.
-        let dummy_frequency = 1_000_000_000;
-
-        words
-            .iter()
-            .map(|word| format!("{} {}", word.as_ref(), dummy_frequency))
-            .collect::<Vec<_>>()
-            .join("\n")
-    }
-
-    pub(super) fn join_with_newline(str1: &str, str2: &str) -> String {
-        let str1_trimmed = str1.trim_end_matches('\n');
-        let str2_trimmed = str2.trim_start_matches('\n');
-        format!("{}\n{}", str1_trimmed, str2_trimmed)
-    }
-}
-
 impl SuggestionMatcher {
     pub fn new(exceptions: &[impl AsRef<str>]) -> Self {
+        log::warn!(
+            "exceptions: {:?}",
+            exceptions.iter().map(|s| s.as_ref()).collect::<Vec<_>>()
+        );
         let mut symspell = SymSpell::default();
-        symspell.load_dictionary(DICTIONARY_PATH, 0, 1, " ");
+
+        let dictionary_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(DICTIONARY_PATH);
+        symspell.load_dictionary(dictionary_path.to_str().unwrap(), 0, 1, " ");
 
         // Symspell dictionaries require a frequency to be associated with each
         // word. Since our exception lists don't have corpus-derived
@@ -41,10 +27,10 @@ impl SuggestionMatcher {
         let dummy_frequency = 1_000_000_000;
         for exception in exceptions {
             symspell.load_dictionary_line(
-                &format!("{} {}", exception.as_ref(), dummy_frequency),
+                &format!("{}\t{}", exception.as_ref(), dummy_frequency),
                 0,
                 1,
-                " ",
+                "\t",
             );
         }
 
@@ -59,5 +45,26 @@ impl SuggestionMatcher {
             .into_iter()
             .map(|s| s.term)
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_suggestion_matcher() {
+        let words: Vec<String> = vec![];
+        let matcher = SuggestionMatcher::new(&words);
+        let suggestions = matcher.suggest("heloo");
+        assert!(suggestions.contains(&"hello".to_string()));
+    }
+
+    #[test]
+    fn test_suggestion_matcher_with_custom_words() {
+        let words: Vec<String> = vec!["asdfghjkl".to_string()];
+        let matcher = SuggestionMatcher::new(&words);
+        let suggestions = matcher.suggest("asdfhjk");
+        assert!(suggestions.contains(&"asdfghjkl".to_string()));
     }
 }
