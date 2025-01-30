@@ -3,6 +3,7 @@ use std::{
     io::{BufWriter, Write},
     path::PathBuf,
     process::ExitCode,
+    thread,
     time::Instant,
 };
 
@@ -12,7 +13,8 @@ use glob::glob;
 use log::{debug, error};
 use simplelog::{ColorChoice, Config as LogConfig, LevelFilter, TermLogger, TerminalMode};
 use supa_mdx_lint::{
-    is_lintable, Config, LintLevel, LintOutput, LintTarget, Linter, LinterBuilder, OutputFormatter,
+    utils::is_lintable, Config, LintLevel, LintOutput, LintTarget, Linter, LinterBuilder,
+    OutputFormatter,
 };
 
 const DEFAULT_CONFIG_FILE: &str = "supa-mdx-lint.config.toml";
@@ -133,7 +135,7 @@ fn execute() -> Result<Result<()>> {
     debug!("Config path is {config_path:?}");
 
     let config = Config::from_config_file(config_path)?;
-    let linter = LinterBuilder.configure(config).build()?;
+    let linter = Linter::builder().config(config).build()?;
     debug!("Linter built: {linter:#?}");
 
     let mut diagnostics = get_diagnostics(&args.target, &linter)?;

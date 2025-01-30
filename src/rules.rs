@@ -1,4 +1,5 @@
 use anyhow::Result;
+use bon::bon;
 use log::{debug, error, warn};
 use markdown::mdast::Node;
 use regex::Regex;
@@ -27,8 +28,7 @@ fn get_all_rules() -> Vec<Box<dyn Rule>> {
     ]
 }
 
-#[allow(private_bounds)] // RuleClone is used within this module tree only
-pub trait Rule: Debug + RuleName + RuleClone {
+pub trait Rule: Debug + RuleName {
     fn default_level(&self) -> LintLevel;
     fn setup(&mut self, _settings: Option<&RuleSettings>) {}
     fn check(&self, ast: &Node, context: &RuleContext, level: LintLevel) -> Option<Vec<LintError>>;
@@ -36,22 +36,6 @@ pub trait Rule: Debug + RuleName + RuleClone {
 
 pub trait RuleName {
     fn name(&self) -> &'static str;
-}
-
-trait RuleClone {
-    fn clone_box(&self) -> Box<dyn Rule>;
-}
-
-impl<T: 'static + Rule + Clone> RuleClone for T {
-    fn clone_box(&self) -> Box<dyn Rule> {
-        Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<dyn Rule> {
-    fn clone(&self) -> Box<dyn Rule> {
-        self.clone_box()
-    }
 }
 
 impl dyn Rule {
@@ -211,7 +195,9 @@ pub struct RuleContext<'ctx> {
     disables: LintDisables,
 }
 
+#[bon]
 impl<'ctx> RuleContext<'ctx> {
+    #[builder]
     pub(crate) fn new(
         parse_result: ParseResult,
         check_only_rules: Option<&'ctx [&'ctx str]>,
@@ -433,7 +419,11 @@ mod tests {
 
         let mdx = "text";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, Some(&["MockRule"])).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .check_only_rules(&["MockRule"])
+            .build()
+            .unwrap();
 
         let mut errors = Vec::new();
         registry.check_node(context.ast(), &context, &mut errors);
@@ -457,7 +447,10 @@ mod tests {
 
         let mdx = "test";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::new(parse_result, None).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
 
         let mut errors = Vec::new();
         registry.check_node(context.ast(), &context, &mut errors);
