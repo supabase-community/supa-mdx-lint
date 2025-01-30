@@ -1,6 +1,11 @@
 #![allow(dead_code)]
 
-use regex_syntax::ast::{parse::Parser, Ast, ClassSet, ClassSetItem, Concat, RepetitionKind};
+use std::collections::HashSet;
+
+use bon::builder;
+use regex_syntax::ast::{
+    parse::Parser, Ast, ClassPerlKind, ClassSet, ClassSetItem, Concat, RepetitionKind,
+};
 
 use crate::utils::char_tree::CharNode;
 
@@ -15,12 +20,20 @@ use crate::utils::char_tree::CharNode;
 /// let result = expand_regex(r"test(s|ed)?");
 /// assert_eq!(result, Some(vec!["test", "tests", "tested"]));
 /// ```
-pub fn expand_regex(pattern: &str) -> Option<Vec<String>> {
-    let ast = Parser::new().parse(pattern).ok()?;
-    expand_ast(&ast)
+#[builder]
+pub fn expand_regex(
+    regex: &str,
+    /// Whether to trim non-alphabetic characters from beginning and end of
+    /// expanded string. Defaults to true.
+    trim_non_alphabetic: Option<bool>,
+) -> Option<Vec<String>> {
+    let trim_non_alphabetic = trim_non_alphabetic.unwrap_or(true);
+
+    let ast = Parser::new().parse(regex).ok()?;
+    expand_ast(&ast, trim_non_alphabetic)
 }
 
-fn expand_ast(ast: &Ast) -> Option<Vec<String>> {
+fn expand_ast(ast: &Ast, trim_non_alphabetic: bool) -> Option<Vec<String>> {
     #[derive(Debug)]
     enum NextNode {
         Single(CharNode),
@@ -28,11 +41,12 @@ fn expand_ast(ast: &Ast) -> Option<Vec<String>> {
     }
 
     fn expand_ast_internal(ast: &Ast, char_tree: &mut Option<CharNode>) -> Option<NextNode> {
+        log::info!("expand_ast_internal: {:#?}", ast);
+
         match ast {
-            Ast::Assertion(_) => {
-                // Assertions do not affect the possible strings
-                None
-            }
+            Ast::Assertion(_) => Some(NextNode::Single(
+                char_tree.clone().unwrap_or_else(CharNode::initiate),
+            )),
             Ast::Literal(literal) => match char_tree {
                 Some(ref mut node) => {
                     let new_node = node.append(literal.c);
@@ -90,6 +104,13 @@ fn expand_ast(ast: &Ast) -> Option<Vec<String>> {
                 Some(NextNode::Multiple(next))
             }
             Ast::Concat(concat) => expand_concat(char_tree, concat),
+            Ast::ClassPerl(perl_class)
+                if perl_class.kind == ClassPerlKind::Space && !perl_class.negated =>
+            {
+                Some(NextNode::Single(
+                    char_tree.clone().unwrap_or_else(CharNode::initiate),
+                ))
+            }
             _ => {
                 // Too complex to list all the possibilities, just abort
                 if let Some(ref mut node) = char_tree {
@@ -164,7 +185,20 @@ fn expand_ast(ast: &Ast) -> Option<Vec<String>> {
 
     let mut char_tree = None::<CharNode>;
     expand_ast_internal(ast, &mut char_tree);
-    char_tree.map(|tree| tree.collect())
+    char_tree.map(|tree| {
+        tree.collect()
+            .into_iter()
+            .map(|s| {
+                if trim_non_alphabetic {
+                    s.trim_matches(|c: char| !c.is_alphabetic()).to_string()
+                } else {
+                    s
+                }
+            })
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>()
+    })
 }
 
 #[cfg(test)]
@@ -173,36 +207,33 @@ mod tests {
 
     #[test]
     fn test_expand_regex_blank_returns_none() {
-        let result = expand_regex("");
+        let result = expand_regex().regex("").call();
         assert_eq!(result, None);
     }
 
     #[test]
     fn test_expand_regex_literal_into_itself() {
-        let result = expand_regex("test");
+        let result = expand_regex().regex("test").call();
         assert_eq!(result, Some(vec!["test".to_string()]));
-
-        let result = expand_regex("whatchamacallit\\?");
-        assert_eq!(result, Some(vec!["whatchamacallit?".to_string()]));
     }
 
     #[test]
     fn test_expand_regex_alternates() {
-        let mut result = expand_regex("test(s|ed)").unwrap();
+        let mut result = expand_regex().regex("test(s|ed)").call().unwrap();
         result.sort();
         assert_eq!(result, vec!["tested".to_string(), "tests".to_string()]);
     }
 
     #[test]
     fn test_expand_regex_optional() {
-        let mut result = expand_regex("tests?").unwrap();
+        let mut result = expand_regex().regex("tests?").call().unwrap();
         result.sort();
         assert_eq!(result, vec!["test".to_string(), "tests".to_string()]);
     }
 
     #[test]
     fn test_expand_regex_alternates_optional() {
-        let mut result = expand_regex("test(s|ed)?").unwrap();
+        let mut result = expand_regex().regex("test(s|ed)?").call().unwrap();
         result.sort();
         assert_eq!(
             result,
@@ -216,14 +247,14 @@ mod tests {
 
     #[test]
     fn test_expand_regex_alternates_class_set() {
-        let mut result = expand_regex("[Aa]pple").unwrap();
+        let mut result = expand_regex().regex("[Aa]pple").call().unwrap();
         result.sort();
         assert_eq!(result, vec!["Apple".to_string(), "apple".to_string()]);
     }
 
     #[test]
     fn text_expand_regex_initial_optional() {
-        let mut result = expand_regex("(pre)?determine").unwrap();
+        let mut result = expand_regex().regex("(pre)?determine").call().unwrap();
         result.sort();
         assert_eq!(
             result,
@@ -233,10 +264,43 @@ mod tests {
 
     #[test]
     fn test_expand_regex_aborted_case() {
-        let result = expand_regex("[^Aa]pple").unwrap();
+        let result = expand_regex().regex("[^Aa]pple").call().unwrap();
         assert_eq!(result, Vec::<String>::new());
 
-        let result = expand_regex("a[^Aa]pple").unwrap();
+        let result = expand_regex().regex("a[^Aa]pple").call().unwrap();
         assert_eq!(result, Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_expand_regex_trim_non_alphabetic() {
+        let result = expand_regex().regex(" test ").call();
+        assert_eq!(result, Some(vec!["test".to_string()]));
+
+        let result = expand_regex().regex("!test!").call();
+        assert_eq!(result, Some(vec!["test".to_string()]));
+
+        let result = expand_regex()
+            .regex("!test!")
+            .trim_non_alphabetic(false)
+            .call();
+        assert_eq!(result, Some(vec!["!test!".to_string()]));
+    }
+
+    #[test]
+    fn test_expand_regex_deduplication() {
+        let result = expand_regex().regex("test|test").call().unwrap();
+        assert_eq!(result, vec!["test".to_string()]);
+    }
+
+    #[test]
+    fn test_expand_regex_with_assertions() {
+        let result = expand_regex().regex("^test$").call().unwrap();
+        assert_eq!(result, vec!["test"]);
+    }
+
+    #[test]
+    fn test_expand_regex_with_perl_classes() {
+        let result = expand_regex().regex("\\stest\\s").call().unwrap();
+        assert_eq!(result, vec!["test"]);
     }
 }

@@ -9,7 +9,8 @@ use supa_mdx_macros::RuleName;
 
 use crate::{
     errors::LintError,
-    geometry::{AdjustedOffset, AdjustedRange, RangeSet},
+    fix::{LintCorrection, LintCorrectionReplace},
+    geometry::{AdjustedOffset, AdjustedRange, DenormalizedLocation, RangeSet},
     utils::{
         self,
         regex::expand_regex,
@@ -107,7 +108,13 @@ impl Rule003Spelling {
         let custom_words = self
             .allow_list
             .iter()
-            .flat_map(|regex| expand_regex(regex.as_str()).into_iter().flatten())
+            .flat_map(|regex| {
+                expand_regex()
+                    .regex(regex.as_str())
+                    .call()
+                    .into_iter()
+                    .flatten()
+            })
             .collect::<Vec<_>>();
         let suggestion_matcher = SuggestionMatcher::new(&custom_words);
         self.suggestion_matcher = suggestion_matcher;
@@ -175,7 +182,7 @@ impl Rule003Spelling {
                 continue;
             }
 
-            if word_as_string.contains('-') && !self.is_correct_spelling(&word_as_string, None) {
+            if word_as_string.contains('-') && !self.is_correct_spelling(&word_as_string, &None) {
                 // Deal with hyphenated words
                 let mut hyphenated_tokenizer = WordIterator::new(
                     word,
@@ -249,9 +256,34 @@ impl Rule003Spelling {
         level: LintLevel,
         errors: &mut Option<Vec<LintError>>,
     ) {
-        if self.is_correct_spelling(word, hyphenation) {
+        if self.is_correct_spelling(word, &hyphenation) {
             return;
         }
+
+        let suggestions = match hyphenation {
+            None => {
+                let suggestions = self.suggestion_matcher.suggest(word);
+                if suggestions.is_empty() {
+                    None
+                } else {
+                    Some(
+                        suggestions
+                            .into_iter()
+                            .map(|s| {
+                                LintCorrection::Replace(LintCorrectionReplace {
+                                    text: s,
+                                    location: DenormalizedLocation::from_offset_range(
+                                        location.clone(),
+                                        context,
+                                    ),
+                                })
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                }
+            }
+            Some(_) => None,
+        };
 
         let error = LintError::builder()
             .rule(self.name())
@@ -259,11 +291,12 @@ impl Rule003Spelling {
             .level(level)
             .location(location)
             .context(context)
+            .maybe_suggestions(suggestions)
             .build();
         errors.get_or_insert_with(Vec::new).push(error);
     }
 
-    fn is_correct_spelling(&self, word: &str, hyphenation: Option<HyphenatedPart>) -> bool {
+    fn is_correct_spelling(&self, word: &str, hyphenation: &Option<HyphenatedPart>) -> bool {
         trace!("Checking spelling of word: {word} with hyphenation: {hyphenation:?}");
         if word.len() < 2 {
             return true;
@@ -787,5 +820,58 @@ mod tests {
             LintLevel::Error,
         );
         assert!(errors.is_none());
+    }
+
+    #[test]
+    fn test_rule003_suggestions() {
+        let mdx = "heloo wrld";
+        let parse_result = parse(mdx).unwrap();
+        let context = RuleContext::builder()
+            .parse_result(parse_result)
+            .build()
+            .unwrap();
+
+        let mut rule = Rule003Spelling::default();
+        rule.setup(None);
+
+        let errors = rule
+            .check(
+                context
+                    .ast()
+                    .children()
+                    .unwrap()
+                    .get(0)
+                    .unwrap()
+                    .children()
+                    .unwrap()
+                    .get(0)
+                    .unwrap(),
+                &context,
+                LintLevel::Error,
+            )
+            .unwrap();
+        assert!(errors.len() == 2);
+
+        let error = &errors[0];
+        assert_eq!(error.message, "Word not found in dictionary: heloo");
+        assert_eq!(error.location.offset_range.start, AdjustedOffset::from(0));
+        assert_eq!(error.location.offset_range.end, AdjustedOffset::from(5));
+        assert!(error.suggestions.is_some());
+        let suggestions = error.suggestions.as_ref().unwrap();
+        assert!(suggestions.iter().any(|s| match s {
+            LintCorrection::Replace(replace) => replace.text == "hello",
+            _ => false,
+        }));
+
+        let error = &errors[1];
+        assert_eq!(error.message, "Word not found in dictionary: wrld");
+        assert_eq!(error.location.offset_range.start, AdjustedOffset::from(6));
+        assert_eq!(error.location.offset_range.end, AdjustedOffset::from(10));
+        assert!(error.suggestions.is_some());
+        let suggestions = error.suggestions.as_ref().unwrap();
+        assert!(suggestions.iter().any(|s| match s {
+            LintCorrection::Replace(replace) => replace.text == "world",
+            _ => false,
+        }));
     }
 }
