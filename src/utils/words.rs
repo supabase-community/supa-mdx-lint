@@ -153,7 +153,6 @@ impl WordParser {
         if self.word_start_offset >= rope.byte_len() {
             return None;
         }
-        log::trace!("Parsing string: {}", rope.byte_slice(..));
 
         let chars = rope.byte_slice(self.word_start_offset..).chars();
         for c in chars {

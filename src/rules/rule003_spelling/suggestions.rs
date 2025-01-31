@@ -15,10 +15,6 @@ pub struct SuggestionMatcher {
 
 impl SuggestionMatcher {
     pub fn new(exceptions: &[impl AsRef<str>]) -> Self {
-        log::warn!(
-            "exceptions: {:?}",
-            exceptions.iter().map(|s| s.as_ref()).collect::<Vec<_>>()
-        );
         let mut symspell = SymSpell::default();
 
         let dictionary_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(DICTIONARY_PATH);
