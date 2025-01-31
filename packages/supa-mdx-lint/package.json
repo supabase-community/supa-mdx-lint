@@ -1,6 +1,7 @@
 {
   "name": "@supabase/supa-mdx-lint",
   "version": "0.2.0-alpha",
+  "repository": "github:supabase-community/supa-mdx-lint",
   "main": "src/index.js",
   "bin": {
     "supa-mdx-lint": "src/index.js"
