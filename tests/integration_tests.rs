@@ -52,6 +52,7 @@ fn integration_test_silent() {
         .arg("tests/supa-mdx-lint.config.toml")
         .arg("--silent");
     cmd.assert().success().stdout(predicate::str::is_empty());
+    cmd.assert().success().stderr(predicate::str::is_empty());
 }
 
 #[test]

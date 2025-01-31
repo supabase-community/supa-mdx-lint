@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use gag::Gag;
 use symspell::{AsciiStringStrategy, SymSpell, Verbosity};
 
 #[cfg(not(test))]
@@ -18,7 +19,13 @@ impl SuggestionMatcher {
         let mut symspell = SymSpell::default();
 
         let dictionary_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(DICTIONARY_PATH);
-        symspell.load_dictionary(dictionary_path.to_str().unwrap(), 0, 1, " ");
+        // Symspell prints to stderr, which affects the output format and
+        // guarantees of this tool (e.g., silencing). Temporarily redirect
+        // stderr to silence the output.
+        {
+            let _silencer = Gag::stderr();
+            symspell.load_dictionary(dictionary_path.to_str().unwrap(), 0, 1, " ");
+        }
 
         // Symspell dictionaries require a frequency to be associated with each
         // word. Since our exception lists don't have corpus-derived
