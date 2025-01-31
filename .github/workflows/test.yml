@@ -33,7 +33,7 @@ jobs:
       - name: rust tests
         run: cargo test
       - name: release build
-        run: cargo build --release
+        run: cargo build --release --locked
 
   test-macos:
     runs-on: macos-latest
@@ -55,7 +55,7 @@ jobs:
       - name: rust tests
         run: cargo test
       - name: release build
-        run: cargo build --release
+        run: cargo build --release --locked
 
   test-windows:
     runs-on: windows-latest
@@ -77,4 +77,4 @@ jobs:
       - name: rust tests
         run: cargo test
       - name: release build
-        run: cargo build --release
+        run: cargo build --release --locked
