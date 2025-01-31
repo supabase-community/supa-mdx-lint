@@ -53,6 +53,7 @@ pub struct LintError {
 #[bon]
 impl LintError {
     #[builder]
+    #[allow(clippy::needless_lifetimes)]
     pub fn new<'ctx>(
         rule: impl AsRef<str>,
         message: impl Into<String>,
@@ -81,6 +82,7 @@ impl LintError {
     }
 
     #[builder]
+    #[allow(clippy::needless_lifetimes)]
     pub fn from_node<'ctx>(
         /// The AST node to generate the error location from.
         node: &Node,
@@ -111,7 +113,7 @@ impl LintError {
     }
 
     #[builder]
-    pub fn from_raw_location<'ctx>(
+    pub fn from_raw_location(
         rule: impl AsRef<str>,
         message: impl Into<String>,
         level: LintLevel,
