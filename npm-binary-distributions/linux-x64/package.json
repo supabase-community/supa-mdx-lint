@@ -1,6 +1,9 @@
 {
   "name": "@supabase/supa-mdx-lint-linux-x64",
-  "version": "0.2.2-alpha",
+  "version": "0.2.3-alpha",
+  "repository": {
+    "url": "https://github.com/supabase-community/supa-mdx-lint"
+  },
   "engines": {
     "node": ">=10"
   },
