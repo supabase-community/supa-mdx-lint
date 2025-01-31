@@ -1,7 +1,9 @@
 {
   "name": "@supabase/supa-mdx-lint",
-  "version": "0.2.1-alpha",
-  "repository": "https://github.com/supabase-community/supa-mdx-lint",
+  "version": "0.2.2-alpha",
+  "repository": {
+    "url": "https://github.com/supabase-community/supa-mdx-lint"
+  },
   "main": "src/index.js",
   "bin": {
     "supa-mdx-lint": "src/index.js"
@@ -19,12 +21,12 @@
     "prettier": "^3.3.3"
   },
   "optionalDependencies": {
-    "@supabase/supa-mdx-lint-darwin": "0.2.1-alpha",
-    "@supabase/supa-mdx-lint-linux-arm": "0.2.1-alpha",
-    "@supabase/supa-mdx-lint-linux-arm64": "0.2.1-alpha",
-    "@supabase/supa-mdx-lint-linux-i686": "0.2.1-alpha",
-    "@supabase/supa-mdx-lint-linux-x64": "0.2.1-alpha",
-    "@supabase/supa-mdx-lint-win32-i686": "0.2.1-alpha",
-    "@supabase/supa-mdx-lint-win32-x64": "0.2.1-alpha"
+    "@supabase/supa-mdx-lint-darwin": "0.2.2-alpha",
+    "@supabase/supa-mdx-lint-linux-arm": "0.2.2-alpha",
+    "@supabase/supa-mdx-lint-linux-arm64": "0.2.2-alpha",
+    "@supabase/supa-mdx-lint-linux-i686": "0.2.2-alpha",
+    "@supabase/supa-mdx-lint-linux-x64": "0.2.2-alpha",
+    "@supabase/supa-mdx-lint-win32-i686": "0.2.2-alpha",
+    "@supabase/supa-mdx-lint-win32-x64": "0.2.2-alpha"
   }
 }

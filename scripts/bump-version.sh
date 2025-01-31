@@ -25,6 +25,12 @@ then
   exit
 fi
 
+if ! command -v cargo &> /dev/null
+then
+  echo "cargo could not be found, please install it to proceed."
+  exit
+fi
+
 if [ -z "$1" ];
 then
   echo "Usage: $0 <new-version>"
@@ -45,5 +51,7 @@ update_package_json "npm-binary-distributions/win32-x64/package.json" "$NEW_VERS
 update_package_json "packages/supa-mdx-lint/package.json" "$NEW_VERSION"
 
 update_optional_dependencies "packages/supa-mdx-lint/package.json" "$NEW_VERSION"
+
+cargo build --release
 
 echo "Version updated to $NEW_VERSION in all manifest files."
