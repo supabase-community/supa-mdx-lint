@@ -41,8 +41,6 @@ fn expand_ast(ast: &Ast, trim_non_alphabetic: bool) -> Option<Vec<String>> {
     }
 
     fn expand_ast_internal(ast: &Ast, char_tree: &mut Option<CharNode>) -> Option<NextNode> {
-        log::info!("expand_ast_internal: {:#?}", ast);
-
         match ast {
             Ast::Assertion(_) => Some(NextNode::Single(
                 char_tree.clone().unwrap_or_else(CharNode::initiate),

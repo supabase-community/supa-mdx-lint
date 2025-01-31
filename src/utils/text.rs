@@ -94,7 +94,6 @@ impl<'slice> Iterator for CurrLine<'slice> {
         let mut remaining = self.line.byte_slice(start_offset..).chars().peekable();
         while let Some(c) = remaining.next() {
             if is_word_boundary(c) && (c == '\'' || c == '’') && start_offset != self.offset {
-                log::trace!("Checking apostrophe for contraction or possessive");
                 match remaining.peek() {
                     Some(&'t') => {
                         remaining.next();
