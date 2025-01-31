@@ -1,6 +1,6 @@
 {
   "name": "@supabase/supa-mdx-lint-linux-arm64",
-  "version": "0.1.7-alpha",
+  "version": "0.2.0-alpha",
   "engines": {
     "node": ">=10"
   },
