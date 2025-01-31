@@ -2,7 +2,11 @@ use std::path::PathBuf;
 
 use symspell::{AsciiStringStrategy, SymSpell, Verbosity};
 
+#[cfg(not(test))]
 const DICTIONARY_PATH: &str = "src/rules/rule003_spelling/dictionary.txt";
+
+#[cfg(test)]
+const DICTIONARY_PATH: &str = "src/rules/rule003_spelling/test_dictionary.txt";
 
 #[derive(Default)]
 pub struct SuggestionMatcher {
