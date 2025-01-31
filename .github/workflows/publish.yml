@@ -44,7 +44,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
         run: |
           for tarball in ./npm-binary-distributions/*/*.tgz; do
-            npm publish --access public "$tarball"
+            npm publish --provenance --access public "$tarball"
           done
 
       - name: Publish Node package
@@ -52,5 +52,5 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
         run: |
           for tarball in ./node-pkg/*.tgz; do
-            npm publish --access public "$tarball"
+            npm publish --provenance --access public "$tarball"
           done
