@@ -3,7 +3,6 @@ use std::{
     io::{BufWriter, Write},
     path::PathBuf,
     process::ExitCode,
-    thread,
     time::Instant,
 };
 
@@ -13,8 +12,7 @@ use glob::glob;
 use log::{debug, error};
 use simplelog::{ColorChoice, Config as LogConfig, LevelFilter, TermLogger, TerminalMode};
 use supa_mdx_lint::{
-    utils::is_lintable, Config, LintLevel, LintOutput, LintTarget, Linter, LinterBuilder,
-    OutputFormatter,
+    utils::is_lintable, Config, LintLevel, LintOutput, LintTarget, Linter, OutputFormatter,
 };
 
 const DEFAULT_CONFIG_FILE: &str = "supa-mdx-lint.config.toml";
