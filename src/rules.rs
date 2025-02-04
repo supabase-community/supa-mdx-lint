@@ -16,9 +16,9 @@ mod rule001_heading_case;
 mod rule002_admonition_types;
 mod rule003_spelling;
 
-use rule001_heading_case::Rule001HeadingCase;
-use rule002_admonition_types::Rule002AdmonitionTypes;
-use rule003_spelling::Rule003Spelling;
+pub use rule001_heading_case::Rule001HeadingCase;
+pub use rule002_admonition_types::Rule002AdmonitionTypes;
+pub use rule003_spelling::Rule003Spelling;
 
 fn get_all_rules() -> Vec<Box<dyn Rule>> {
     vec![
@@ -28,13 +28,13 @@ fn get_all_rules() -> Vec<Box<dyn Rule>> {
     ]
 }
 
-pub trait Rule: Debug + RuleName {
+pub(crate) trait Rule: Debug + RuleName {
     fn default_level(&self) -> LintLevel;
     fn setup(&mut self, _settings: Option<&RuleSettings>) {}
     fn check(&self, ast: &Node, context: &RuleContext, level: LintLevel) -> Option<Vec<LintError>>;
 }
 
-pub trait RuleName {
+pub(crate) trait RuleName {
     fn name(&self) -> &'static str;
 }
 
@@ -45,21 +45,21 @@ impl dyn Rule {
 }
 
 #[derive(Clone, Debug)]
-pub struct RuleSettings(toml::Value);
+pub(crate) struct RuleSettings(toml::Value);
 
 #[derive(Default)]
-pub struct RegexSettings {
-    pub beginning: Option<RegexBeginning>,
+pub(crate) struct RegexSettings {
+    pub(crate) beginning: Option<RegexBeginning>,
     /// Regex should only match if it matches up to the end of the word.
-    pub ending: Option<RegexEnding>,
+    pub(crate) ending: Option<RegexEnding>,
 }
 
-pub enum RegexBeginning {
+pub(crate) enum RegexBeginning {
     VeryBeginning,
     WordBoundary,
 }
 
-pub enum RegexEnding {
+pub(crate) enum RegexEnding {
     WordBoundary,
 }
 
@@ -187,9 +187,9 @@ impl RuleSettings {
     }
 }
 
-pub type RuleFilter<'filter> = Option<&'filter [&'filter str]>;
+pub(crate) type RuleFilter<'filter> = Option<&'filter [&'filter str]>;
 
-pub struct RuleContext<'ctx> {
+pub(crate) struct RuleContext<'ctx> {
     parse_result: ParseResult,
     check_only_rules: RuleFilter<'ctx>,
     disables: LintDisables,
@@ -240,7 +240,7 @@ impl<'ctx> RuleContext<'ctx> {
 }
 
 #[derive(Debug)]
-pub struct RuleRegistry {
+pub(crate) struct RuleRegistry {
     state: RuleRegistryState,
     rules: Vec<Box<dyn Rule>>,
     configured_levels: HashMap<String, LintLevel>,
