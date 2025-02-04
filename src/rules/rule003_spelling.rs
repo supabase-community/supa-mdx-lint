@@ -33,6 +33,40 @@ enum HyphenatedPart {
     MaybeSuffix,
 }
 
+/// Words are checked for correct spelling.
+///
+/// There are three ways to deal with words that are flagged, even though you're spelling them as intended:
+///
+/// 1. For proper nouns and jargon, you can add them to the [Vocabulary](#vocabulary).
+/// 2. For function, method, and variable names, you can format them as inline code. For example, instead of `foo`, write `` `foo` ``.
+/// 3. You can disable the rule by using one of the disable directives. This should be used as a last resort.
+///    ```markdown
+///    {/* supa-mdx-lint-disable Rule003Spelling */}
+///    {/* supa-mdx-lint-disable-next-line Rule003Spelling */}
+///    ```
+///
+/// ## Examples
+///
+/// ### Valid
+///
+/// ```markdown
+/// This is correctly spelled.
+/// ```
+///
+/// ### Invalid
+///
+/// ```markdown
+/// This is incorrectyl spelled.
+/// ```
+///
+/// ## Vocabulary
+///
+/// Vocabulary can be added via the `allow_list` and `prefixes` arrays.
+///
+/// - `allow_list`: A list of words (or regex patterns to match words) that are considered correctly spelled.
+/// - `prefixes`: A list of prefixes that are not standalone words, but that can be used in a prefix before a hyphen (e.g., `pre`, `bi`).
+///
+/// See an  [example from the Supabase repo](https://github.com/supabase/supabase/blob/master/supa-mdx-lint/Rule003Spelling.toml).
 #[derive(Default, RuleName)]
 pub struct Rule003Spelling {
     allow_list: Vec<Regex>,

@@ -10,6 +10,13 @@ use crate::{
 
 use super::{Rule, RuleContext, RuleName, RuleSettings};
 
+/// Admonitions must have a single valid type.
+///
+/// ## Configuration
+///
+/// Valid admonition types are enumerated in the `admonition_types` array.
+///
+/// See an  [example from the Supabase repo](https://github.com/supabase/supabase/blob/master/supa-mdx-lint.config.toml#L12).
 #[derive(Debug, Default, RuleName)]
 pub struct Rule002AdmonitionTypes {
     admonition_types: Vec<String>,
