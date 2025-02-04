@@ -14,7 +14,7 @@ mod geometry;
 mod output;
 mod parser;
 mod rope;
-mod rules;
+pub mod rules;
 pub mod utils;
 
 pub use crate::config::Config;

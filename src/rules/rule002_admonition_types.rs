@@ -10,7 +10,7 @@ use crate::{
 
 use super::{Rule, RuleContext, RuleName, RuleSettings};
 
-#[derive(Debug, Default, Clone, RuleName)]
+#[derive(Debug, Default, RuleName)]
 pub struct Rule002AdmonitionTypes {
     admonition_types: Vec<String>,
 }

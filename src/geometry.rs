@@ -69,13 +69,13 @@ impl AdjustedOffset {
 }
 
 impl AdjustedOffset {
-    pub fn from_unadjusted(offset: UnadjustedOffset, context: &RuleContext) -> Self {
+    pub(crate) fn from_unadjusted(offset: UnadjustedOffset, context: &RuleContext) -> Self {
         let mut content_start_offset = *context.content_start_offset();
         content_start_offset.increment(offset.0);
         content_start_offset
     }
 
-    pub fn from_unist(point: &markdown::unist::Point, context: &RuleContext) -> Self {
+    pub(crate) fn from_unist(point: &markdown::unist::Point, context: &RuleContext) -> Self {
         Self::from_unadjusted(UnadjustedOffset::from(point), context)
     }
 }
@@ -191,7 +191,7 @@ impl AdjustedRange {
         Self(Range { start, end })
     }
 
-    pub fn from_unadjusted_position(
+    pub(crate) fn from_unadjusted_position(
         position: &markdown::unist::Position,
         context: &RuleContext,
     ) -> Self {
@@ -271,7 +271,7 @@ pub struct DenormalizedLocation {
 }
 
 impl DenormalizedLocation {
-    pub fn from_offset_range(range: AdjustedRange, context: &RuleContext) -> Self {
+    pub(crate) fn from_offset_range(range: AdjustedRange, context: &RuleContext) -> Self {
         let start = AdjustedPoint::from_adjusted_offset(&range.start, context.rope());
         let end = AdjustedPoint::from_adjusted_offset(&range.end, context.rope());
         Self {

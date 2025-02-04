@@ -20,7 +20,7 @@ use super::{
     RegexBeginning, RegexEnding, RegexSettings, Rule, RuleContext, RuleName, RuleSettings,
 };
 
-#[derive(Debug, Clone, RuleName)]
+#[derive(Debug, RuleName)]
 pub struct Rule001HeadingCase {
     may_uppercase: Vec<Regex>,
     may_lowercase: Vec<Regex>,

@@ -34,7 +34,7 @@ enum HyphenatedPart {
 }
 
 #[derive(Default, RuleName)]
-pub(crate) struct Rule003Spelling {
+pub struct Rule003Spelling {
     allow_list: Vec<Regex>,
     prefixes: HashSet<String>,
     dictionary: HashSet<String>,
