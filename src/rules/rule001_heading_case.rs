@@ -20,6 +20,29 @@ use super::{
     RegexBeginning, RegexEnding, RegexSettings, Rule, RuleContext, RuleName, RuleSettings,
 };
 
+/// Headings should be in sentence case.
+///
+/// ## Examples
+///
+/// ### Valid
+///
+/// ```markdown
+/// # This is sentence case
+/// ```
+///
+/// ### Invalid
+///
+/// ```markdown
+/// # This is Not Sentence Case
+/// ```
+///
+/// ## Exceptions
+///
+/// Exceptions are configured via the `may_uppercase` and `may_lowercase` arrays.
+/// - `may_uppercase`: Words that may be capitalized even if they are not the first word in the heading.
+/// - `may_lowercase`: Words that may be lowercased even if they are the first word in the heading.
+///
+/// See an  [example from the Supabase repo](https://github.com/supabase/supabase/blob/master/supa-mdx-lint/Rule001HeadingCase.toml).
 #[derive(Debug, RuleName)]
 pub struct Rule001HeadingCase {
     may_uppercase: Vec<Regex>,
