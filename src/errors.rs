@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::Range};
 
 use anyhow::Result;
 use bon::bon;
@@ -9,13 +9,15 @@ use crate::{
     fix::LintCorrection,
     geometry::{AdjustedPoint, AdjustedRange, DenormalizedLocation},
     rules::RuleContext,
+    utils::Offsets,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum LintLevel {
-    Error,
     Warning,
+    #[default]
+    Error,
 }
 
 impl Display for LintLevel {
@@ -42,19 +44,29 @@ impl TryFrom<&str> for LintLevel {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LintError {
-    pub rule: String,
-    pub level: LintLevel,
-    pub message: String,
-    pub location: DenormalizedLocation,
-    pub fix: Option<Vec<LintCorrection>>,
-    pub suggestions: Option<Vec<LintCorrection>>,
+    pub(crate) rule: String,
+    pub(crate) level: LintLevel,
+    pub(crate) message: String,
+    pub(crate) location: DenormalizedLocation,
+    pub(crate) fix: Option<Vec<LintCorrection>>,
+    pub(crate) suggestions: Option<Vec<LintCorrection>>,
+}
+
+impl Offsets for LintError {
+    fn start(&self) -> usize {
+        self.location.offset_range.start.into()
+    }
+
+    fn end(&self) -> usize {
+        self.location.offset_range.end.into()
+    }
 }
 
 #[bon]
 impl LintError {
     #[builder]
     #[allow(clippy::needless_lifetimes)]
-    pub fn new<'ctx>(
+    pub(crate) fn new<'ctx>(
         rule: impl AsRef<str>,
         message: impl Into<String>,
         level: LintLevel,
@@ -81,9 +93,37 @@ impl LintError {
         }
     }
 
+    pub fn level(&self) -> LintLevel {
+        self.level
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    pub fn offset_range(&self) -> Range<usize> {
+        self.location.offset_range.to_usize_range()
+    }
+
+    pub fn combined_suggestions(&self) -> Option<Vec<&LintCorrection>> {
+        match (self.fix.as_ref(), self.suggestions.as_ref()) {
+            (None, None) => None,
+            (fix, suggestions) => {
+                let mut combined = Vec::new();
+                if let Some(f) = fix {
+                    combined.extend(f.iter());
+                }
+                if let Some(s) = suggestions {
+                    combined.extend(s.iter());
+                }
+                Some(combined)
+            }
+        }
+    }
+
     #[builder]
     #[allow(clippy::needless_lifetimes)]
-    pub fn from_node<'ctx>(
+    pub(crate) fn from_node<'ctx>(
         /// The AST node to generate the error location from.
         node: &Node,
         context: &RuleContext<'ctx>,
@@ -113,7 +153,7 @@ impl LintError {
     }
 
     #[builder]
-    pub fn from_raw_location(
+    pub(crate) fn from_raw_location(
         rule: impl AsRef<str>,
         message: impl Into<String>,
         level: LintLevel,

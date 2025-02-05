@@ -90,7 +90,7 @@ impl Rule for Rule003Spelling {
         LintLevel::Error
     }
 
-    fn setup(&mut self, settings: Option<&RuleSettings>) {
+    fn setup(&mut self, settings: Option<&mut RuleSettings>) {
         if let Some(settings) = settings {
             if let Some(vec) = settings.get_array_of_regexes(
                 "allow_list",
@@ -513,8 +513,8 @@ mod tests {
             .unwrap();
 
         let mut rule = Rule003Spelling::default();
-        let settings = RuleSettings::with_array_of_strings("allow_list", vec!["heloo"]);
-        rule.setup(Some(&settings));
+        let mut settings = RuleSettings::with_array_of_strings("allow_list", vec!["heloo"]);
+        rule.setup(Some(&mut settings));
 
         let errors = rule.check(
             context
@@ -543,8 +543,8 @@ mod tests {
             .unwrap();
 
         let mut rule = Rule003Spelling::default();
-        let settings = RuleSettings::with_array_of_strings("allow_list", vec!["heloo"]);
-        rule.setup(Some(&settings));
+        let mut settings = RuleSettings::with_array_of_strings("allow_list", vec!["heloo"]);
+        rule.setup(Some(&mut settings));
 
         let errors = rule.check(
             context
@@ -573,8 +573,8 @@ mod tests {
             .unwrap();
 
         let mut rule = Rule003Spelling::default();
-        let settings = RuleSettings::with_array_of_strings("allow_list", vec!["[Hh]eloo"]);
-        rule.setup(Some(&settings));
+        let mut settings = RuleSettings::with_array_of_strings("allow_list", vec!["[Hh]eloo"]);
+        rule.setup(Some(&mut settings));
 
         let errors = rule.check(
             context
@@ -717,8 +717,8 @@ mod tests {
             .unwrap();
 
         let mut rule = Rule003Spelling::default();
-        let settings = RuleSettings::with_array_of_strings("prefixes", vec!["pre"]);
-        rule.setup(Some(&settings));
+        let mut settings = RuleSettings::with_array_of_strings("prefixes", vec!["pre"]);
+        rule.setup(Some(&mut settings));
 
         let errors = rule.check(
             context
@@ -747,8 +747,8 @@ mod tests {
             .unwrap();
 
         let mut rule = Rule003Spelling::default();
-        let settings = RuleSettings::with_array_of_strings("allow_list", vec!["\\S+\\.toml"]);
-        rule.setup(Some(&settings));
+        let mut settings = RuleSettings::with_array_of_strings("allow_list", vec!["\\S+\\.toml"]);
+        rule.setup(Some(&mut settings));
 
         let errors = rule.check(
             context
@@ -777,8 +777,9 @@ mod tests {
             .unwrap();
 
         let mut rule = Rule003Spelling::default();
-        let settings = RuleSettings::with_array_of_strings("allow_list", vec!["\\[#[A-Za-z-]+\\]"]);
-        rule.setup(Some(&settings));
+        let mut settings =
+            RuleSettings::with_array_of_strings("allow_list", vec!["\\[#[A-Za-z-]+\\]"]);
+        rule.setup(Some(&mut settings));
 
         let errors = rule.check(
             context
@@ -836,8 +837,8 @@ mod tests {
             .unwrap();
 
         let mut rule = Rule003Spelling::default();
-        let settings = RuleSettings::with_array_of_strings("prefixes", vec!["pre", "post"]);
-        rule.setup(Some(&settings));
+        let mut settings = RuleSettings::with_array_of_strings("prefixes", vec!["pre", "post"]);
+        rule.setup(Some(&mut settings));
 
         let errors = rule.check(
             context

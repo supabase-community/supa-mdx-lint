@@ -1,0 +1,7 @@
+Rule001HeadingCase = false
+Rule002AdmonitionTypes = false
+Rule003Spelling = false
+
+[Rule004ExcludeWords.rules.filler]
+description = "Don't use the following filler words."
+words = ["please", "that's it", "just", "easily", "simply"]

@@ -52,6 +52,6 @@ update_package_json "packages/supa-mdx-lint/package.json" "$NEW_VERSION"
 
 update_optional_dependencies "packages/supa-mdx-lint/package.json" "$NEW_VERSION"
 
-cargo build --release
+cargo build --all-features --release
 
 echo "Version updated to $NEW_VERSION in all manifest files."
