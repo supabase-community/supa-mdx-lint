@@ -1,6 +1,7 @@
-use std::{cmp::Ordering, fs};
+use std::{borrow::Cow, cmp::Ordering, fs};
 
 use anyhow::Result;
+use bon::bon;
 use log::{debug, error, trace};
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +10,11 @@ use crate::{
     geometry::{AdjustedRange, DenormalizedLocation},
     output::LintOutput,
     rope::Rope,
-    Linter,
+    utils::{
+        words::{is_sentence_start, WordIterator},
+        Offsets,
+    },
+    Linter, RuleContext,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
@@ -22,19 +27,61 @@ pub enum LintCorrection {
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub struct LintCorrectionInsert {
     /// Text is inserted in front of the start point. The end point is ignored.
-    pub location: DenormalizedLocation,
-    pub text: String,
+    pub(crate) location: DenormalizedLocation,
+    pub(crate) text: String,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub struct LintCorrectionDelete {
-    pub location: DenormalizedLocation,
+    pub(crate) location: DenormalizedLocation,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub struct LintCorrectionReplace {
-    pub location: DenormalizedLocation,
-    pub text: String,
+    pub(crate) location: DenormalizedLocation,
+    pub(crate) text: String,
+}
+
+impl Offsets for LintCorrectionInsert {
+    fn start(&self) -> usize {
+        self.location.offset_range.start.into()
+    }
+
+    fn end(&self) -> usize {
+        self.location.offset_range.end.into()
+    }
+}
+
+impl LintCorrectionInsert {
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+}
+
+impl Offsets for LintCorrectionDelete {
+    fn start(&self) -> usize {
+        self.location.offset_range.start.into()
+    }
+
+    fn end(&self) -> usize {
+        self.location.offset_range.end.into()
+    }
+}
+
+impl Offsets for LintCorrectionReplace {
+    fn start(&self) -> usize {
+        self.location.offset_range.start.into()
+    }
+
+    fn end(&self) -> usize {
+        self.location.offset_range.end.into()
+    }
+}
+
+impl LintCorrectionReplace {
+    pub fn text(&self) -> &str {
+        &self.text
+    }
 }
 
 impl PartialOrd for LintCorrection {
@@ -143,6 +190,7 @@ impl Ord for LintCorrection {
     }
 }
 
+#[bon]
 impl LintCorrection {
     /// Given two conflicting fixes, choose one to apply, or create a new fix
     /// that merges the two. Returns `None` if the's not clear which one to
@@ -249,6 +297,83 @@ impl LintCorrection {
                     Some(LintCorrection::Replace(replace_a))
                 } else {
                     None
+                }
+            }
+        }
+    }
+
+    #[builder]
+    pub(crate) fn create_word_splice_correction(
+        context: &RuleContext<'_>,
+        outer_range: &AdjustedRange,
+        splice_range: &AdjustedRange,
+        #[builder(default = true)] count_beginning_as_sentence_start: bool,
+        replace: Option<Cow<'_, str>>,
+    ) -> Self {
+        let outer_text = context.rope().byte_slice(outer_range.to_usize_range());
+        let is_sentence_start = is_sentence_start()
+            .slice(outer_text)
+            .query_offset(splice_range.start.into_usize() - outer_range.start.into_usize())
+            .count_beginning_as_sentence_start(count_beginning_as_sentence_start)
+            .call();
+
+        let location = DenormalizedLocation::from_offset_range(splice_range.clone(), context);
+
+        match replace {
+            Some(replace) => {
+                let replace = if is_sentence_start {
+                    replace.chars().next().unwrap().to_uppercase().to_string() + &replace[1..]
+                } else {
+                    replace.to_string()
+                };
+
+                LintCorrection::Replace(LintCorrectionReplace {
+                    location,
+                    text: replace,
+                })
+            }
+            None => {
+                let mut iter = WordIterator::new(
+                    context.rope().byte_slice(splice_range.end.into_usize()..),
+                    splice_range.end.into(),
+                    Default::default(),
+                );
+
+                if let Some((offset, _, _)) = iter.next() {
+                    let mut between = context
+                        .rope()
+                        .byte_slice(splice_range.end.into()..offset)
+                        .chars();
+                    if between.all(|c| c.is_whitespace()) {
+                        if is_sentence_start {
+                            let location = DenormalizedLocation::from_offset_range(
+                                AdjustedRange::new(splice_range.start, (offset + 1).into()),
+                                context,
+                            );
+                            LintCorrection::Replace(LintCorrectionReplace {
+                                location,
+                                text: context
+                                    .rope()
+                                    .byte_slice(offset..)
+                                    .chars()
+                                    .next()
+                                    .unwrap()
+                                    .to_string()
+                                    .to_uppercase(),
+                            })
+                        } else {
+                            LintCorrection::Delete(LintCorrectionDelete {
+                                location: DenormalizedLocation::from_offset_range(
+                                    AdjustedRange::new(splice_range.start, offset.into()),
+                                    context,
+                                ),
+                            })
+                        }
+                    } else {
+                        LintCorrection::Delete(LintCorrectionDelete { location })
+                    }
+                } else {
+                    LintCorrection::Delete(LintCorrectionDelete { location })
                 }
             }
         }
@@ -363,5 +488,128 @@ impl Linter {
         }
 
         fixes_to_apply
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parse;
+
+    use super::*;
+
+    #[test]
+    fn test_create_word_splice_correction_midsentence() {
+        let parsed = parse("Here is a simple sentence.").unwrap();
+        let context = RuleContext::builder().parse_result(parsed).build().unwrap();
+
+        let outer_range = AdjustedRange::new(0.into(), 26.into());
+        let splice_range = AdjustedRange::new(10.into(), 16.into());
+
+        let expected = LintCorrection::Delete(LintCorrectionDelete {
+            location: DenormalizedLocation::from_offset_range(
+                AdjustedRange::new(10.into(), 17.into()),
+                &context,
+            ),
+        });
+        let actual = LintCorrection::create_word_splice_correction()
+            .context(&context)
+            .outer_range(&outer_range)
+            .splice_range(&splice_range)
+            .call();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_create_word_splice_correction_midsentence_replace() {
+        let parsed = parse("Here is a simple sentence.").unwrap();
+        let context = RuleContext::builder().parse_result(parsed).build().unwrap();
+
+        let outer_range = AdjustedRange::new(0.into(), 26.into());
+        let splice_range = AdjustedRange::new(10.into(), 16.into());
+
+        let expected = LintCorrection::Replace(LintCorrectionReplace {
+            text: "lovely".to_string(),
+            location: DenormalizedLocation::from_offset_range(
+                AdjustedRange::new(10.into(), 16.into()),
+                &context,
+            ),
+        });
+        let actual = LintCorrection::create_word_splice_correction()
+            .context(&context)
+            .outer_range(&outer_range)
+            .splice_range(&splice_range)
+            .replace("lovely".into())
+            .call();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_create_word_splice_correction_new_sentence() {
+        let parsed = parse("What a lovely day. Please take a biscuit.").unwrap();
+        let context = RuleContext::builder().parse_result(parsed).build().unwrap();
+
+        let outer_range = AdjustedRange::new(0.into(), 41.into());
+        let splice_range = AdjustedRange::new(19.into(), 25.into());
+
+        let expected = LintCorrection::Replace(LintCorrectionReplace {
+            text: "T".to_string(),
+            location: DenormalizedLocation::from_offset_range(
+                AdjustedRange::new(19.into(), 27.into()),
+                &context,
+            ),
+        });
+        let actual = LintCorrection::create_word_splice_correction()
+            .context(&context)
+            .outer_range(&outer_range)
+            .splice_range(&splice_range)
+            .call();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_create_word_splice_correction_new_sentence_replace() {
+        let parsed = parse("What a lovely day. Please take a biscuit.").unwrap();
+        let context = RuleContext::builder().parse_result(parsed).build().unwrap();
+
+        let outer_range = AdjustedRange::new(0.into(), 41.into());
+        let splice_range = AdjustedRange::new(19.into(), 25.into());
+
+        let expected = LintCorrection::Replace(LintCorrectionReplace {
+            text: "Kindly".to_string(),
+            location: DenormalizedLocation::from_offset_range(
+                AdjustedRange::new(19.into(), 25.into()),
+                &context,
+            ),
+        });
+        let actual = LintCorrection::create_word_splice_correction()
+            .context(&context)
+            .outer_range(&outer_range)
+            .splice_range(&splice_range)
+            .replace("kindly".into())
+            .call();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_create_word_splice_correction_start() {
+        let parsed = parse("Please take a biscuit.").unwrap();
+        let context = RuleContext::builder().parse_result(parsed).build().unwrap();
+
+        let outer_range = AdjustedRange::new(0.into(), 22.into());
+        let splice_range = AdjustedRange::new(0.into(), 6.into());
+
+        let expected = LintCorrection::Replace(LintCorrectionReplace {
+            text: "T".to_string(),
+            location: DenormalizedLocation::from_offset_range(
+                AdjustedRange::new(0.into(), 8.into()),
+                &context,
+            ),
+        });
+        let actual = LintCorrection::create_word_splice_correction()
+            .context(&context)
+            .outer_range(&outer_range)
+            .splice_range(&splice_range)
+            .call();
+        assert_eq!(expected, actual);
     }
 }

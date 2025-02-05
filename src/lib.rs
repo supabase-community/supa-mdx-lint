@@ -8,12 +8,12 @@ use utils::is_lintable;
 
 mod app_error;
 mod config;
-mod errors;
-mod fix;
+pub mod errors;
+pub mod fix;
 mod geometry;
 mod output;
 mod parser;
-mod rope;
+pub mod rope;
 pub mod rules;
 pub mod utils;
 
@@ -30,9 +30,9 @@ pub struct Linter {
 }
 
 #[derive(Debug)]
-pub enum LintTarget {
+pub enum LintTarget<'a> {
     FileOrDirectory(PathBuf),
-    String(String),
+    String(&'a str),
 }
 
 struct LintSourceReference<'reference>(Option<&'reference Path>);
@@ -47,7 +47,7 @@ impl Linter {
 
         this.config
             .rule_registry
-            .setup(&this.config.rule_specific_settings)?;
+            .setup(&mut this.config.rule_specific_settings)?;
 
         Ok(this)
     }
@@ -159,7 +159,7 @@ mod tests {
             .deactivate_all_but("Rule001HeadingCase");
 
         let valid_mdx = "# Hello, world!\n\nThis is a valid document.";
-        let result = linter.lint(&LintTarget::String(valid_mdx.to_string()))?;
+        let result = linter.lint(&LintTarget::String(&valid_mdx.to_string()))?;
 
         assert!(
             result.get(0).unwrap().errors().is_empty(),
@@ -178,7 +178,7 @@ mod tests {
             .deactivate_all_but("Rule001HeadingCase");
 
         let invalid_mdx = "# Incorrect Heading\n\nThis is an invalid document.";
-        let result = linter.lint(&LintTarget::String(invalid_mdx.to_string()))?;
+        let result = linter.lint(&LintTarget::String(&invalid_mdx.to_string()))?;
 
         assert!(
             !result.get(0).unwrap().errors().is_empty(),

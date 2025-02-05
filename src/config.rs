@@ -72,7 +72,8 @@ impl Config {
 
         let config_content = std::fs::read_to_string(&config_path)
             .inspect_err(|_| error!("Failed to read config file at {config_path:?}"))?;
-        let parsed = Self::process_includes(&config_content, config_dir).inspect_err(|_| {
+        let table: toml::Table = toml::from_str(&config_content)?;
+        let parsed = Self::process_includes(&table, config_dir).inspect_err(|_| {
             error!("Failed to parse config");
             debug!("Config file content:\n\t{config_content}")
         })?;
@@ -81,8 +82,7 @@ impl Config {
         Self::from_serializable(parsed, &config_dir)
     }
 
-    fn process_includes(raw_str: &str, base_dir: &Path) -> Result<toml::Table> {
-        let table: toml::Table = toml::from_str(raw_str)?;
+    fn process_includes(table: &toml::Table, base_dir: &Path) -> Result<toml::Table> {
         let mut processed_table = toml::Table::new();
 
         for (key, value) in table {
@@ -99,18 +99,22 @@ impl Config {
                             e
                         )
                     })?;
-                    toml::from_str(&include_content).map_err(|e| {
+                    let table: toml::Table = toml::from_str(&include_content)?;
+                    toml::Value::Table(Self::process_includes(&table, base_dir).map_err(|e| {
                         anyhow::anyhow!(
                             "Failed to parse include file from path {:?}: {}",
                             include_path,
                             e
                         )
-                    })?
+                    })?)
                 }
-                _ => value,
+                toml::Value::Table(table) => {
+                    toml::Value::Table(Self::process_includes(table, base_dir)?)
+                }
+                _ => value.clone(),
             };
 
-            processed_table.insert(key, processed_value);
+            processed_table.insert(key.clone(), processed_value);
         }
 
         Ok(processed_table)

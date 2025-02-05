@@ -18,7 +18,7 @@ DOCKER_RUN_OPTS="
 
 docker run \
   ${DOCKER_RUN_OPTS} \
-  cargo build --release --target=${TARGET} --locked
+  cargo build --all-features --release --target=${TARGET} --locked
 
 # Fix permissions for shared directories
 USER_ID=$(id -u)

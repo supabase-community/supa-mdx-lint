@@ -1,24 +1,23 @@
 use std::{collections::HashSet, fs, io::Write};
 
 use anyhow::Result;
+use miette::{miette, LabeledSpan, NamedSource, Severity};
 
-use crate::{errors::LintLevel, rope::Rope};
+use crate::errors::LintLevel;
 
 use super::LintOutput;
 
-/// Outputs linter diagnostics in the pretty format, for CLI display, which has
-/// the structure:
-///
-/// ```text
-/// <file Path>
-/// ===========
-/// [<severity>: <rule>] <msg>
-/// <line> The line number containing the error
-///                                       ^^^^^
-///
-/// [<severity>: <rule>] <msg>
-/// ...
-/// ```
+impl From<LintLevel> for Severity {
+    fn from(level: LintLevel) -> Self {
+        match level {
+            LintLevel::Error => Severity::Error,
+            LintLevel::Warning => Severity::Warning,
+        }
+    }
+}
+
+/// Outputs linter diagnostics in the pretty format, for CLI display, using
+/// Miette.
 ///
 /// The diagnostics are followed by a summary of the number of linted files,
 /// total errors, and total warnings.
@@ -39,92 +38,32 @@ impl PrettyFormatter {
             if curr.errors.is_empty() {
                 continue;
             }
-
-            let content = fs::read_to_string(&curr.file_path)?;
-            let rope = Rope::from(content);
-
             if written {
                 writeln!(io)?;
             }
             written |= true;
 
-            writeln!(io, "{}", curr.file_path)?;
-            writeln!(io, "{}", "=".repeat(curr.file_path.len()))?;
+            let content = fs::read_to_string(&curr.file_path)?;
 
             for (idx, error) in curr.errors.iter().enumerate() {
                 if idx > 0 {
                     writeln!(io)?;
                 }
 
-                writeln!(io, "[{}: {}] {}", error.level, error.rule, error.message)?;
+                let severity: Severity = error.level.into();
+                let message = error.message.clone();
 
-                let start_line = rope.line_of_byte(error.location.offset_range.start.into());
-                let end_line = rope.line_of_byte(error.location.offset_range.end.into());
-
-                for line_no in start_line..=end_line {
-                    let line = rope.line(line_no);
-                    let number_graphemes = line.graphemes().count();
-
-                    let line_number_display = format!("{}: ", line_no + 1);
-                    let line_number_length = line_number_display.len();
-
-                    if line_no == start_line && line_no == end_line {
-                        writeln!(io, "{}{}", line_number_display, line)?;
-
-                        let (_line, start_col) =
-                            rope.line_column_of_byte(error.location.offset_range.start.into());
-                        let (_line, end_col) =
-                            rope.line_column_of_byte(error.location.offset_range.end.into());
-                        let graphemes_before = line.byte_slice(..start_col).graphemes().count();
-                        let graphemes_within =
-                            line.byte_slice(start_col..end_col).graphemes().count();
-
-                        writeln!(
-                            io,
-                            "{}{}{}{}",
-                            " ".repeat(line_number_length),
-                            " ".repeat(graphemes_before),
-                            "^".repeat(graphemes_within),
-                            " ".repeat(number_graphemes - graphemes_before - graphemes_within)
-                        )?;
-                    } else if line_no == start_line {
-                        writeln!(io, "{}{}", line_number_display, line)?;
-
-                        let (_line, col) =
-                            rope.line_column_of_byte(error.location.offset_range.start.into());
-                        let graphemes_before = line.byte_slice(..col).graphemes().count();
-
-                        writeln!(
-                            io,
-                            "{}{}{}",
-                            " ".repeat(line_number_length),
-                            " ".repeat(graphemes_before),
-                            "^".repeat(number_graphemes - graphemes_before)
-                        )?;
-                    } else if line_no == end_line {
-                        writeln!(io, "{}{}", " ".repeat(line_number_length), line)?;
-
-                        let (_line, col) =
-                            rope.line_column_of_byte(error.location.offset_range.end.into());
-                        let graphemes_before = line.byte_slice(..col).graphemes().count();
-
-                        writeln!(
-                            io,
-                            "{}{}{}",
-                            " ".repeat(line_number_length),
-                            "^".repeat(graphemes_before),
-                            " ".repeat(number_graphemes - graphemes_before)
-                        )?;
-                    } else {
-                        writeln!(io, "{}{}", " ".repeat(line_number_length), line)?;
-                        writeln!(
-                            io,
-                            "{}{}",
-                            " ".repeat(line_number_length),
-                            "^".repeat(number_graphemes)
-                        )?;
-                    }
-                }
+                let error = miette!(
+                    severity = severity,
+                    labels = vec![LabeledSpan::at(
+                        error.location.offset_range.to_usize_range(),
+                        "here"
+                    )],
+                    "{}",
+                    message
+                )
+                .with_source_code(NamedSource::new(&curr.file_path, content.clone()));
+                writeln!(io, "{:?}", error)?;
             }
         }
 
