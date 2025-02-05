@@ -4,6 +4,7 @@ use anyhow::Result;
 
 use crate::{app_error, errors::LintError};
 
+#[cfg(feature = "pretty")]
 pub mod pretty;
 pub mod rdf;
 pub mod simple;
@@ -32,7 +33,9 @@ impl LintOutput {
 }
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum OutputFormatter {
+    #[cfg(feature = "pretty")]
     Pretty(pretty::PrettyFormatter),
     Simple(simple::SimpleFormatter),
     Rdf(rdf::RdfFormatter),
@@ -41,6 +44,7 @@ pub enum OutputFormatter {
 impl OutputFormatter {
     pub fn format<Writer: Write>(&self, output: &[LintOutput], io: &mut Writer) -> Result<()> {
         match self {
+            #[cfg(feature = "pretty")]
             Self::Pretty(formatter) => formatter.format(output, io),
             Self::Simple(formatter) => formatter.format(output, io),
             Self::Rdf(formatter) => formatter.format(output, io),
@@ -49,6 +53,7 @@ impl OutputFormatter {
 
     pub fn should_log_metadata(&self) -> bool {
         match self {
+            #[cfg(feature = "pretty")]
             Self::Pretty(formatter) => formatter.should_log_metadata(),
             Self::Simple(formatter) => formatter.should_log_metadata(),
             Self::Rdf(formatter) => formatter.should_log_metadata(),
@@ -61,6 +66,7 @@ impl FromStr for OutputFormatter {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            #[cfg(feature = "pretty")]
             "pretty" => Ok(Self::Pretty(pretty::PrettyFormatter)),
             "simple" => Ok(Self::Simple(simple::SimpleFormatter)),
             "rdf" => Ok(Self::Rdf(rdf::RdfFormatter)),

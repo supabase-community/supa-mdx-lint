@@ -32,8 +32,10 @@ jobs:
         run: cargo clippy
       - name: rust tests
         run: cargo test
-      - name: release build
+      - name: release build (default)
         run: cargo build --release
+      - name: release build (all features)
+        run: cargo build --all-features --release
 
   test-macos:
     runs-on: macos-latest
@@ -54,8 +56,10 @@ jobs:
         run: cargo clippy
       - name: rust tests
         run: cargo test
-      - name: release build
+      - name: release build (default)
         run: cargo build --release
+      - name: release build (all features)
+        run: cargo build --all-features --release
 
   test-windows:
     runs-on: windows-latest
@@ -76,5 +80,7 @@ jobs:
         run: cargo clippy
       - name: rust tests
         run: cargo test
-      - name: release build
+      - name: release build (default)
         run: cargo build --release
+      - name: release build (all features)
+        run: cargo build --all-features --release

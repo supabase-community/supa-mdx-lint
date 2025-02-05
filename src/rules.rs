@@ -3,7 +3,11 @@ use bon::bon;
 use log::{debug, error, warn};
 use markdown::mdast::Node;
 use regex::Regex;
+use serde::Deserialize;
 use std::{collections::HashMap, fmt::Debug};
+
+#[cfg(test)]
+use serde::Serialize;
 
 use crate::{
     errors::{LintError, LintLevel},
@@ -15,22 +19,25 @@ use crate::{
 mod rule001_heading_case;
 mod rule002_admonition_types;
 mod rule003_spelling;
+mod rule004_exclude_words;
 
 pub use rule001_heading_case::Rule001HeadingCase;
 pub use rule002_admonition_types::Rule002AdmonitionTypes;
 pub use rule003_spelling::Rule003Spelling;
+pub use rule004_exclude_words::Rule004ExcludeWords;
 
 fn get_all_rules() -> Vec<Box<dyn Rule>> {
     vec![
         Box::new(Rule001HeadingCase::default()),
         Box::new(Rule002AdmonitionTypes::default()),
         Box::new(Rule003Spelling::default()),
+        Box::new(Rule004ExcludeWords::default()),
     ]
 }
 
-pub(crate) trait Rule: Debug + RuleName {
+pub(crate) trait Rule: Debug + Send + RuleName {
     fn default_level(&self) -> LintLevel;
-    fn setup(&mut self, _settings: Option<&RuleSettings>) {}
+    fn setup(&mut self, _settings: Option<&mut RuleSettings>) {}
     fn check(&self, ast: &Node, context: &RuleContext, level: LintLevel) -> Option<Vec<LintError>>;
 }
 
@@ -185,6 +192,23 @@ impl RuleSettings {
             None
         }
     }
+
+    #[cfg(test)]
+    fn with_serializable<T: Serialize>(key: &str, value: &T) -> Self {
+        Self::from_key_value(key, toml::Value::try_from(value).unwrap())
+    }
+
+    // TODO: global config should not keep carrying around the rule-level configs after the rules are set up, because the rules could mutate it
+    fn get_deserializable<T: for<'de> Deserialize<'de>>(&mut self, key: &str) -> Option<T> {
+        if let toml::Value::Table(ref mut table) = self.0 {
+            if let Some(value) = table.remove(key) {
+                if let Ok(item) = value.try_into() {
+                    return Some(item);
+                }
+            }
+        }
+        None
+    }
 }
 
 pub(crate) type RuleFilter<'filter> = Option<&'filter [&'filter str]>;
@@ -287,11 +311,11 @@ impl RuleRegistry {
         self.rules.retain(|rule| rule.name() == rule_name)
     }
 
-    pub fn setup(&mut self, settings: &HashMap<String, RuleSettings>) -> Result<()> {
+    pub fn setup(&mut self, settings: &mut HashMap<String, RuleSettings>) -> Result<()> {
         match self.state {
             RuleRegistryState::PreSetup => {
                 for rule in &mut self.rules {
-                    let rule_settings = settings.get(rule.name());
+                    let rule_settings = settings.get_mut(rule.name());
                     rule.setup(rule_settings);
                 }
                 self.state = RuleRegistryState::Ready;

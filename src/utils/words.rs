@@ -1,3 +1,4 @@
+use bon::builder;
 use crop::RopeSlice;
 use log::trace;
 
@@ -78,20 +79,31 @@ impl<'rope> WordIterator<'rope> {
             None
         }
     }
+
+    pub(crate) fn collect_remainder(self) -> Option<String> {
+        assert!(self.parser.word_start_offset == self.parser.tracking_offset);
+        if self.parser.word_start_offset == self.rope.byte_len() {
+            None
+        } else {
+            Some(
+                self.rope
+                    .byte_slice(self.parser.word_start_offset..)
+                    .to_string(),
+            )
+        }
+    }
 }
 
+pub(crate) type WordIteratorItem<'r> = (usize, RopeSlice<'r>, Capitalize);
+
 impl<'rope> Iterator for WordIterator<'rope> {
-    type Item = (usize, RopeSlice<'rope>, Capitalize);
+    type Item = WordIteratorItem<'rope>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let next_word_data = self.parser.parse(self.rope);
 
-        if let Some(next_word_data) = next_word_data {
-            Some((
-                next_word_data.0 + self.offset_from_parent,
-                next_word_data.1,
-                next_word_data.2,
-            ))
+        if let Some((offset, slice, capitalize)) = next_word_data {
+            Some((offset + self.offset_from_parent, slice, capitalize))
         } else {
             None
         }
@@ -145,10 +157,7 @@ impl WordParser {
         }
     }
 
-    fn parse<'rope>(
-        &mut self,
-        rope: RopeSlice<'rope>,
-    ) -> Option<(usize, RopeSlice<'rope>, Capitalize)> {
+    fn parse<'rope>(&mut self, rope: RopeSlice<'rope>) -> Option<WordIteratorItem<'rope>> {
         assert!(self.word_start_offset == self.tracking_offset);
         if self.word_start_offset >= rope.byte_len() {
             return None;
@@ -459,6 +468,250 @@ pub fn is_punctuation(c: &char) -> bool {
         || *c == ','
         || *c == '.'
         || *c == ';'
+}
+
+const SENTENCE_ENDING_PUNCTUATION: &[char] = &['.', '!', '?', '…'];
+
+fn is_sentence_ending_punctuation(c: &char) -> bool {
+    SENTENCE_ENDING_PUNCTUATION.contains(c)
+}
+
+#[builder]
+pub(crate) fn is_sentence_start(
+    slice: RopeSlice<'_>,
+    query_offset: usize,
+    #[builder(default = true)] count_beginning_as_sentence_start: bool,
+) -> bool {
+    #[cfg(debug_assertions)]
+    log::trace!("Checking if offset {query_offset} is at sentence start");
+
+    let mut iter = WordIterator::new(slice, 0, Default::default())
+        .enumerate()
+        .peekable();
+
+    let (preceding_offset, preceding_word, queried_offset, queried_word) = loop {
+        match (iter.next(), iter.peek()) {
+            (Some((0, _)), _) if query_offset == 0 && count_beginning_as_sentence_start => {
+                return count_beginning_as_sentence_start;
+            }
+            (
+                Some((_, (preceding_offset, preceding_word, _))),
+                Some((_, (next_word_offset, next_word, _))),
+            ) => {
+                if *next_word_offset == query_offset {
+                    break (
+                        preceding_offset,
+                        preceding_word,
+                        next_word_offset,
+                        next_word,
+                    );
+                }
+            }
+            _ => {
+                return false;
+            }
+        }
+    };
+
+    // A word in the middle of a text is at the start of a sentence if it is
+    // proceeded by a word immediately followed by punctuation. The punctuation
+    // _must_ include a sentence-closing punctuation mark, which may be
+    // surrounded by other punctuation. For example, `".)` would be a valid
+    // sentence-ending punctuation cluster.
+    //
+    // We're also going to check for capitalization to avoid false positives
+    // from punctuation clusters such as `(T.B.D.)`, though this will give us
+    // false negatives for some special cases of words that are allowed to
+    // be lowercase at sentence start. The number of these exceptions is
+    // relatively small, and for simplicity's sake we will ignore them.
+    if !(queried_word.is_char_boundary(0)
+        && queried_word
+            .chars()
+            .next()
+            .map_or(false, |c: char| c.is_uppercase()))
+    {
+        return false;
+    }
+
+    let between = slice
+        .byte_slice(preceding_offset + preceding_word.byte_len()..*queried_offset)
+        .chars();
+    #[cfg(debug_assertions)]
+    trace!(
+        "Parsing the between-sentence text: \"{}\"",
+        between.clone().collect::<String>()
+    );
+    between_sentence_parser::BetweenSentenceParser::new().parse(between)
+}
+
+mod between_sentence_parser {
+    #[cfg(debug_assertions)]
+    use log::trace;
+
+    #[derive(Debug)]
+    enum BetweenSentenceParserState {
+        Initial,
+        PrecedingPunctuation,
+        SentenceEndingPunctuation(EndingPunctuationType),
+        FollowingPunctuation,
+        Whitespace,
+        SentenceStartPunctuation,
+    }
+
+    #[derive(Debug)]
+    enum EndingPunctuationType {
+        Mixable,
+        NonMixable(char),
+    }
+
+    #[derive(Debug)]
+    pub(super) struct BetweenSentenceParser {
+        state: BetweenSentenceParserState,
+    }
+
+    impl BetweenSentenceParser {
+        pub(super) fn new() -> Self {
+            Self {
+                state: BetweenSentenceParserState::Initial,
+            }
+        }
+
+        pub(super) fn parse(&mut self, chars: impl Iterator<Item = char>) -> bool {
+            use BetweenSentenceParserState::*;
+
+            for char in chars {
+                #[cfg(debug_assertions)]
+                trace!("Parser state: {:?}", self.state);
+
+                match char {
+                    c if c.is_whitespace() => match self.state {
+                        SentenceEndingPunctuation(_) | FollowingPunctuation => {
+                            self.state = Whitespace;
+                        }
+                        Whitespace => {}
+                        _ => return false,
+                    },
+                    c if super::is_sentence_ending_punctuation(&c) => {
+                        let r#type = match c {
+                            '.' => EndingPunctuationType::NonMixable(c),
+                            _ => EndingPunctuationType::Mixable,
+                        };
+                        match self.state {
+                            Initial | PrecedingPunctuation => {
+                                self.state = SentenceEndingPunctuation(r#type);
+                            }
+                            SentenceEndingPunctuation(EndingPunctuationType::Mixable)
+                                if matches!(r#type, EndingPunctuationType::Mixable) => {}
+                            SentenceEndingPunctuation(EndingPunctuationType::NonMixable(old_c))
+                                if matches!(r#type, EndingPunctuationType::NonMixable(c) if c == old_c) =>
+                                {}
+                            _ => return false,
+                        }
+                    }
+                    c if super::is_punctuation(&c) => match self.state {
+                        Initial => {
+                            self.state = PrecedingPunctuation;
+                        }
+                        PrecedingPunctuation | FollowingPunctuation | SentenceStartPunctuation => {}
+                        SentenceEndingPunctuation(_) => {
+                            self.state = FollowingPunctuation;
+                        }
+                        Whitespace => self.state = SentenceStartPunctuation,
+                    },
+                    _ => return false,
+                }
+            }
+
+            matches!(self.state, Whitespace | SentenceStartPunctuation)
+        }
+    }
+}
+
+pub(crate) mod extras {
+    use std::collections::VecDeque;
+
+    use super::*;
+
+    pub(crate) struct WordIteratorExtension<'a, I> {
+        prefix: Option<I>,
+        inner: WordIterator<'a>,
+    }
+
+    impl<'a, I> From<WordIterator<'a>> for WordIteratorExtension<'a, I> {
+        fn from(inner: WordIterator<'a>) -> Self {
+            Self {
+                prefix: None,
+                inner,
+            }
+        }
+    }
+
+    impl<'a, I> WordIteratorExtension<'a, I>
+    where
+        I: Iterator<Item = WordIteratorItem<'a>>,
+    {
+        pub(crate) fn extend_on_prefix(self, prefix: I) -> Self {
+            Self {
+                prefix: Some(prefix),
+                inner: self.into_inner().1,
+            }
+        }
+
+        pub(crate) fn into_inner(self) -> (Option<I>, WordIterator<'a>) {
+            (self.prefix, self.inner)
+        }
+    }
+
+    impl<'a, I> Iterator for WordIteratorExtension<'a, I>
+    where
+        I: Iterator<Item = WordIteratorItem<'a>>,
+    {
+        type Item = WordIteratorItem<'a>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            match self.prefix {
+                Some(ref mut prefix) => prefix.next().or_else(|| self.inner.next()),
+                None => self.inner.next(),
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) struct UnitIterator<'a> {
+        _marker: std::marker::PhantomData<&'a ()>,
+    }
+
+    #[cfg(test)]
+    impl<'a> Iterator for UnitIterator<'a> {
+        type Item = WordIteratorItem<'a>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            None
+        }
+    }
+
+    pub(crate) struct WordIteratorPrefix<'a> {
+        inner: VecDeque<WordIteratorItem<'a>>,
+    }
+
+    impl<'a> WordIteratorPrefix<'a> {
+        pub(crate) fn new<I>(inner: I) -> Self
+        where
+            I: IntoIterator<Item = WordIteratorItem<'a>>,
+        {
+            Self {
+                inner: inner.into_iter().collect(),
+            }
+        }
+    }
+
+    impl<'a> Iterator for WordIteratorPrefix<'a> {
+        type Item = WordIteratorItem<'a>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.inner.pop_front()
+        }
+    }
 }
 
 #[cfg(test)]
@@ -808,5 +1061,156 @@ mod tests {
                 }
             );
         }
+    }
+
+    #[test]
+    fn test_word_iterator_collect_remainder() {
+        let rope = Rope::from("hello everybody in the world");
+        let slice = rope.byte_slice(..);
+        let mut iter = WordIterator::new(slice, 0, Default::default());
+
+        iter.next();
+        assert_eq!(
+            iter.collect_remainder(),
+            Some("everybody in the world".to_string())
+        );
+    }
+
+    #[test]
+    fn test_word_iterator_no_remainder() {
+        let rope = Rope::from("hello");
+        let slice = rope.byte_slice(..);
+        let mut iter = WordIterator::new(slice, 0, Default::default());
+
+        iter.next();
+        assert!(iter.collect_remainder().is_none());
+    }
+
+    #[test]
+    fn test_word_iterator_wrapper() {
+        let rope = Rope::from("hello world");
+        let slice = rope.byte_slice(..);
+        let mut iter: extras::WordIteratorExtension<'_, extras::UnitIterator> =
+            WordIterator::new(slice, 0, Default::default()).into();
+
+        let (offset, word, cap) = iter.next().unwrap();
+        assert_eq!(offset, 0);
+        assert_eq!(word.to_string(), "hello");
+        assert_eq!(cap, Capitalize::False);
+
+        let (offset, word, cap) = iter.next().unwrap();
+        assert_eq!(offset, 6);
+        assert_eq!(word.to_string(), "world");
+        assert_eq!(cap, Capitalize::False);
+
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_word_iterator_wrapper_with_prefix() {
+        let rope = Rope::from("hello world keep going");
+        let slice = rope.byte_slice(..);
+
+        let mut orig_iter: extras::WordIteratorExtension<'_, extras::WordIteratorPrefix> =
+            WordIterator::new(slice, 0, Default::default()).into();
+
+        let mut consumed = vec![];
+        consumed.push(orig_iter.next().unwrap());
+        consumed.push(orig_iter.next().unwrap());
+
+        let mut new_iter = orig_iter.extend_on_prefix(extras::WordIteratorPrefix::new(consumed));
+
+        let next = new_iter.next().unwrap();
+        assert_eq!(next.0, 0);
+        assert_eq!(next.1.to_string(), "hello");
+        let next = new_iter.next().unwrap();
+        assert_eq!(next.0, 6);
+        assert_eq!(next.1.to_string(), "world");
+        let next = new_iter.next().unwrap();
+        assert_eq!(next.0, 12);
+        assert_eq!(next.1.to_string(), "keep");
+        let next = new_iter.next().unwrap();
+        assert_eq!(next.0, 17);
+        assert_eq!(next.1.to_string(), "going");
+        assert!(new_iter.next().is_none());
+    }
+
+    #[test]
+    fn test_is_sentence_start() {
+        let rope = Rope::from("Hello world! What a wonderful day. What's up?");
+        assert!(is_sentence_start()
+            .slice(rope.byte_slice(..))
+            .query_offset(0)
+            .call());
+        assert!(is_sentence_start()
+            .slice(rope.byte_slice(..))
+            .query_offset(13)
+            .call());
+        assert!(is_sentence_start()
+            .slice(rope.byte_slice(..))
+            .query_offset(35)
+            .call());
+        assert!(!is_sentence_start()
+            .slice(rope.byte_slice(..))
+            .query_offset(6)
+            .call());
+        assert!(!is_sentence_start()
+            .slice(rope.byte_slice(..))
+            .query_offset(11)
+            .call());
+        assert!(!is_sentence_start()
+            .slice(rope.byte_slice(..))
+            .query_offset(12)
+            .call());
+        assert!(!is_sentence_start()
+            .slice(rope.byte_slice(..))
+            .query_offset(40)
+            .call());
+    }
+
+    #[test]
+    fn test_is_sentence_start_handles_ellipsis() {
+        let rope = Rope::from("Hello... world!");
+        assert!(!is_sentence_start()
+            .slice(rope.byte_slice(..))
+            .query_offset(9)
+            .call());
+
+        let rope = Rope::from("Hello... World!");
+        assert!(is_sentence_start()
+            .slice(rope.byte_slice(..))
+            .query_offset(9)
+            .call());
+    }
+
+    #[test]
+    fn test_is_sentence_start_handles_mixed_punctuation() {
+        let rope = Rope::from("Hello?!?!?! World!");
+        assert!(is_sentence_start()
+            .slice(rope.byte_slice(..))
+            .query_offset(12)
+            .call());
+
+        let rope = Rope::from("Hello.!?. What?");
+        assert!(!is_sentence_start()
+            .slice(rope.byte_slice(..))
+            .query_offset(10)
+            .call());
+    }
+
+    #[test]
+    fn test_is_sentence_start_gracefully_fails_on_empty_rope() {
+        assert!(!is_sentence_start()
+            .slice(Rope::from("").byte_slice(..))
+            .query_offset(0)
+            .call());
+    }
+
+    #[test]
+    fn test_is_sentence_start_gracefully_fails_on_out_of_bounds() {
+        assert!(!is_sentence_start()
+            .slice(Rope::from("Hello").byte_slice(..))
+            .query_offset(1000)
+            .call());
     }
 }

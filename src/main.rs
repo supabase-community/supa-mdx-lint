@@ -7,13 +7,18 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use bon::builder;
 use clap::{error::ErrorKind, ArgGroup, CommandFactory, Parser};
+#[cfg(feature = "interactive")]
+use cli::InteractiveFixManager;
 use glob::glob;
 use log::{debug, error};
 use simplelog::{ColorChoice, Config as LogConfig, LevelFilter, TermLogger, TerminalMode};
 use supa_mdx_lint::{
     utils::is_lintable, Config, LintLevel, LintOutput, LintTarget, Linter, OutputFormatter,
 };
+
+mod cli;
 
 const DEFAULT_CONFIG_FILE: &str = "supa-mdx-lint.config.toml";
 
@@ -35,6 +40,10 @@ struct Args {
     #[arg(short, long)]
     fix: bool,
 
+    #[cfg(feature = "interactive")]
+    #[arg(short, long, requires_all = ["fix", "enable_experimental"], conflicts_with = "silent")]
+    interactive: bool,
+
     /// Output format
     #[arg(long, value_name = "FORMAT", default_value = "simple", value_parser = clap::value_parser!(OutputFormatter))]
     format: OutputFormatter,
@@ -50,6 +59,9 @@ struct Args {
     #[cfg(debug_assertions)]
     #[arg(long)]
     trace: bool,
+
+    #[arg(long)]
+    enable_experimental: bool,
 }
 
 fn setup_logging(args: &Args) -> Result<LevelFilter> {
@@ -78,7 +90,11 @@ fn setup_logging(args: &Args) -> Result<LevelFilter> {
     Ok(log_level)
 }
 
-fn get_diagnostics(targets: &[String], linter: &Linter) -> Result<Vec<LintOutput>> {
+#[builder]
+fn get_targets(
+    targets: &[String],
+    #[builder(default = false)] expand_dirs: bool,
+) -> Result<Vec<LintTarget<'_>>> {
     let mut all_targets = Vec::new();
 
     for target in targets.iter() {
@@ -90,6 +106,44 @@ fn get_diagnostics(targets: &[String], linter: &Linter) -> Result<Vec<LintOutput
             .map(LintTarget::FileOrDirectory)
             .for_each(|target| all_targets.push(target));
     }
+
+    match expand_dirs {
+        false => Ok(all_targets),
+        true => {
+            let mut new_targets = Vec::new();
+
+            let mut idx = 0;
+            while idx < all_targets.len() {
+                let target = all_targets
+                    .get(idx)
+                    .expect("Just checked length of all_targets array");
+                match target {
+                    LintTarget::FileOrDirectory(path) if path.is_dir() => {
+                        for entry in std::fs::read_dir(path).context("Failed to read directory")? {
+                            let entry = entry.context("Failed to get directory entry")?;
+                            let path = entry.path();
+                            if is_lintable(&path) {
+                                all_targets.push(LintTarget::FileOrDirectory(path));
+                            }
+                        }
+
+                        idx += 1;
+                    }
+                    LintTarget::FileOrDirectory(path) => {
+                        new_targets.push(LintTarget::FileOrDirectory(path.clone()));
+                        idx += 1;
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
+            Ok(new_targets)
+        }
+    }
+}
+
+fn get_diagnostics(targets: &[String], linter: &Linter) -> Result<Vec<LintOutput>> {
+    let all_targets = get_targets().targets(targets).call()?;
     debug!("Lint targets: {targets:#?}");
 
     let mut diagnostics = Vec::new();
@@ -136,12 +190,31 @@ fn execute() -> Result<Result<()>> {
     let linter = Linter::builder().config(config).build()?;
     debug!("Linter built: {linter:#?}");
 
-    let mut diagnostics = get_diagnostics(&args.target, &linter)?;
-
     let stdout = std::io::stdout().lock();
     let mut stdout = BufWriter::new(stdout);
 
-    if args.fix {
+    #[cfg(feature = "interactive")]
+    if args.interactive {
+        return Ok(InteractiveFixManager::new(
+            &linter,
+            get_targets()
+                .targets(&args.target)
+                .expand_dirs(true)
+                .call()?,
+        )
+        .run());
+    }
+
+    let mut diagnostics = get_diagnostics(&args.target, &linter)?;
+
+    #[allow(unused_mut)]
+    let mut fix_only = args.fix;
+    #[cfg(feature = "interactive")]
+    if args.interactive {
+        fix_only = false;
+    }
+
+    if fix_only {
         let (num_files_fixed, num_errors_fixed) = linter.fix(&diagnostics)?;
         if !args.silent {
             writeln!(
@@ -178,7 +251,7 @@ fn execute() -> Result<Result<()>> {
 
     if diagnostics
         .iter()
-        .any(|d| d.errors().iter().any(|e| e.level == LintLevel::Error))
+        .any(|d| d.errors().iter().any(|e| e.level() == LintLevel::Error))
     {
         Ok(Err(anyhow::anyhow!("Linting errors found")))
     } else {

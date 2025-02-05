@@ -65,7 +65,7 @@ impl Rule for Rule001HeadingCase {
         LintLevel::Error
     }
 
-    fn setup(&mut self, settings: Option<&RuleSettings>) {
+    fn setup(&mut self, settings: Option<&mut RuleSettings>) {
         if let Some(settings) = settings {
             let regex_settings = RegexSettings {
                 beginning: Some(RegexBeginning::VeryBeginning),
@@ -438,8 +438,8 @@ mod tests {
     #[test]
     fn test_rule001_may_uppercase() {
         let mut rule = Rule001HeadingCase::default();
-        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
-        rule.setup(Some(&settings));
+        let mut settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
+        rule.setup(Some(&mut settings));
 
         let mdx = "# This is an API heading";
         let parse_result = parse(mdx).unwrap();
@@ -459,8 +459,8 @@ mod tests {
     #[test]
     fn test_rule001_may_lowercase() {
         let mut rule = Rule001HeadingCase::default();
-        let settings = RuleSettings::with_array_of_strings("may_lowercase", vec!["the"]);
-        rule.setup(Some(&settings));
+        let mut settings = RuleSettings::with_array_of_strings("may_lowercase", vec!["the"]);
+        rule.setup(Some(&mut settings));
 
         let mdx = "# the quick brown fox";
         let parse_result = parse(mdx).unwrap();
@@ -498,8 +498,9 @@ mod tests {
     #[test]
     fn test_rule001_may_uppercase_multi_word() {
         let mut rule = Rule001HeadingCase::default();
-        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["New York City"]);
-        rule.setup(Some(&settings));
+        let mut settings =
+            RuleSettings::with_array_of_strings("may_uppercase", vec!["New York City"]);
+        rule.setup(Some(&mut settings));
 
         let mdx = "# This is about New York City";
         let parse_result = parse(mdx).unwrap();
@@ -519,9 +520,9 @@ mod tests {
     #[test]
     fn test_rule001_multiple_exception_matches() {
         let mut rule = Rule001HeadingCase::default();
-        let settings =
+        let mut settings =
             RuleSettings::with_array_of_strings("may_uppercase", vec!["New York", "New York City"]);
-        rule.setup(Some(&settings));
+        rule.setup(Some(&mut settings));
 
         let mdx = "# This is about New York City";
         let parse_result = parse(mdx).unwrap();
@@ -541,8 +542,8 @@ mod tests {
     #[test]
     fn test_rule001_may_uppercase_partial_match() {
         let mut rule = Rule001HeadingCase::default();
-        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
-        rule.setup(Some(&settings));
+        let mut settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
+        rule.setup(Some(&mut settings));
 
         let mdx = "# This is an API-related topic";
         let parse_result = parse(mdx).unwrap();
@@ -562,8 +563,8 @@ mod tests {
     #[test]
     fn test_rule001_may_lowercase_regex() {
         let mut rule = Rule001HeadingCase::default();
-        let settings = RuleSettings::with_array_of_strings("may_lowercase", vec!["(the|a|an)"]);
-        rule.setup(Some(&settings));
+        let mut settings = RuleSettings::with_array_of_strings("may_lowercase", vec!["(the|a|an)"]);
+        rule.setup(Some(&mut settings));
 
         let mdx = "# the quick brown fox";
         let parse_result = parse(mdx).unwrap();
@@ -583,8 +584,8 @@ mod tests {
     #[test]
     fn test_rule001_may_uppercase_regex_fails() {
         let mut rule = Rule001HeadingCase::default();
-        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["[A-Z]{4,}"]);
-        rule.setup(Some(&settings));
+        let mut settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["[A-Z]{4,}"]);
+        rule.setup(Some(&mut settings));
 
         let mdx = "# This is an API call";
         let parse_result = parse(mdx).unwrap();
@@ -625,9 +626,9 @@ mod tests {
     #[test]
     fn test_rule001_multi_word_exception_at_start() {
         let mut rule = Rule001HeadingCase::default();
-        let settings =
+        let mut settings =
             RuleSettings::with_array_of_strings("may_uppercase", vec!["Content Delivery Network"]);
-        rule.setup(Some(&settings));
+        rule.setup(Some(&mut settings));
 
         let mdx = "# Content Delivery Network latency";
         let parse_result = parse(mdx).unwrap();
@@ -647,8 +648,8 @@ mod tests {
     #[test]
     fn test_rule001_multi_word_exception_in_middle() {
         let mut rule = Rule001HeadingCase::default();
-        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["Magic Link"]);
-        rule.setup(Some(&settings));
+        let mut settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["Magic Link"]);
+        rule.setup(Some(&mut settings));
 
         let markdown = "### Enabling Magic Link signins";
         let parse_result = parse(markdown).unwrap();
@@ -669,8 +670,9 @@ mod tests {
     #[test]
     fn test_rule001_brackets_around_exception() {
         let mut rule = Rule001HeadingCase::default();
-        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["Edge Functions"]);
-        rule.setup(Some(&settings));
+        let mut settings =
+            RuleSettings::with_array_of_strings("may_uppercase", vec!["Edge Functions"]);
+        rule.setup(Some(&mut settings));
 
         let mdx = "# Deno (Edge Functions)";
         let parse_result = parse(mdx).unwrap();
@@ -690,8 +692,9 @@ mod tests {
     #[test]
     fn test_rule001_complex_heading() {
         let mut rule = Rule001HeadingCase::default();
-        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API", "OAuth"]);
-        rule.setup(Some(&settings));
+        let mut settings =
+            RuleSettings::with_array_of_strings("may_uppercase", vec!["API", "OAuth"]);
+        rule.setup(Some(&mut settings));
 
         let mdx = "# The basics of API authentication in OAuth";
         let parse_result = parse(mdx).unwrap();
@@ -811,8 +814,8 @@ mod tests {
     #[test]
     fn test_rule001_heading_starts_with_may_uppercase_exception() {
         let mut rule = Rule001HeadingCase::default();
-        let settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
-        rule.setup(Some(&settings));
+        let mut settings = RuleSettings::with_array_of_strings("may_uppercase", vec!["API"]);
+        rule.setup(Some(&mut settings));
 
         let markdown = "### API Error codes";
         let parse_result = parse(markdown).unwrap();

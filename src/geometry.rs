@@ -78,6 +78,10 @@ impl AdjustedOffset {
     pub(crate) fn from_unist(point: &markdown::unist::Point, context: &RuleContext) -> Self {
         Self::from_unadjusted(UnadjustedOffset::from(point), context)
     }
+
+    pub(crate) fn into_usize(self) -> usize {
+        Into::<usize>::into(self)
+    }
 }
 
 /// An offset in the source document, not accounting for frontmatter lines.
@@ -187,7 +191,7 @@ impl From<&AdjustedRange> for Range<usize> {
 }
 
 impl AdjustedRange {
-    pub fn new(start: AdjustedOffset, end: AdjustedOffset) -> Self {
+    pub(crate) fn new(start: AdjustedOffset, end: AdjustedOffset) -> Self {
         Self(Range { start, end })
     }
 
@@ -203,18 +207,24 @@ impl AdjustedRange {
         })
     }
 
-    pub fn span_between(first: &Self, second: &Self) -> Self {
+    pub(crate) fn span_between(first: &Self, second: &Self) -> Self {
         let start = first.start.min(second.start);
         let end = first.end.max(second.end);
         Self(Range { start, end })
     }
 
-    pub fn overlaps_or_abuts(&self, other: &Self) -> bool {
+    pub(crate) fn overlaps_or_abuts(&self, other: &Self) -> bool {
         if self.start > other.start {
             other.overlaps_or_abuts(self)
         } else {
             self.end >= other.start
         }
+    }
+
+    // Helper method to avoid having to call the ridiculous
+    // `Into::<Range<usize>>::into` in many places.
+    pub fn to_usize_range(&self) -> Range<usize> {
+        Into::<Range<usize>>::into(self)
     }
 }
 

@@ -27,7 +27,7 @@ impl Rule for Rule002AdmonitionTypes {
         LintLevel::Error
     }
 
-    fn setup(&mut self, settings: Option<&RuleSettings>) {
+    fn setup(&mut self, settings: Option<&mut RuleSettings>) {
         if let Some(settings) = settings {
             if let Some(vec) = settings.get_array_of_strings("admonition_types") {
                 self.admonition_types = vec;
