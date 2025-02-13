@@ -121,7 +121,7 @@ impl<'a, 'b> InteractiveFixManager<'a, 'b> {
     }
 
     pub fn run_relint_loop(&mut self) -> Result<()> {
-        loop {
+        'relint: loop {
             let diagnostics = self.linter.lint(&LintTarget::String(
                 &self.curr_file.as_ref().unwrap().content.as_str(),
             ))?;
@@ -142,7 +142,7 @@ impl<'a, 'b> InteractiveFixManager<'a, 'b> {
                         if let Some(CorrectionStrategy::Fix) =
                             self.prompt_error().error(error).call()?
                         {
-                            break;
+                            continue 'relint;
                         }
                     }
                     return Ok(());
