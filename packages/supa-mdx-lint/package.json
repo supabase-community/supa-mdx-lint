@@ -28,5 +28,8 @@
     "@supabase/supa-mdx-lint-linux-x64": "0.2.4-alpha",
     "@supabase/supa-mdx-lint-win32-i686": "0.2.4-alpha",
     "@supabase/supa-mdx-lint-win32-x64": "0.2.4-alpha"
+  },
+  "dependencies": {
+    "node-pty": "^1.0.0"
   }
 }
