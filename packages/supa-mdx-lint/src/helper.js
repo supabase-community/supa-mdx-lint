@@ -7,7 +7,7 @@
 
 "use strict";
 
-const childProcess = require("child_process");
+const pty = require("node-pty");
 const os = require("os");
 
 const BINARY_DISTRIBUTIONS = [
@@ -176,15 +176,19 @@ class LinterError extends Error {
 async function execute(args) {
   const env = { ...process.env };
   return new Promise((resolve, reject) => {
-    const pid = childProcess.spawn(getBinaryPath(), args, {
-      env,
-      // stdin, stdout, stderr
-      stdio: ["ignore", "inherit", "inherit"],
+    const ptyProcess = pty.spawn(getBinaryPath(), args, {
+      name: "xterm-color",
+      cols: 80,
+      rows: 30,
+      cwd: process.cwd(),
+      env: env,
     });
-    pid.on("error", (err) => {
-      reject(err);
+
+    ptyProcess.onData((data) => {
+      process.stdout.write(data);
     });
-    pid.on("exit", (code) => {
+
+    ptyProcess.onExit(({ exitCode: code }) => {
       if (code === 0) {
         resolve();
       } else {
@@ -194,6 +198,18 @@ async function execute(args) {
         );
         reject(error);
       }
+    });
+
+    process.stdin.setRawMode(true);
+    process.stdin.setEncoding("utf8");
+
+    process.stdin.on("data", (data) => {
+      const strData = data.toString();
+      if (strData === "\u0003") {
+        // Ctrl + C
+        process.exit();
+      }
+      ptyProcess.write(strData);
     });
   });
 }
