@@ -200,7 +200,13 @@ async function execute(args) {
       }
     });
 
-    process.stdin.setRawMode(true);
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+    } else {
+      console.warn(
+        "Warning: process.stdin is not a TTY. setRawMode is not available.",
+      );
+    }
     process.stdin.setEncoding("utf8");
 
     process.stdin.on("data", (data) => {

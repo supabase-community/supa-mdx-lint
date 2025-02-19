@@ -117,7 +117,7 @@ fn parse_internal(input: &str) -> Result<Node> {
             ..Default::default()
         },
     )
-    .map_err(|e| anyhow!("Markdown parsing error: {:?}", e))?;
+    .map_err(|e| anyhow!("Not valid Markdown: {:?}", e))?;
 
     Ok(mdast)
 }
