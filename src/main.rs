@@ -162,10 +162,8 @@ fn get_diagnostics(targets: &[String], linter: &Linter) -> Result<Vec<LintOutput
     Ok(diagnostics)
 }
 
-fn execute() -> Result<Result<()>> {
+fn execute(args: Args) -> Result<Result<()>> {
     let start = Instant::now();
-
-    let args = Args::parse();
 
     let log_level = setup_logging(&args)?;
     debug!("Log level set to {log_level}");
@@ -260,11 +258,19 @@ fn execute() -> Result<Result<()>> {
 }
 
 fn main() -> ExitCode {
-    match execute() {
+    let args = Args::parse();
+    let silent = args.silent;
+
+    match execute(args) {
         Ok(Ok(())) => ExitCode::SUCCESS,
         Ok(Err(_)) => ExitCode::from(TryInto::<u8>::try_into(exitcode::DATAERR).unwrap()),
         // Not really, but we need to bubble better errors up to get a more
         // meaningful exit code.
-        Err(_) => ExitCode::from(TryInto::<u8>::try_into(exitcode::SOFTWARE).unwrap()),
+        Err(err) => {
+            if !silent {
+                eprintln!("{err}");
+            }
+            ExitCode::from(TryInto::<u8>::try_into(exitcode::SOFTWARE).unwrap())
+        }
     }
 }
