@@ -7,8 +7,18 @@
 
 "use strict";
 
-const pty = require("node-pty");
+const { spawn } = require("child_process");
 const os = require("os");
+
+let pty;
+if (os.platform() !== "win32") {
+  try {
+    pty = require("node-pty");
+  } catch {
+    console.error("Failed to load node-pty. Please make sure it is installed.");
+    process.exit(1);
+  }
+}
 
 const BINARY_DISTRIBUTIONS = [
   {
@@ -175,6 +185,33 @@ class LinterError extends Error {
  */
 async function execute(args) {
   const env = { ...process.env };
+  const platform = os.platform();
+
+  if (platform === "win32") {
+    return new Promise((resolve, reject) => {
+      const child = spawn(getBinaryPath(), args, {
+        env,
+        stdio: "inherit",
+      });
+
+      child.on("exit", (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          const error = new LinterError(
+            `supa-mdx-lint exited with code ${code}`,
+            code,
+          );
+          reject(error);
+        }
+      });
+
+      child.on("error", (err) => {
+        reject(err);
+      });
+    });
+  }
+
   return new Promise((resolve, reject) => {
     const ptyProcess = pty.spawn(getBinaryPath(), args, {
       name: "xterm-color",
