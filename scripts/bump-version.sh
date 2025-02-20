@@ -16,7 +16,13 @@ update_package_json() {
 update_optional_dependencies() {
   local file=$1
   local new_version=$2
-  jq --arg new_version "$new_version" '.optionalDependencies |= with_entries(.value = $new_version)' "$file" > tmp.$$.json && mv tmp.$$.json "$file"
+  jq --arg new_version "$new_version" '
+    .optionalDependencies |= with_entries(
+      if .key | startswith("@supabase/supa-mdx-lint")
+      then .value = $new_version
+      else .
+      end
+    )' "$file" > tmp.$$.json && mv tmp.$$.json "$file"
 }
 
 if ! command -v jq &> /dev/null
