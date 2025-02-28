@@ -70,7 +70,7 @@ impl FromStr for OutputFormatter {
             "pretty" => Ok(Self::Pretty(pretty::PrettyFormatter)),
             "simple" => Ok(Self::Simple(simple::SimpleFormatter)),
             "rdf" => Ok(Self::Rdf(rdf::RdfFormatter)),
-            _ => Err(app_error::ParseError::VariantNotFound),
+            other => Err(app_error::ParseError::VariantNotFound(other.to_string())),
         }
     }
 }

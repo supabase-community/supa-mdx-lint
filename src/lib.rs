@@ -7,6 +7,7 @@ use std::{fs, io::Read};
 use utils::is_lintable;
 
 mod app_error;
+mod comments;
 mod config;
 pub mod errors;
 pub mod fix;

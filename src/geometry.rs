@@ -228,7 +228,7 @@ impl AdjustedRange {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct MaybeEndedLineRange(MaybeEndedRange<usize>);
 
 impl Deref for MaybeEndedLineRange {
@@ -258,18 +258,24 @@ impl MaybeEndedLineRange {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct MaybeEndedRange<T>
 where
-    T: PartialOrd,
+    T: Ord,
 {
     pub start: T,
     pub end: Option<T>,
 }
 
-impl<T: PartialOrd> MaybeEndedRange<T> {
-    pub fn is_open_ended(&self) -> bool {
+impl<T: Ord> MaybeEndedRange<T> {
+    pub(crate) fn is_open_ended(&self) -> bool {
         self.end.is_none()
+    }
+
+    pub(crate) fn overlaps_nonstrict(&self, other: &Self) -> bool {
+        self.start <= other.start && self.end.as_ref().map_or(true, |end| *end >= other.start)
+            || other.start <= self.start
+                && other.end.as_ref().map_or(true, |end| *end >= self.start)
     }
 }
 

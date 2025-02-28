@@ -10,9 +10,10 @@ use std::{collections::HashMap, fmt::Debug};
 use serde::Serialize;
 
 use crate::{
+    comments::LintDisables,
     errors::{LintError, LintLevel},
     geometry::AdjustedOffset,
-    parser::{LintDisables, ParseResult},
+    parser::ParseResult,
     rope::Rope,
 };
 
