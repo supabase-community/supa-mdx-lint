@@ -119,8 +119,8 @@ impl Rule002AdmonitionTypes {
         let node_source = node
             .position()
             .map(|pos| {
-                let start = AdjustedOffset::from_unist(&pos.start, context);
-                let end = AdjustedOffset::from_unist(&pos.end, context);
+                let start = AdjustedOffset::from_unist(&pos.start, context.content_start_offset());
+                let end = AdjustedOffset::from_unist(&pos.end, context.content_start_offset());
                 context
                     .rope()
                     .byte_slice(Into::<usize>::into(start)..Into::<usize>::into(end))
@@ -132,8 +132,10 @@ impl Rule002AdmonitionTypes {
                     if let Some(match_result) =
                         type_regex.captures(&node_source).and_then(|cap| cap.get(1))
                     {
-                        let mut start_point =
-                            AdjustedOffset::from_unist(&node.position().unwrap().start, context);
+                        let mut start_point = AdjustedOffset::from_unist(
+                            &node.position().unwrap().start,
+                            context.content_start_offset(),
+                        );
                         start_point.increment(match_result.start());
                         let mut end_point = start_point;
                         end_point.increment("type".len());
@@ -190,11 +192,17 @@ Some text.
         let rule = Rule002AdmonitionTypes::default();
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
-        let admonition = context.parse_result.ast.children().unwrap().get(0).unwrap();
+        let admonition = context
+            .parse_result
+            .ast()
+            .children()
+            .unwrap()
+            .get(0)
+            .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
         assert!(result.is_some());
@@ -215,11 +223,17 @@ Some text.
         let rule = Rule002AdmonitionTypes::default();
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
-        let admonition = context.parse_result.ast.children().unwrap().get(0).unwrap();
+        let admonition = context
+            .parse_result
+            .ast()
+            .children()
+            .unwrap()
+            .get(0)
+            .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
         assert!(result.is_some());
@@ -236,11 +250,17 @@ Some text.
         rule.admonition_types = vec!["note".to_string()];
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
-        let admonition = context.parse_result.ast.children().unwrap().get(0).unwrap();
+        let admonition = context
+            .parse_result
+            .ast()
+            .children()
+            .unwrap()
+            .get(0)
+            .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
         assert!(result.is_none());

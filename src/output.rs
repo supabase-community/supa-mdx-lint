@@ -62,7 +62,7 @@ impl OutputFormatter {
 }
 
 impl FromStr for OutputFormatter {
-    type Err = app_error::ParseError;
+    type Err = app_error::PublicError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -70,7 +70,7 @@ impl FromStr for OutputFormatter {
             "pretty" => Ok(Self::Pretty(pretty::PrettyFormatter)),
             "simple" => Ok(Self::Simple(simple::SimpleFormatter)),
             "rdf" => Ok(Self::Rdf(rdf::RdfFormatter)),
-            _ => Err(app_error::ParseError::VariantNotFound),
+            other => Err(app_error::PublicError::VariantNotFound(other.to_string())),
         }
     }
 }

@@ -254,7 +254,7 @@ impl Rule001HeadingCase {
         let start_point = node
             .position
             .as_ref()
-            .map(|p| AdjustedOffset::from_unist(&p.start, context))
+            .map(|p| AdjustedOffset::from_unist(&p.start, context.content_start_offset()))
             .map(|mut p| {
                 p.increment(offset);
                 p
@@ -327,12 +327,12 @@ mod tests {
         let mdx = "# This is a correct heading";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -345,12 +345,12 @@ mod tests {
         let mdx = "# this should fail";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -386,12 +386,12 @@ mod tests {
         let mdx = "# This Should Fail";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -444,12 +444,12 @@ mod tests {
         let mdx = "# This is an API heading";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -465,12 +465,12 @@ mod tests {
         let mdx = "# the quick brown fox";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -483,12 +483,12 @@ mod tests {
         let mdx = "not a heading";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -505,12 +505,12 @@ mod tests {
         let mdx = "# This is about New York City";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -527,12 +527,12 @@ mod tests {
         let mdx = "# This is about New York City";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -548,12 +548,12 @@ mod tests {
         let mdx = "# This is an API-related topic";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -569,12 +569,12 @@ mod tests {
         let mdx = "# the quick brown fox";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -590,12 +590,12 @@ mod tests {
         let mdx = "# This is an API call";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -633,12 +633,12 @@ mod tests {
         let mdx = "# Content Delivery Network latency";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -654,12 +654,12 @@ mod tests {
         let markdown = "### Enabling Magic Link signins";
         let parse_result = parse(markdown).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -677,12 +677,12 @@ mod tests {
         let mdx = "# Deno (Edge Functions)";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -699,12 +699,12 @@ mod tests {
         let mdx = "# The basics of API authentication in OAuth";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -719,12 +719,12 @@ mod tests {
         let mdx = "# Bonus: Profile photos";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -739,12 +739,12 @@ mod tests {
         let mdx = "# Step 1: Do a thing";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -759,12 +759,12 @@ mod tests {
         let mdx = "# 1. Do a thing";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -779,12 +779,12 @@ mod tests {
         let markdown = "# `inline_code` (in a heading) can have `ArbitraryCase`";
         let parse_result = parse(markdown).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -799,12 +799,12 @@ mod tests {
         let markdown = "# 384 dimensions for vector";
         let parse_result = parse(markdown).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );
@@ -820,13 +820,13 @@ mod tests {
         let markdown = "### API Error codes";
         let parse_result = parse(markdown).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule
             .check(
-                context.ast().children().unwrap().first().unwrap(),
+                parse_result.ast().children().unwrap().first().unwrap(),
                 &context,
                 LintLevel::Error,
             )
@@ -850,12 +850,12 @@ mod tests {
         let markdown = "## Filtering with [regular expressions](https://en.wikipedia.org/wiki/Regular_expression)";
         let parse_result = parse(markdown).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let result = rule.check(
-            context.ast().children().unwrap().first().unwrap(),
+            parse_result.ast().children().unwrap().first().unwrap(),
             &context,
             LintLevel::Error,
         );

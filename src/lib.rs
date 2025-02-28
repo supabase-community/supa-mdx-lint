@@ -7,6 +7,7 @@ use std::{fs, io::Read};
 use utils::is_lintable;
 
 mod app_error;
+mod comments;
 mod config;
 pub mod errors;
 pub mod fix;
@@ -115,7 +116,7 @@ impl Linter {
     ) -> Result<Vec<LintOutput>> {
         let parse_result = parse(string)?;
         let rule_context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .maybe_check_only_rules(check_only_rules)
             .build()?;
         match self.config.rule_registry.run(&rule_context) {

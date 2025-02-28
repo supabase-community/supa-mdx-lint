@@ -1,28 +1,39 @@
-use std::{any::Any, collections::HashMap, error::Error, fmt::Display};
+use std::any::Any;
 
 use anyhow::{anyhow, Result};
-use itertools::Itertools;
-use log::{debug, trace, warn};
-use markdown::{mdast::Node, to_mdast, unist, Constructs, ParseOptions};
-use regex::Regex;
+use log::{debug, trace};
+use markdown::{mdast::Node, to_mdast, Constructs, ParseOptions};
 
-use crate::{
-    geometry::{
-        AdjustedOffset, AdjustedPoint, AdjustedRange, DenormalizedLocation, MaybeEndedLineRange,
-    },
-    rope::Rope,
-    rules::RuleContext,
-};
+use crate::{geometry::AdjustedOffset, rope::Rope};
 
 type Frontmatter = Box<dyn Any>;
 
 #[derive(Debug)]
-pub(crate) struct ParseResult {
-    pub ast: Node,
-    pub rope: Rope,
-    pub content_start_offset: AdjustedOffset,
+pub(crate) struct ParseMetadata {
+    content_start_offset: AdjustedOffset,
     #[allow(unused)]
-    pub frontmatter: Option<Frontmatter>,
+    frontmatter: Option<Frontmatter>,
+}
+
+#[derive(Debug)]
+pub(crate) struct ParseResult {
+    ast: Node,
+    rope: Rope,
+    metadata: ParseMetadata,
+}
+
+impl ParseResult {
+    pub(crate) fn ast(&self) -> &Node {
+        &self.ast
+    }
+
+    pub(crate) fn rope(&self) -> &Rope {
+        &self.rope
+    }
+
+    pub(crate) fn content_start_offset(&self) -> AdjustedOffset {
+        self.metadata.content_start_offset
+    }
 }
 
 pub(crate) fn parse(input: &str) -> Result<ParseResult> {
@@ -34,8 +45,10 @@ pub(crate) fn parse(input: &str) -> Result<ParseResult> {
     Ok(ParseResult {
         ast,
         rope,
-        content_start_offset,
-        frontmatter,
+        metadata: ParseMetadata {
+            content_start_offset,
+            frontmatter,
+        },
     })
 }
 
@@ -122,6 +135,32 @@ fn parse_internal(input: &str) -> Result<Node> {
     Ok(mdast)
 }
 
+pub(crate) trait CommentString {
+    fn is_comment(&self) -> bool;
+    fn into_comment(&self) -> Option<&str>;
+}
+
+impl CommentString for str {
+    fn is_comment(&self) -> bool {
+        let trimmed = self.trim();
+        trimmed.starts_with("/*") && trimmed.ends_with("*/")
+    }
+
+    fn into_comment(&self) -> Option<&str> {
+        let trimmed = self.trim();
+        if !self.is_comment() {
+            return None;
+        }
+
+        Some(
+            trimmed
+                .trim_start_matches("/*")
+                .trim_end_matches("*/")
+                .trim(),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,8 +172,11 @@ mod tests {
 Content here."#;
         let result = parse(input).unwrap();
 
-        assert_eq!(result.content_start_offset, AdjustedOffset::from(0));
-        assert!(result.frontmatter.is_none());
+        assert_eq!(
+            result.metadata.content_start_offset,
+            AdjustedOffset::from(0)
+        );
+        assert!(result.metadata.frontmatter.is_none());
 
         let root = result.ast;
         let heading = root.children().unwrap().first().unwrap();
@@ -154,10 +196,13 @@ title: Test
 Content here."#;
         let result = parse(input).unwrap();
 
-        assert_eq!(result.content_start_offset, AdjustedOffset::from(21));
-        assert!(result.frontmatter.is_some());
+        assert_eq!(
+            result.metadata.content_start_offset,
+            AdjustedOffset::from(21)
+        );
+        assert!(result.metadata.frontmatter.is_some());
 
-        let frontmatter = result.frontmatter.unwrap();
+        let frontmatter = result.metadata.frontmatter.unwrap();
         let yaml = frontmatter.downcast_ref::<serde_yaml::Value>().unwrap();
         if let serde_yaml::Value::Mapping(map) = yaml {
             assert_eq!(map.len(), 1);
@@ -185,10 +230,13 @@ name = "John Doe"
 Content with TOML frontmatter."#;
         let result = parse(input).unwrap();
 
-        assert_eq!(result.content_start_offset, AdjustedOffset::from(56));
-        assert!(result.frontmatter.is_some());
+        assert_eq!(
+            result.metadata.content_start_offset,
+            AdjustedOffset::from(56)
+        );
+        assert!(result.metadata.frontmatter.is_some());
 
-        let frontmatter = result.frontmatter.unwrap();
+        let frontmatter = result.metadata.frontmatter.unwrap();
         let toml = frontmatter.downcast_ref::<toml::Value>().unwrap();
 
         assert!(toml.is_table());
@@ -213,524 +261,15 @@ title: Test
 
 Content here."#;
         let result = parse(input).unwrap();
-        assert_eq!(result.content_start_offset, AdjustedOffset::from(22));
-        assert!(result.frontmatter.is_some());
+        assert_eq!(
+            result.metadata.content_start_offset,
+            AdjustedOffset::from(22)
+        );
+        assert!(result.metadata.frontmatter.is_some());
 
         let root = result.ast;
         let heading = root.children().unwrap().first().unwrap();
         assert_eq!(heading.position().unwrap().start.line, 1);
         assert_eq!(heading.position().unwrap().start.column, 1);
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum RuleToggle {
-    EnableAll,
-    EnableRule { rule: String },
-    DisableAll { next_line_only: bool },
-    DisableRule { rule: String, next_line_only: bool },
-}
-
-#[derive(Debug, Default)]
-pub struct LintDisables(HashMap<String, Vec<MaybeEndedLineRange>>);
-
-impl LintDisables {
-    /// Returns the marker used to indicate that all rules should be disabled.
-    fn get_all_marker() -> &'static str {
-        "__priv__ALL__"
-    }
-
-    /// Collects all disable statements in the AST and returns a map of rule names to their
-    /// corresponding disables.
-    fn collect_lint_disables(
-        ast: &Node,
-        context: &RuleContext,
-    ) -> Result<HashMap<String, Vec<MaybeEndedLineRange>>, DisableParseError> {
-        let mut disables = HashMap::<String, Vec<MaybeEndedLineRange>>::new();
-
-        fn collect_lint_disables_internal(
-            ast: &Node,
-            next_node: Option<&Node>,
-            context: &RuleContext,
-            disables: &mut HashMap<String, Vec<MaybeEndedLineRange>>,
-            all_marker: &str,
-        ) -> std::result::Result<(), DisableParseError> {
-            fn reenable_last(
-                previous: Option<&mut Vec<MaybeEndedLineRange>>,
-                current_position: &unist::Position,
-                rule: Option<&str>,
-                context: &RuleContext,
-            ) -> Result<(), DisableParseError> {
-                let last_disable = previous.and_then(|previous| previous.last_mut());
-                match last_disable {
-                    Some(disabled_range) if disabled_range.is_open_ended() => {
-                        let end_offset =
-                            AdjustedRange::from_unadjusted_position(current_position, context).end;
-                        let end_line =
-                            AdjustedPoint::from_adjusted_offset(&end_offset, context.rope()).row;
-                        disabled_range.end = Some(end_line);
-                        Ok(())
-                    }
-                    _ => {
-                        let adjusted_start =
-                            AdjustedRange::from_unadjusted_position(current_position, context)
-                                .start;
-                        let start_point =
-                            AdjustedPoint::from_adjusted_offset(&adjusted_start, context.rope());
-
-                        let subject_copula = if let Some(rule) = rule {
-                            format!("Rule {} was", rule)
-                        } else {
-                            "Rules were".to_string()
-                        };
-
-                        Err(DisableParseError::new(format!(
-                            "{subject_copula} enabled without a preceding disable. [{}:{}]",
-                            start_point.row + 1,
-                            start_point.column + 1
-                        )))
-                    }
-                }
-            }
-
-            fn disable(
-                previous: &mut Vec<MaybeEndedLineRange>,
-                current_position: &unist::Position,
-                next_node: Option<&Node>,
-                rule: Option<&str>,
-                next_line_only: bool,
-                context: &RuleContext,
-            ) {
-                let last_disable = previous.last();
-                match last_disable {
-                    Some(disabled_range) if disabled_range.is_open_ended() => {
-                        let subject_copula = if let Some(rule) = rule {
-                            format!("Rule {} was", rule)
-                        } else {
-                            "Rules were".to_string()
-                        };
-                        warn!("{subject_copula} disabled twice in succession. This might indicate that the first disable was not reversed as intended.");
-                    }
-                    _ => {}
-                }
-
-                let start_offset =
-                    AdjustedRange::from_unadjusted_position(current_position, context).start;
-                let start_line =
-                    AdjustedPoint::from_adjusted_offset(&start_offset, context.rope()).row;
-
-                let end_line = if next_line_only {
-                    match next_node.and_then(|node| node.position()) {
-                        Some(next_position) => {
-                            let next_start_offset =
-                                AdjustedRange::from_unadjusted_position(next_position, context)
-                                    .start;
-                            let next_start_line = AdjustedPoint::from_adjusted_offset(
-                                &next_start_offset,
-                                context.rope(),
-                            )
-                            .row;
-                            if next_start_line > start_line {
-                                Some(next_start_line + 1)
-                            } else {
-                                Some(start_line + 2)
-                            }
-                        }
-                        None => Some(start_line + 2),
-                    }
-                } else {
-                    None
-                };
-
-                previous.push(MaybeEndedLineRange::new(start_line, end_line));
-            }
-
-            match ast {
-                Node::MdxFlowExpression(expression) => {
-                    let Some(current_position) = expression.position.as_ref() else {
-                        return Err(DisableParseError::new("Could not toggle a rule because the underlying node is missing a position."));
-                    };
-
-                    if let Some(rule) = RuleToggle::parse(&expression.value) {
-                        match rule {
-                            RuleToggle::EnableAll => {
-                                return reenable_last(
-                                    disables.get_mut(all_marker),
-                                    current_position,
-                                    None,
-                                    context,
-                                )
-                            }
-                            RuleToggle::EnableRule { rule } => {
-                                return reenable_last(
-                                    disables.get_mut(&rule),
-                                    current_position,
-                                    Some(&rule),
-                                    context,
-                                );
-                            }
-                            RuleToggle::DisableAll { next_line_only } => {
-                                let all_disables =
-                                    disables.entry(all_marker.to_string()).or_default();
-                                disable(
-                                    all_disables,
-                                    current_position,
-                                    next_node,
-                                    None,
-                                    next_line_only,
-                                    context,
-                                );
-                                return Ok(());
-                            }
-                            RuleToggle::DisableRule {
-                                rule: ref rule_name,
-                                next_line_only,
-                            } => {
-                                let disables_for_rule =
-                                    disables.entry(rule_name.clone()).or_default();
-                                disable(
-                                    disables_for_rule,
-                                    current_position,
-                                    next_node,
-                                    Some(rule_name),
-                                    next_line_only,
-                                    context,
-                                );
-                                return Ok(());
-                            }
-                        }
-                    }
-
-                    Ok(())
-                }
-                _ => {
-                    if let Some(children) = ast.children() {
-                        for node_pair in children.iter().zip_longest(children.iter().skip(1)) {
-                            let child = node_pair.clone().left().unwrap();
-                            let next = node_pair.right();
-                            collect_lint_disables_internal(
-                                child, next, context, disables, all_marker,
-                            )?;
-                        }
-                    }
-
-                    Ok(())
-                }
-            }
-        }
-
-        collect_lint_disables_internal(
-            ast,
-            None,
-            context,
-            &mut disables,
-            LintDisables::get_all_marker(),
-        )?;
-
-        for (_, value) in disables.iter_mut() {
-            value.sort_by_key(|k| k.start);
-        }
-
-        Ok(disables)
-    }
-
-    pub fn is_rule_disabled_for_location(
-        &self,
-        rule: &str,
-        location: &DenormalizedLocation,
-        context: &RuleContext,
-    ) -> bool {
-        debug!(
-            "Checking if rule {} is disabled for location: {:#?}",
-            rule, location
-        );
-
-        let overlapping_all_rules = self.0.get(LintDisables::get_all_marker()).map(|all_rules| {
-            all_rules
-                .iter()
-                .any(|rule| rule.overlaps_lines(&location.offset_range, context.rope()))
-        });
-        debug!("Overlapping all disables: {:#?}", overlapping_all_rules);
-        if let Some(true) = overlapping_all_rules {
-            return true;
-        }
-
-        let overlapping_specific_rules = self.0.get(rule).map(|specific_rules| {
-            specific_rules
-                .iter()
-                .any(|rule| rule.overlaps_lines(&location.offset_range, context.rope()))
-        });
-        debug!(
-            "Overlapping specific disables: {:#?}",
-            overlapping_specific_rules
-        );
-        matches!(overlapping_specific_rules, Some(true))
-    }
-
-    pub fn new(node: &Node, context: &RuleContext) -> Result<Self, DisableParseError> {
-        let disables = LintDisables::collect_lint_disables(node, context)?;
-        Ok(Self(disables))
-    }
-}
-
-impl RuleToggle {
-    pub fn parse(value: &str) -> Option<Self> {
-        let value = value.trim();
-        if !value.starts_with("/*") || !value.ends_with("*/") {
-            return None;
-        }
-        let value = value.trim_start_matches("/*").trim_end_matches("*/").trim();
-
-        let regex =
-            Regex::new(r"^supa-mdx-lint-(enable|disable|disable-next-line)(?:\s+(.+))?$").unwrap();
-        if let Some(captures) = regex.captures(value) {
-            match captures.get(1) {
-                Some(action) => match action.as_str() {
-                    "enable" => {
-                        if let Some(rule_name) = captures.get(2) {
-                            return Some(RuleToggle::EnableRule {
-                                rule: rule_name.as_str().to_string(),
-                            });
-                        } else {
-                            return Some(RuleToggle::EnableAll);
-                        }
-                    }
-                    "disable" => {
-                        if let Some(rule_name) = captures.get(2) {
-                            return Some(RuleToggle::DisableRule {
-                                next_line_only: false,
-                                rule: rule_name.as_str().to_string(),
-                            });
-                        } else {
-                            return Some(RuleToggle::DisableAll {
-                                next_line_only: false,
-                            });
-                        }
-                    }
-                    "disable-next-line" => {
-                        if let Some(rule_name) = captures.get(2) {
-                            return Some(RuleToggle::DisableRule {
-                                next_line_only: true,
-                                rule: rule_name.as_str().to_string(),
-                            });
-                        } else {
-                            return Some(RuleToggle::DisableAll {
-                                next_line_only: true,
-                            });
-                        }
-                    }
-                    _ => return None,
-                },
-                None => return None,
-            };
-        }
-
-        None
-    }
-}
-
-#[derive(Debug)]
-pub struct DisableParseError(String);
-
-impl DisableParseError {
-    fn new(message: impl Into<String>) -> Self {
-        Self(message.into())
-    }
-}
-
-impl Display for DisableParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Error parsing disable statements in file: {}", self.0)
-    }
-}
-
-impl Error for DisableParseError {}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn rule_toggle_parse_enable_all() {
-        let value = "/* supa-mdx-lint-enable */";
-        assert!(matches!(
-            RuleToggle::parse(value),
-            Some(RuleToggle::EnableAll)
-        ));
-    }
-
-    #[test]
-    fn rule_toggle_parse_enable_specific_rule() {
-        let value = "/* supa-mdx-lint-enable specific-rule */";
-        assert!(matches!(
-            RuleToggle::parse(value),
-            Some(RuleToggle::EnableRule { rule }) if rule == "specific-rule"
-        ));
-    }
-
-    #[test]
-    fn rule_toggle_parse_disable_all() {
-        let value = "/* supa-mdx-lint-disable */";
-        assert!(matches!(
-            RuleToggle::parse(value),
-            Some(RuleToggle::DisableAll { next_line_only }) if !next_line_only
-        ));
-    }
-
-    #[test]
-    fn rule_toggle_parse_disable_specific_rule() {
-        let value = "/* supa-mdx-lint-disable specific-rule */";
-        assert!(matches!(
-            RuleToggle::parse(value),
-            Some(RuleToggle::DisableRule { rule, next_line_only })
-            if rule == "specific-rule" && !next_line_only
-        ));
-    }
-
-    #[test]
-    fn rule_toggle_parse_disable_next_line_all() {
-        let value = "/* supa-mdx-lint-disable-next-line */";
-        assert!(matches!(
-            RuleToggle::parse(value),
-            Some(RuleToggle::DisableAll { next_line_only }) if next_line_only
-        ));
-    }
-
-    #[test]
-    fn rule_toggle_parse_disable_next_line_specific_rule() {
-        let value = "/* supa-mdx-lint-disable-next-line specific-rule */";
-        assert!(matches!(
-            RuleToggle::parse(value),
-            Some(RuleToggle::DisableRule { rule, next_line_only })
-            if rule == "specific-rule" && next_line_only
-        ));
-    }
-
-    #[test]
-    fn rule_toggle_parse_invalid_format() {
-        let value = "supa-mdx-lint-enable";
-        assert!(RuleToggle::parse(value).is_none());
-    }
-
-    #[test]
-    fn rule_toggle_parse_invalid_command() {
-        let value = "/* supa-mdx-lint-invalid */";
-        assert!(RuleToggle::parse(value).is_none());
-    }
-
-    #[test]
-    fn rule_toggle_parse_ignores_whitespace() {
-        let value = "     /*     supa-mdx-lint-enable  rule-name  */";
-        assert!(matches!(
-            RuleToggle::parse(value),
-            Some(RuleToggle::EnableRule { rule }) if rule == "rule-name"
-        ));
-    }
-
-    #[test]
-    fn test_collect_lint_disables_basic() {
-        let input = r#"{/* supa-mdx-lint-disable foo */}
-Some content
-{/* supa-mdx-lint-enable foo */}"#;
-
-        let parse_result = parse(input).unwrap();
-        let context = RuleContext::new_parse_only_for_testing(parse_result);
-        let disables = LintDisables::new(context.ast(), &context).unwrap();
-        debug!("Disables: {:?}", disables);
-
-        assert_eq!(disables.0.len(), 1);
-        assert_eq!(disables.0["foo"][0].start, 0);
-        assert_eq!(disables.0["foo"][0].end, Some(2));
-    }
-
-    #[test]
-    fn test_collect_lint_disables_multiple_rules() {
-        let input = r#"{/* supa-mdx-lint-disable foo */}
-Content
-{/* supa-mdx-lint-disable bar */}
-More content
-{/* supa-mdx-lint-enable foo */}
-{/* supa-mdx-lint-enable bar */}"#;
-
-        let parse_result = parse(input).unwrap();
-        let context = RuleContext::new_parse_only_for_testing(parse_result);
-        let disables = LintDisables::new(context.ast(), &context).unwrap();
-        debug!("Disables: {:?}", disables);
-
-        assert_eq!(disables.0.len(), 2);
-        assert_eq!(disables.0["bar"][0].start, 2);
-        assert_eq!(disables.0["bar"][0].end, Some(5));
-    }
-
-    #[test]
-    fn test_collect_lint_disables_next_line() {
-        let input = r#"{/* supa-mdx-lint-disable-next-line foo */}
-This line is ignored
-This line is not ignored"#;
-
-        let parse_result = parse(input).unwrap();
-        let context = RuleContext::new_parse_only_for_testing(parse_result);
-        let disables = LintDisables::new(context.ast(), &context).unwrap();
-        debug!("Disables: {:?}", disables);
-
-        assert_eq!(disables.0.len(), 1);
-        assert_eq!(disables.0["foo"][0].end, Some(2));
-    }
-
-    #[test]
-    fn test_collect_lint_disables_disable_all() {
-        let input = r#"{/* supa-mdx-lint-disable */}
-Everything here is ignored
-Still ignored
-{/* supa-mdx-lint-enable */}"#;
-
-        let parse_result = parse(input).unwrap();
-        let context = RuleContext::new_parse_only_for_testing(parse_result);
-        let disables = LintDisables::new(context.ast(), &context).unwrap();
-        debug!("Disables: {:?}", disables);
-
-        assert_eq!(disables.0.len(), 1);
-        assert_eq!(disables.0[LintDisables::get_all_marker()][0].start, 0);
-        assert_eq!(disables.0[LintDisables::get_all_marker()][0].end, Some(3));
-    }
-
-    #[test]
-    fn test_collect_lint_never_reenabled() {
-        let input = r#"{/* supa-mdx-lint-disable foo */}
-Never reenabled"#;
-
-        let parse_result = parse(input).unwrap();
-        let context = RuleContext::new_parse_only_for_testing(parse_result);
-        let disables = LintDisables::new(context.ast(), &context).unwrap();
-        debug!("Disables: {:?}", disables);
-
-        assert_eq!(disables.0.len(), 1);
-        assert!(disables.0["foo"][0].end.is_none());
-    }
-
-    #[test]
-    fn test_collect_lint_disables_invalid_enable() {
-        let input = r#"{/* supa-mdx-lint-enable foo */}
-This should error because there was no disable"#;
-
-        let parse_result = parse(input).unwrap();
-        let context = RuleContext::new_parse_only_for_testing(parse_result);
-        assert!(LintDisables::new(context.ast(), &context).is_err());
-    }
-
-    #[test]
-    fn test_collect_lint_disables_skip_blank_lines() {
-        let input = r#"{/* supa-mdx-lint-disable-next-line foo */}
-
-This line is ignored
-This line is not ignored"#;
-
-        let parse_result = parse(input).unwrap();
-        let context = RuleContext::new_parse_only_for_testing(parse_result);
-        let disables = LintDisables::new(context.ast(), &context).unwrap();
-        debug!("Disables: {:?}", disables);
-
-        assert_eq!(disables.0.len(), 1);
-        assert_eq!(disables.0["foo"][0].end, Some(3));
     }
 }
