@@ -500,7 +500,10 @@ mod tests {
     #[test]
     fn test_create_word_splice_correction_midsentence() {
         let parsed = parse("Here is a simple sentence.").unwrap();
-        let context = RuleContext::builder().parse_result(parsed).build().unwrap();
+        let context = RuleContext::builder()
+            .parse_result(&parsed)
+            .build()
+            .unwrap();
 
         let outer_range = AdjustedRange::new(0.into(), 26.into());
         let splice_range = AdjustedRange::new(10.into(), 16.into());
@@ -522,7 +525,10 @@ mod tests {
     #[test]
     fn test_create_word_splice_correction_midsentence_replace() {
         let parsed = parse("Here is a simple sentence.").unwrap();
-        let context = RuleContext::builder().parse_result(parsed).build().unwrap();
+        let context = RuleContext::builder()
+            .parse_result(&parsed)
+            .build()
+            .unwrap();
 
         let outer_range = AdjustedRange::new(0.into(), 26.into());
         let splice_range = AdjustedRange::new(10.into(), 16.into());
@@ -546,7 +552,10 @@ mod tests {
     #[test]
     fn test_create_word_splice_correction_new_sentence() {
         let parsed = parse("What a lovely day. Please take a biscuit.").unwrap();
-        let context = RuleContext::builder().parse_result(parsed).build().unwrap();
+        let context = RuleContext::builder()
+            .parse_result(&parsed)
+            .build()
+            .unwrap();
 
         let outer_range = AdjustedRange::new(0.into(), 41.into());
         let splice_range = AdjustedRange::new(19.into(), 25.into());
@@ -569,7 +578,10 @@ mod tests {
     #[test]
     fn test_create_word_splice_correction_new_sentence_replace() {
         let parsed = parse("What a lovely day. Please take a biscuit.").unwrap();
-        let context = RuleContext::builder().parse_result(parsed).build().unwrap();
+        let context = RuleContext::builder()
+            .parse_result(&parsed)
+            .build()
+            .unwrap();
 
         let outer_range = AdjustedRange::new(0.into(), 41.into());
         let splice_range = AdjustedRange::new(19.into(), 25.into());
@@ -593,7 +605,10 @@ mod tests {
     #[test]
     fn test_create_word_splice_correction_start() {
         let parsed = parse("Please take a biscuit.").unwrap();
-        let context = RuleContext::builder().parse_result(parsed).build().unwrap();
+        let context = RuleContext::builder()
+            .parse_result(&parsed)
+            .build()
+            .unwrap();
 
         let outer_range = AdjustedRange::new(0.into(), 22.into());
         let splice_range = AdjustedRange::new(0.into(), 6.into());

@@ -443,7 +443,7 @@ mod tests {
         let mdx = "hello world";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -451,7 +451,7 @@ mod tests {
         rule.setup(None);
 
         let errors = rule.check(
-            context
+            parse_result
                 .ast()
                 .children()
                 .unwrap()
@@ -472,7 +472,7 @@ mod tests {
         let mdx = "heloo world";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -481,7 +481,7 @@ mod tests {
 
         let errors = rule
             .check(
-                context
+                parse_result
                     .ast()
                     .children()
                     .unwrap()
@@ -508,7 +508,7 @@ mod tests {
         let mdx = "heloo world";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -517,7 +517,7 @@ mod tests {
         rule.setup(Some(&mut settings));
 
         let errors = rule.check(
-            context
+            parse_result
                 .ast()
                 .children()
                 .unwrap()
@@ -538,7 +538,7 @@ mod tests {
         let mdx = "heloo world heloo";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -547,7 +547,7 @@ mod tests {
         rule.setup(Some(&mut settings));
 
         let errors = rule.check(
-            context
+            parse_result
                 .ast()
                 .children()
                 .unwrap()
@@ -568,7 +568,7 @@ mod tests {
         let mdx = "Heloo world";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -577,7 +577,7 @@ mod tests {
         rule.setup(Some(&mut settings));
 
         let errors = rule.check(
-            context
+            parse_result
                 .ast()
                 .children()
                 .unwrap()
@@ -598,7 +598,7 @@ mod tests {
         let mdx = "heloo, 'asdf' world";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -607,7 +607,7 @@ mod tests {
 
         let errors = rule
             .check(
-                context
+                parse_result
                     .ast()
                     .children()
                     .unwrap()
@@ -640,7 +640,7 @@ mod tests {
         let mdx = "hell'o world shouldn't work";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -649,7 +649,7 @@ mod tests {
 
         let errors = rule
             .check(
-                context
+                parse_result
                     .ast()
                     .children()
                     .unwrap()
@@ -676,7 +676,7 @@ mod tests {
         let mdx = "hello world\nhello world\nheloo world";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -685,7 +685,7 @@ mod tests {
 
         let errors = rule
             .check(
-                context
+                parse_result
                     .ast()
                     .children()
                     .unwrap()
@@ -712,7 +712,7 @@ mod tests {
         let mdx = "hello pre-world";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -721,7 +721,7 @@ mod tests {
         rule.setup(Some(&mut settings));
 
         let errors = rule.check(
-            context
+            parse_result
                 .ast()
                 .children()
                 .unwrap()
@@ -742,7 +742,7 @@ mod tests {
         let mdx = "use the file hello.toml";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -751,7 +751,7 @@ mod tests {
         rule.setup(Some(&mut settings));
 
         let errors = rule.check(
-            context
+            parse_result
                 .ast()
                 .children()
                 .unwrap()
@@ -772,7 +772,7 @@ mod tests {
         let mdx = "test a thing [#rest-api-overview]";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -782,7 +782,7 @@ mod tests {
         rule.setup(Some(&mut settings));
 
         let errors = rule.check(
-            context
+            parse_result
                 .ast()
                 .children()
                 .unwrap()
@@ -803,7 +803,7 @@ mod tests {
         let mdx = "hello 🤝 world";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -811,7 +811,7 @@ mod tests {
         rule.setup(None);
 
         let errors = rule.check(
-            context
+            parse_result
                 .ast()
                 .children()
                 .unwrap()
@@ -832,7 +832,7 @@ mod tests {
         let mdx = "pre- and post-world";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -841,7 +841,7 @@ mod tests {
         rule.setup(Some(&mut settings));
 
         let errors = rule.check(
-            context
+            parse_result
                 .ast()
                 .children()
                 .unwrap()
@@ -862,7 +862,7 @@ mod tests {
         let mdx = "heloo wrld";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
@@ -871,7 +871,7 @@ mod tests {
 
         let errors = rule
             .check(
-                context
+                parse_result
                     .ast()
                     .children()
                     .unwrap()

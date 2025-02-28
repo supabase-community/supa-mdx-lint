@@ -69,14 +69,16 @@ impl AdjustedOffset {
 }
 
 impl AdjustedOffset {
-    pub(crate) fn from_unadjusted(offset: UnadjustedOffset, context: &RuleContext) -> Self {
-        let mut content_start_offset = *context.content_start_offset();
-        content_start_offset.increment(offset.0);
-        content_start_offset
+    pub(crate) fn from_unadjusted(
+        offset: UnadjustedOffset,
+        mut from_start: AdjustedOffset,
+    ) -> Self {
+        from_start.increment(offset.0);
+        from_start
     }
 
-    pub(crate) fn from_unist(point: &markdown::unist::Point, context: &RuleContext) -> Self {
-        Self::from_unadjusted(UnadjustedOffset::from(point), context)
+    pub(crate) fn from_unist(point: &markdown::unist::Point, from_start: AdjustedOffset) -> Self {
+        Self::from_unadjusted(UnadjustedOffset::from(point), from_start)
     }
 
     pub(crate) fn into_usize(self) -> usize {
@@ -199,8 +201,10 @@ impl AdjustedRange {
         position: &markdown::unist::Position,
         context: &RuleContext,
     ) -> Self {
-        let adjusted_start = AdjustedOffset::from_unist(&position.start, context);
-        let adjusted_end = AdjustedOffset::from_unist(&position.end, context);
+        let adjusted_start =
+            AdjustedOffset::from_unist(&position.start, context.content_start_offset());
+        let adjusted_end =
+            AdjustedOffset::from_unist(&position.end, context.content_start_offset());
         Self(Range {
             start: adjusted_start,
             end: adjusted_end,
@@ -228,7 +232,7 @@ impl AdjustedRange {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct MaybeEndedLineRange(MaybeEndedRange<usize>);
 
 impl Deref for MaybeEndedLineRange {
@@ -258,18 +262,27 @@ impl MaybeEndedLineRange {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct MaybeEndedRange<T>
 where
-    T: PartialOrd,
+    T: Ord,
 {
     pub start: T,
     pub end: Option<T>,
 }
 
-impl<T: PartialOrd> MaybeEndedRange<T> {
-    pub fn is_open_ended(&self) -> bool {
+impl<T: Ord> MaybeEndedRange<T> {
+    pub(crate) fn is_open_ended(&self) -> bool {
         self.end.is_none()
+    }
+
+    /**
+     * Check if two MaybeEndedRanges overlap strictly. (Strict: ranges are
+     * not considered to overlap if they are merely adjoining.)
+     */
+    pub(crate) fn overlaps_strict(&self, other: &Self) -> bool {
+        self.start <= other.start && self.end.as_ref().map_or(true, |end| *end > other.start)
+            || other.start <= self.start && other.end.as_ref().map_or(true, |end| *end > self.start)
     }
 }
 

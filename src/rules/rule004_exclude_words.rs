@@ -782,7 +782,11 @@ fn substitute_format_string(s: String, word: RopeSlice<'_>, replacement: Option<
 
 #[cfg(test)]
 mod tests {
-    use crate::{fix::LintCorrectionReplace, geometry::AdjustedOffset, parser::parse};
+    use crate::{
+        fix::LintCorrectionReplace,
+        geometry::AdjustedOffset,
+        parser::{parse, ParseResult},
+    };
 
     use super::*;
 
@@ -804,30 +808,35 @@ mod tests {
         rule
     }
 
-    fn get_simple_ast<'a>(
+    fn get_simple_ast(
         md: impl AsRef<str>,
     ) -> (
-        RuleContext<'a>,
-        impl Fn(&'a RuleContext<'a>) -> &'a mdast::Node,
+        ParseResult,
+        impl Fn(&ParseResult) -> &mdast::Node,
+        impl Fn(&ParseResult) -> RuleContext<'_>,
     ) {
         let parse_result = parse(md.as_ref()).unwrap();
-        let context = RuleContext::builder()
-            .parse_result(parse_result)
-            .build()
-            .unwrap();
-
-        (context, |context| {
-            context
-                .ast()
-                .children()
-                .unwrap()
-                .first()
-                .unwrap()
-                .children()
-                .unwrap()
-                .first()
-                .unwrap()
-        })
+        (
+            parse_result,
+            |parse_result| {
+                parse_result
+                    .ast()
+                    .children()
+                    .unwrap()
+                    .first()
+                    .unwrap()
+                    .children()
+                    .unwrap()
+                    .first()
+                    .unwrap()
+            },
+            |parse_result| {
+                RuleContext::builder()
+                    .parse_result(parse_result)
+                    .build()
+                    .unwrap()
+            },
+        )
     }
 
     #[test]
@@ -843,8 +852,12 @@ mod tests {
         )];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("This is a Foo test.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("This is a Foo test.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -873,8 +886,12 @@ mod tests {
         )];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("This is a Foo test.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("This is a Foo test.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -920,8 +937,12 @@ mod tests {
         ];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("This is a Foo test with bar.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("This is a Foo test with bar.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -953,8 +974,12 @@ mod tests {
         )];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("This is a Foo bar test.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("This is a Foo bar test.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -991,8 +1016,12 @@ mod tests {
         ];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("This is a Foo bartender.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("This is a Foo bartender.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -1031,8 +1060,12 @@ mod tests {
         ];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("This is a Foo bartender.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("This is a Foo bartender.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -1050,8 +1083,12 @@ mod tests {
         let rules = Vec::<(String, _)>::new();
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("This is a Foo bar test.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("This is a Foo bar test.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -1083,8 +1120,12 @@ mod tests {
         ];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("This is a Foo bartender blah.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("This is a Foo bartender blah.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -1110,8 +1151,12 @@ mod tests {
         )];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("This is a passing test.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("This is a passing test.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_none());
     }
 
@@ -1128,8 +1173,12 @@ mod tests {
         )];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("This is a Foo test.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("This is a Foo test.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -1155,8 +1204,12 @@ mod tests {
         )];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("This is a Foo test.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("This is a Foo test.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -1182,8 +1235,12 @@ mod tests {
         )];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("That's it, Bob's your uncle.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("That's it, Bob's your uncle.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -1209,8 +1266,12 @@ mod tests {
         )];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("tl;dr: Just do the thing.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("tl;dr: Just do the thing.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -1236,8 +1297,12 @@ mod tests {
         )];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("Well, ladeeda.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("Well, ladeeda.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -1260,8 +1325,12 @@ mod tests {
         )];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("Well, ladeeda.");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("Well, ladeeda.");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -1287,8 +1356,12 @@ mod tests {
         )];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("PostgreSQL is awesome!");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("PostgreSQL is awesome!");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();
@@ -1311,8 +1384,12 @@ mod tests {
         )];
         let rule = setup_rule(rules);
 
-        let (context, get_ast) = get_simple_ast("Yeah this is awesome!");
-        let result = rule.check(get_ast(&context), &context, LintLevel::Error);
+        let (parse_result, get_ast, get_context) = get_simple_ast("Yeah this is awesome!");
+        let result = rule.check(
+            get_ast(&parse_result),
+            &get_context(&parse_result),
+            LintLevel::Error,
+        );
         assert!(result.is_some());
 
         let errors = result.unwrap();

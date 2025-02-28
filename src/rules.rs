@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bon::bon;
-use log::{debug, error, warn};
+use log::{debug, warn};
 use markdown::mdast::Node;
 use regex::Regex;
 use serde::Deserialize;
@@ -10,9 +10,10 @@ use std::{collections::HashMap, fmt::Debug};
 use serde::Serialize;
 
 use crate::{
+    comments::{ConfigurationCommentCollection, LintDisables},
     errors::{LintError, LintLevel},
     geometry::AdjustedOffset,
-    parser::{LintDisables, ParseResult},
+    parser::ParseResult,
     rope::Rope,
 };
 
@@ -214,52 +215,36 @@ impl RuleSettings {
 pub(crate) type RuleFilter<'filter> = Option<&'filter [&'filter str]>;
 
 pub(crate) struct RuleContext<'ctx> {
-    parse_result: ParseResult,
+    parse_result: &'ctx ParseResult,
     check_only_rules: RuleFilter<'ctx>,
-    disables: LintDisables,
+    disables: LintDisables<'ctx>,
 }
 
 #[bon]
 impl<'ctx> RuleContext<'ctx> {
     #[builder]
     pub(crate) fn new(
-        parse_result: ParseResult,
+        parse_result: &'ctx ParseResult,
         check_only_rules: Option<&'ctx [&'ctx str]>,
     ) -> Result<Self> {
-        let mut ctx = Self {
+        let (_, disables) = ConfigurationCommentCollection::from_parse_result(parse_result)
+            .into_parts()
+            .unwrap();
+        debug!("Disables: {:?}", disables);
+
+        Ok(Self {
             parse_result,
             check_only_rules,
-            disables: Default::default(),
-        };
-
-        let disables = LintDisables::new(ctx.ast(), &ctx).inspect_err(|err| {
-            error!("Error parsing disable directives from file: {}", err);
-        })?;
-        debug!("Disables: {:?}", disables);
-        ctx.disables = disables;
-
-        Ok(ctx)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn new_parse_only_for_testing(parse_result: ParseResult) -> Self {
-        Self {
-            parse_result,
-            check_only_rules: Default::default(),
-            disables: Default::default(),
-        }
-    }
-
-    pub(crate) fn ast(&self) -> &Node {
-        &self.parse_result.ast
+            disables,
+        })
     }
 
     pub(crate) fn rope(&self) -> &Rope {
-        &self.parse_result.rope
+        self.parse_result.rope()
     }
 
-    pub fn content_start_offset(&self) -> &AdjustedOffset {
-        &self.parse_result.content_start_offset
+    pub fn content_start_offset(&self) -> AdjustedOffset {
+        self.parse_result.content_start_offset()
     }
 }
 
@@ -334,7 +319,7 @@ impl RuleRegistry {
             )),
             RuleRegistryState::Ready => {
                 let mut errors = Vec::new();
-                self.check_node(&context.parse_result.ast, context, &mut errors);
+                self.check_node(&context.parse_result.ast(), context, &mut errors);
                 Ok(errors)
             }
         }
@@ -354,11 +339,9 @@ impl RuleRegistry {
                 let filtered_errors: Vec<LintError> = rule_errors
                     .into_iter()
                     .filter(|err| {
-                        !context.disables.is_rule_disabled_for_location(
-                            rule.name(),
-                            &err.location,
-                            context,
-                        )
+                        !context
+                            .disables
+                            .disabled_for_location(rule.name(), &err.location, context)
                     })
                     .collect();
                 errors.extend(filtered_errors);
@@ -444,13 +427,13 @@ mod tests {
         let mdx = "text";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .check_only_rules(&["MockRule"])
             .build()
             .unwrap();
 
         let mut errors = Vec::new();
-        registry.check_node(context.ast(), &context, &mut errors);
+        registry.check_node(parse_result.ast(), &context, &mut errors);
 
         assert!(check_count_1.load(Ordering::Relaxed) > 1);
         assert_eq!(check_count_2.load(Ordering::Relaxed), 0);
@@ -472,12 +455,12 @@ mod tests {
         let mdx = "test";
         let parse_result = parse(mdx).unwrap();
         let context = RuleContext::builder()
-            .parse_result(parse_result)
+            .parse_result(&parse_result)
             .build()
             .unwrap();
 
         let mut errors = Vec::new();
-        registry.check_node(context.ast(), &context, &mut errors);
+        registry.check_node(parse_result.ast(), &context, &mut errors);
 
         assert!(check_count_1.load(Ordering::Relaxed) > 1);
         assert!(check_count_2.load(Ordering::Relaxed) > 1);
