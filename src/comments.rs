@@ -13,10 +13,10 @@ use regex::Regex;
 
 use crate::{
     app_error::{MultiError, ParseError, ResultBoth},
+    context::Context,
     geometry::{AdjustedOffset, AdjustedPoint, DenormalizedLocation, MaybeEndedLineRange},
     parser::{CommentString, ParseResult},
     utils::mdast::{MaybePosition, VariantName},
-    RuleContext,
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -304,15 +304,14 @@ impl<'comment> ConfigurationComment<'comment> {
                 };
 
                 let end_offset =
-                    AdjustedOffset::from_unist(&next_pos.end, parsed.content_start_offset());
-                let end_point = AdjustedPoint::from_adjusted_offset(&end_offset, parsed.rope());
-
-                if end_point.column == 0 {
-                    Ok(Some(end_point.row))
-                } else if end_point.row == parsed.rope().line_len() - 1 {
+                    AdjustedOffset::from_unist(&next_pos.start, parsed.content_start_offset());
+                let end_row =
+                    AdjustedPoint::from_adjusted_offset(&end_offset, parsed.rope()).row + 1;
+                let last_row = parsed.rope().line_len() - 1;
+                if end_row > last_row {
                     Ok(None)
                 } else {
-                    Ok(Some(end_point.row + 1))
+                    Ok(Some(end_row))
                 }
             })
             .transpose()?
@@ -389,13 +388,13 @@ impl<'ast> ConfigurationCommentCollection<'ast> {
             match res {
                 Ok(Either::Left(info)) => {
                     let attributes = info.attributes.attributes.clone();
-                    configs.insert(
-                        info.attributes.rule_name.into(),
-                        (
+                    configs
+                        .entry(info.attributes.rule_name.into())
+                        .or_default()
+                        .push((
                             attributes.unwrap_or_default().into_owned(),
                             info.covered_range.clone(),
-                        ),
-                    );
+                        ));
                 }
                 Ok(Either::Right((info, range))) => match info {
                     RuleToggle::EnableAll => {
@@ -431,10 +430,12 @@ impl<'ast> ConfigurationCommentCollection<'ast> {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct LintTimeRuleConfigs<'key>(HashMap<RuleKey<'key>, (String, MaybeEndedLineRange)>);
+pub(crate) struct LintTimeRuleConfigs<'key>(
+    HashMap<RuleKey<'key>, Vec<(String, MaybeEndedLineRange)>>,
+);
 
 impl<'key> std::ops::Deref for LintTimeRuleConfigs<'key> {
-    type Target = HashMap<RuleKey<'key>, (String, MaybeEndedLineRange)>;
+    type Target = HashMap<RuleKey<'key>, Vec<(String, MaybeEndedLineRange)>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -559,7 +560,7 @@ impl<'key> LintDisables<'key> {
         &self,
         rule_name: &str,
         location: &DenormalizedLocation,
-        ctx: &RuleContext,
+        ctx: &Context,
     ) -> bool {
         let all_key = RuleKey::All;
         let specific_key = RuleKey::from(rule_name);
@@ -787,7 +788,6 @@ More content
     fn test_collect_lint_disables_next_line() {
         let input = r#"{/* supa-mdx-lint-disable-next-line foo */}
 This line is ignored
-
 This line is not ignored"#;
 
         let parse_result = parse(input).unwrap();
@@ -845,7 +845,6 @@ This should error because there was no disable"#;
         let input = r#"{/* supa-mdx-lint-disable-next-line foo */}
 
 This line is ignored
-
 This line is not ignored"#;
 
         let parse_result = parse(input).unwrap();
@@ -865,7 +864,6 @@ This line is not ignored"#;
 {/* supa-mdx-lint-disable-next-line bar */}
 
 This line is ignored by both foo and bar
-
 This line is not ignored
 "#;
 
@@ -890,7 +888,6 @@ description: Testing with frontmatter
 
 {/* supa-mdx-lint-disable-next-line foo */}
 This line should be ignored by foo
-
 Regular content
 
 {/* supa-mdx-lint-disable bar */}
@@ -915,7 +912,7 @@ This line should not be ignored
 
         // Check bar rule
         assert_eq!(disables.0[&"bar".into()].len(), 1);
-        assert_eq!(disables.0[&"bar".into()][0].start, 10);
-        assert_eq!(disables.0[&"bar".into()][0].end, Some(13));
+        assert_eq!(disables.0[&"bar".into()][0].start, 9);
+        assert_eq!(disables.0[&"bar".into()][0].end, Some(12));
     }
 }

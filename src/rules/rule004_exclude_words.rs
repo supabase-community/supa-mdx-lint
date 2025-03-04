@@ -14,6 +14,7 @@ use serde::{
 use supa_mdx_macros::RuleName;
 
 use crate::{
+    context::Context,
     errors::LintError,
     fix::LintCorrection,
     geometry::{AdjustedRange, DenormalizedLocation},
@@ -25,7 +26,7 @@ use crate::{
     LintLevel,
 };
 
-use super::{Rule, RuleContext, RuleName, RuleSettings};
+use super::{Rule, RuleName, RuleSettings};
 
 #[derive(Debug, Default, RuleName)]
 pub struct Rule004ExcludeWords(WordExclusionIndex);
@@ -388,7 +389,7 @@ impl Rule for Rule004ExcludeWords {
     fn check(
         &self,
         ast: &mdast::Node,
-        context: &super::RuleContext,
+        context: &Context,
         _level: LintLevel,
     ) -> Option<Vec<LintError>> {
         let mdast::Node::Text(text_node) = ast else {
@@ -416,7 +417,7 @@ impl Rule for Rule004ExcludeWords {
 
             let ExclusionMatch {
                 new_iterator,
-                match_,
+                match_: r#match,
             } = self.match_exclusions(self.0.get(&word), word_iterator);
             word_iterator = new_iterator;
 
@@ -424,7 +425,7 @@ impl Rule for Rule004ExcludeWords {
                 last_word,
                 rule,
                 replacement,
-            }) = match_
+            }) = r#match
             {
                 let end_offset = match last_word {
                     Some(last_word) => last_word.0 + last_word.1.len(),
@@ -502,7 +503,7 @@ impl Rule004ExcludeWords {
         end_offset: usize,
         range: AdjustedRange,
         replacement: Option<String>,
-        context: &RuleContext<'_>,
+        context: &Context<'_>,
         rule: RuleMeta,
     ) -> LintError {
         trace!("Creating lint error for Rule004. Range: {range:#?}; Beginning offset: {beginning_offset}; End offset: {end_offset}");
@@ -813,7 +814,7 @@ mod tests {
     ) -> (
         ParseResult,
         impl Fn(&ParseResult) -> &mdast::Node,
-        impl Fn(&ParseResult) -> RuleContext<'_>,
+        impl Fn(&ParseResult) -> Context<'_>,
     ) {
         let parse_result = parse(md.as_ref()).unwrap();
         (
@@ -831,7 +832,7 @@ mod tests {
                     .unwrap()
             },
             |parse_result| {
-                RuleContext::builder()
+                Context::builder()
                     .parse_result(parse_result)
                     .build()
                     .unwrap()

@@ -1,5 +1,6 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use bon::bon;
+use context::Context;
 use rules::RuleFilter;
 use std::env;
 use std::path::{Path, PathBuf};
@@ -9,6 +10,7 @@ use utils::is_lintable;
 mod app_error;
 mod comments;
 mod config;
+mod context;
 pub mod errors;
 pub mod fix;
 mod geometry;
@@ -23,7 +25,6 @@ pub use crate::errors::LintLevel;
 pub use crate::output::{rdf::RdfFormatter, simple::SimpleFormatter, LintOutput, OutputFormatter};
 
 use crate::parser::parse;
-use crate::rules::RuleContext;
 
 #[derive(Debug)]
 pub struct Linter {
@@ -115,7 +116,7 @@ impl Linter {
         check_only_rules: RuleFilter,
     ) -> Result<Vec<LintOutput>> {
         let parse_result = parse(string)?;
-        let rule_context = RuleContext::builder()
+        let rule_context = Context::builder()
             .parse_result(&parse_result)
             .maybe_check_only_rules(check_only_rules)
             .build()?;

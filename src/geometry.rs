@@ -4,7 +4,8 @@ use std::ops::{Add, Deref, DerefMut, Range, SubAssign};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{rope::Rope, rules::RuleContext};
+use crate::context::Context;
+use crate::rope::Rope;
 
 /// An offset in the source document, accounting for frontmatter lines.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Deserialize, Serialize)]
@@ -199,7 +200,7 @@ impl AdjustedRange {
 
     pub(crate) fn from_unadjusted_position(
         position: &markdown::unist::Position,
-        context: &RuleContext,
+        context: &Context,
     ) -> Self {
         let adjusted_start =
             AdjustedOffset::from_unist(&position.start, context.content_start_offset());
@@ -294,7 +295,7 @@ pub struct DenormalizedLocation {
 }
 
 impl DenormalizedLocation {
-    pub(crate) fn from_offset_range(range: AdjustedRange, context: &RuleContext) -> Self {
+    pub(crate) fn from_offset_range(range: AdjustedRange, context: &Context) -> Self {
         let start = AdjustedPoint::from_adjusted_offset(&range.start, context.rope());
         let end = AdjustedPoint::from_adjusted_offset(&range.end, context.rope());
         Self {

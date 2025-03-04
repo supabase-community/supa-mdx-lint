@@ -6,9 +6,9 @@ use markdown::mdast::Node;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    context::Context,
     fix::LintCorrection,
     geometry::{AdjustedPoint, AdjustedRange, DenormalizedLocation},
-    rules::RuleContext,
     utils::Offsets,
 };
 
@@ -73,7 +73,7 @@ impl LintError {
         location: AdjustedRange,
         fix: Option<Vec<LintCorrection>>,
         suggestions: Option<Vec<LintCorrection>>,
-        context: &RuleContext<'ctx>,
+        context: &Context<'ctx>,
     ) -> Self {
         let start = AdjustedPoint::from_adjusted_offset(&location.start, context.rope());
         let end = AdjustedPoint::from_adjusted_offset(&location.end, context.rope());
@@ -126,7 +126,7 @@ impl LintError {
     pub(crate) fn from_node<'ctx>(
         /// The AST node to generate the error location from.
         node: &Node,
-        context: &RuleContext<'ctx>,
+        context: &Context<'ctx>,
         /// The rule name.
         rule: impl AsRef<str>,
         message: &str,
