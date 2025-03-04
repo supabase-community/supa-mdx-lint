@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     app_error::AppError,
+    context::Context,
     geometry::{AdjustedRange, DenormalizedLocation},
     output::LintOutput,
     rope::Rope,
@@ -14,7 +15,7 @@ use crate::{
         words::{is_sentence_start, WordIterator},
         Offsets,
     },
-    Linter, RuleContext,
+    Linter,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
@@ -304,7 +305,7 @@ impl LintCorrection {
 
     #[builder]
     pub(crate) fn create_word_splice_correction(
-        context: &RuleContext<'_>,
+        context: &Context<'_>,
         outer_range: &AdjustedRange,
         splice_range: &AdjustedRange,
         #[builder(default = true)] count_beginning_as_sentence_start: bool,
@@ -500,10 +501,7 @@ mod tests {
     #[test]
     fn test_create_word_splice_correction_midsentence() {
         let parsed = parse("Here is a simple sentence.").unwrap();
-        let context = RuleContext::builder()
-            .parse_result(&parsed)
-            .build()
-            .unwrap();
+        let context = Context::builder().parse_result(&parsed).build().unwrap();
 
         let outer_range = AdjustedRange::new(0.into(), 26.into());
         let splice_range = AdjustedRange::new(10.into(), 16.into());
@@ -525,10 +523,7 @@ mod tests {
     #[test]
     fn test_create_word_splice_correction_midsentence_replace() {
         let parsed = parse("Here is a simple sentence.").unwrap();
-        let context = RuleContext::builder()
-            .parse_result(&parsed)
-            .build()
-            .unwrap();
+        let context = Context::builder().parse_result(&parsed).build().unwrap();
 
         let outer_range = AdjustedRange::new(0.into(), 26.into());
         let splice_range = AdjustedRange::new(10.into(), 16.into());
@@ -552,10 +547,7 @@ mod tests {
     #[test]
     fn test_create_word_splice_correction_new_sentence() {
         let parsed = parse("What a lovely day. Please take a biscuit.").unwrap();
-        let context = RuleContext::builder()
-            .parse_result(&parsed)
-            .build()
-            .unwrap();
+        let context = Context::builder().parse_result(&parsed).build().unwrap();
 
         let outer_range = AdjustedRange::new(0.into(), 41.into());
         let splice_range = AdjustedRange::new(19.into(), 25.into());
@@ -578,10 +570,7 @@ mod tests {
     #[test]
     fn test_create_word_splice_correction_new_sentence_replace() {
         let parsed = parse("What a lovely day. Please take a biscuit.").unwrap();
-        let context = RuleContext::builder()
-            .parse_result(&parsed)
-            .build()
-            .unwrap();
+        let context = Context::builder().parse_result(&parsed).build().unwrap();
 
         let outer_range = AdjustedRange::new(0.into(), 41.into());
         let splice_range = AdjustedRange::new(19.into(), 25.into());
@@ -605,10 +594,7 @@ mod tests {
     #[test]
     fn test_create_word_splice_correction_start() {
         let parsed = parse("Please take a biscuit.").unwrap();
-        let context = RuleContext::builder()
-            .parse_result(&parsed)
-            .build()
-            .unwrap();
+        let context = Context::builder().parse_result(&parsed).build().unwrap();
 
         let outer_range = AdjustedRange::new(0.into(), 22.into());
         let splice_range = AdjustedRange::new(0.into(), 6.into());

@@ -4,11 +4,12 @@ use regex::Regex;
 use supa_mdx_macros::RuleName;
 
 use crate::{
+    context::Context,
     errors::{LintError, LintLevel},
     geometry::{AdjustedOffset, AdjustedRange, DenormalizedLocation},
 };
 
-use super::{Rule, RuleContext, RuleName, RuleSettings};
+use super::{Rule, RuleName, RuleSettings};
 
 /// Admonitions must have a single valid type.
 ///
@@ -35,7 +36,7 @@ impl Rule for Rule002AdmonitionTypes {
         }
     }
 
-    fn check(&self, ast: &Node, context: &RuleContext, level: LintLevel) -> Option<Vec<LintError>> {
+    fn check(&self, ast: &Node, context: &Context, level: LintLevel) -> Option<Vec<LintError>> {
         if !matches!(ast, Node::MdxJsxFlowElement(_)) {
             return None;
         };
@@ -56,7 +57,7 @@ impl Rule002AdmonitionTypes {
         }
     }
 
-    fn check_ast(&self, node: &Node, context: &RuleContext, level: LintLevel) -> Option<LintError> {
+    fn check_ast(&self, node: &Node, context: &Context, level: LintLevel) -> Option<LintError> {
         trace!("Checking AST for node: {node:#?}");
 
         match node {
@@ -97,7 +98,7 @@ impl Rule002AdmonitionTypes {
     fn create_lint_error_missing_type(
         &self,
         node: &Node,
-        context: &RuleContext,
+        context: &Context,
         level: LintLevel,
     ) -> Option<LintError> {
         LintError::from_node()
@@ -112,7 +113,7 @@ impl Rule002AdmonitionTypes {
     fn create_lint_error_wrong_type(
         &self,
         node: &Node,
-        context: &RuleContext,
+        context: &Context,
         level: LintLevel,
         type_name: &str,
     ) -> Option<LintError> {
@@ -171,11 +172,7 @@ impl Rule002AdmonitionTypes {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        parser::parse,
-        rules::{Rule, RuleContext},
-        LintLevel,
-    };
+    use crate::{context::Context, parser::parse, rules::Rule, LintLevel};
 
     use super::Rule002AdmonitionTypes;
 
@@ -191,7 +188,7 @@ Some text.
 
         let rule = Rule002AdmonitionTypes::default();
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -222,7 +219,7 @@ Some text.
 
         let rule = Rule002AdmonitionTypes::default();
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -249,7 +246,7 @@ Some text.
         let mut rule = Rule002AdmonitionTypes::default();
         rule.admonition_types = vec!["note".to_string()];
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();

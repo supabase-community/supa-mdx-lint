@@ -11,6 +11,9 @@ fn integration_test_rule003() {
         .arg("tests/rule003/supa-mdx-lint.config.toml");
     cmd.assert()
         .failure()
-        .stdout(predicate::str::contains("1 error"))
-        .stdout(predicate::str::contains("Word not found in dictionary"));
+        .stdout(predicate::str::contains("2 errors"))
+        .stdout(predicate::str::contains("Word not found in dictionary"))
+        .stdout(predicate::str::contains("eror"))
+        .stdout(predicate::str::contains("Saruman"))
+        .stdout(predicate::str::contains("Denethor").not());
 }

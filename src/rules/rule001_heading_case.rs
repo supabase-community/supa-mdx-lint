@@ -7,6 +7,7 @@ use regex::Regex;
 use supa_mdx_macros::RuleName;
 
 use crate::{
+    context::Context,
     errors::{LintError, LintLevel},
     fix::{LintCorrection, LintCorrectionReplace},
     geometry::{AdjustedOffset, AdjustedRange, DenormalizedLocation},
@@ -16,9 +17,7 @@ use crate::{
     },
 };
 
-use super::{
-    RegexBeginning, RegexEnding, RegexSettings, Rule, RuleContext, RuleName, RuleSettings,
-};
+use super::{RegexBeginning, RegexEnding, RegexSettings, Rule, RuleName, RuleSettings};
 
 /// Headings should be in sentence case.
 ///
@@ -83,7 +82,7 @@ impl Rule for Rule001HeadingCase {
         }
     }
 
-    fn check(&self, ast: &Node, context: &RuleContext, level: LintLevel) -> Option<Vec<LintError>> {
+    fn check(&self, ast: &Node, context: &Context, level: LintLevel) -> Option<Vec<LintError>> {
         if !matches!(ast, Node::Heading(_)) {
             return None;
         };
@@ -120,7 +119,7 @@ impl Rule001HeadingCase {
         &self,
         text: &Text,
         fixes: &mut Option<Vec<LintCorrection>>,
-        context: &RuleContext,
+        context: &Context,
     ) {
         if let Some(position) = text.position.as_ref() {
             let range = AdjustedRange::from_unadjusted_position(position, context);
@@ -239,7 +238,7 @@ impl Rule001HeadingCase {
         node: &Text,
         offset: usize,
         capitalize: Capitalize,
-        context: &RuleContext,
+        context: &Context,
         fixes: &mut Option<Vec<LintCorrection>>,
     ) {
         let replacement_word = match capitalize {
@@ -276,12 +275,7 @@ impl Rule001HeadingCase {
         }
     }
 
-    fn check_ast(
-        &self,
-        node: &Node,
-        fixes: &mut Option<Vec<LintCorrection>>,
-        context: &RuleContext,
-    ) {
+    fn check_ast(&self, node: &Node, fixes: &mut Option<Vec<LintCorrection>>, context: &Context) {
         debug!(
             "Checking ast for node: {node:?} with next word capital: {:?}",
             self.next_word_capital
@@ -291,7 +285,7 @@ impl Rule001HeadingCase {
             rule: &Rule001HeadingCase,
             node: &T,
             fixes: &mut Option<Vec<LintCorrection>>,
-            context: &RuleContext,
+            context: &Context,
         ) {
             node.get_children()
                 .iter()
@@ -326,7 +320,7 @@ mod tests {
         let rule = Rule001HeadingCase::default();
         let mdx = "# This is a correct heading";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -344,7 +338,7 @@ mod tests {
         let rule = Rule001HeadingCase::default();
         let mdx = "# this should fail";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -385,7 +379,7 @@ mod tests {
         let rule = Rule001HeadingCase::default();
         let mdx = "# This Should Fail";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -443,7 +437,7 @@ mod tests {
 
         let mdx = "# This is an API heading";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -464,7 +458,7 @@ mod tests {
 
         let mdx = "# the quick brown fox";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -482,7 +476,7 @@ mod tests {
         let rule = Rule001HeadingCase::default();
         let mdx = "not a heading";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -504,7 +498,7 @@ mod tests {
 
         let mdx = "# This is about New York City";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -526,7 +520,7 @@ mod tests {
 
         let mdx = "# This is about New York City";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -547,7 +541,7 @@ mod tests {
 
         let mdx = "# This is an API-related topic";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -568,7 +562,7 @@ mod tests {
 
         let mdx = "# the quick brown fox";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -589,7 +583,7 @@ mod tests {
 
         let mdx = "# This is an API call";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -632,7 +626,7 @@ mod tests {
 
         let mdx = "# Content Delivery Network latency";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -653,7 +647,7 @@ mod tests {
 
         let markdown = "### Enabling Magic Link signins";
         let parse_result = parse(markdown).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -676,7 +670,7 @@ mod tests {
 
         let mdx = "# Deno (Edge Functions)";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -698,7 +692,7 @@ mod tests {
 
         let mdx = "# The basics of API authentication in OAuth";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -718,7 +712,7 @@ mod tests {
 
         let mdx = "# Bonus: Profile photos";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -738,7 +732,7 @@ mod tests {
 
         let mdx = "# Step 1: Do a thing";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -758,7 +752,7 @@ mod tests {
 
         let mdx = "# 1. Do a thing";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -778,7 +772,7 @@ mod tests {
 
         let markdown = "# `inline_code` (in a heading) can have `ArbitraryCase`";
         let parse_result = parse(markdown).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -798,7 +792,7 @@ mod tests {
 
         let markdown = "# 384 dimensions for vector";
         let parse_result = parse(markdown).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -819,7 +813,7 @@ mod tests {
 
         let markdown = "### API Error codes";
         let parse_result = parse(markdown).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -849,7 +843,7 @@ mod tests {
 
         let markdown = "## Filtering with [regular expressions](https://en.wikipedia.org/wiki/Regular_expression)";
         let parse_result = parse(markdown).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();

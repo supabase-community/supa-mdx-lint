@@ -1,4 +1,5 @@
 mod char_tree;
+pub(crate) mod lru;
 pub(crate) mod mdast;
 pub(crate) mod path;
 pub(crate) mod regex;

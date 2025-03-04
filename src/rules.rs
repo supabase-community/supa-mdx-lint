@@ -1,5 +1,4 @@
 use anyhow::Result;
-use bon::bon;
 use log::{debug, warn};
 use markdown::mdast::Node;
 use regex::Regex;
@@ -10,11 +9,8 @@ use std::{collections::HashMap, fmt::Debug};
 use serde::Serialize;
 
 use crate::{
-    comments::{ConfigurationCommentCollection, LintDisables},
+    context::Context,
     errors::{LintError, LintLevel},
-    geometry::AdjustedOffset,
-    parser::ParseResult,
-    rope::Rope,
 };
 
 mod rule001_heading_case;
@@ -36,10 +32,10 @@ fn get_all_rules() -> Vec<Box<dyn Rule>> {
     ]
 }
 
-pub(crate) trait Rule: Debug + Send + RuleName {
+pub(crate) trait Rule: Debug + RuleName {
     fn default_level(&self) -> LintLevel;
     fn setup(&mut self, _settings: Option<&mut RuleSettings>) {}
-    fn check(&self, ast: &Node, context: &RuleContext, level: LintLevel) -> Option<Vec<LintError>>;
+    fn check(&self, ast: &Node, context: &Context, level: LintLevel) -> Option<Vec<LintError>>;
 }
 
 pub(crate) trait RuleName {
@@ -214,40 +210,6 @@ impl RuleSettings {
 
 pub(crate) type RuleFilter<'filter> = Option<&'filter [&'filter str]>;
 
-pub(crate) struct RuleContext<'ctx> {
-    parse_result: &'ctx ParseResult,
-    check_only_rules: RuleFilter<'ctx>,
-    disables: LintDisables<'ctx>,
-}
-
-#[bon]
-impl<'ctx> RuleContext<'ctx> {
-    #[builder]
-    pub(crate) fn new(
-        parse_result: &'ctx ParseResult,
-        check_only_rules: Option<&'ctx [&'ctx str]>,
-    ) -> Result<Self> {
-        let (_, disables) = ConfigurationCommentCollection::from_parse_result(parse_result)
-            .into_parts()
-            .unwrap();
-        debug!("Disables: {:?}", disables);
-
-        Ok(Self {
-            parse_result,
-            check_only_rules,
-            disables,
-        })
-    }
-
-    pub(crate) fn rope(&self) -> &Rope {
-        self.parse_result.rope()
-    }
-
-    pub fn content_start_offset(&self) -> AdjustedOffset {
-        self.parse_result.content_start_offset()
-    }
-}
-
 #[derive(Debug)]
 pub(crate) struct RuleRegistry {
     state: RuleRegistryState,
@@ -312,7 +274,7 @@ impl RuleRegistry {
         }
     }
 
-    pub fn run(&self, context: &RuleContext) -> Result<Vec<LintError>> {
+    pub fn run(&self, context: &Context) -> Result<Vec<LintError>> {
         match self.state {
             RuleRegistryState::PreSetup => Err(anyhow::anyhow!(
                 "Cannot run rule registry in pre-setup state"
@@ -325,7 +287,7 @@ impl RuleRegistry {
         }
     }
 
-    fn check_node(&self, ast: &Node, context: &RuleContext, errors: &mut Vec<LintError>) {
+    fn check_node(&self, ast: &Node, context: &Context, errors: &mut Vec<LintError>) {
         for rule in &self.rules {
             if let Some(filter) = &context.check_only_rules {
                 if !filter.contains(&rule.name()) {
@@ -382,7 +344,7 @@ mod tests {
         fn check(
             &self,
             _ast: &Node,
-            _context: &RuleContext,
+            _context: &Context,
             _level: LintLevel,
         ) -> Option<Vec<LintError>> {
             self.check_count.fetch_add(1, Ordering::Relaxed);
@@ -403,7 +365,7 @@ mod tests {
         fn check(
             &self,
             _ast: &Node,
-            _context: &RuleContext,
+            _context: &Context,
             _level: LintLevel,
         ) -> Option<Vec<LintError>> {
             self.check_count.fetch_add(1, Ordering::Relaxed);
@@ -426,7 +388,7 @@ mod tests {
 
         let mdx = "text";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .check_only_rules(&["MockRule"])
             .build()
@@ -454,7 +416,7 @@ mod tests {
 
         let mdx = "test";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();

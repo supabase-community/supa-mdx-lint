@@ -1,4 +1,10 @@
-use std::{borrow::Cow, collections::HashSet, ops::Range};
+use std::{
+    borrow::Cow,
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    ops::Range,
+    rc::Rc,
+};
 
 use crop::RopeSlice;
 use log::{debug, trace};
@@ -8,20 +14,23 @@ use suggestions::SuggestionMatcher;
 use supa_mdx_macros::RuleName;
 
 use crate::{
+    comments::LintTimeRuleConfigs,
+    context::{Context, ContextId},
     errors::LintError,
     fix::{LintCorrection, LintCorrectionReplace},
-    geometry::{AdjustedOffset, AdjustedRange, DenormalizedLocation, RangeSet},
+    geometry::{
+        AdjustedOffset, AdjustedRange, DenormalizedLocation, MaybeEndedLineRange, RangeSet,
+    },
     utils::{
         self,
+        lru::LruCache,
         regex::expand_regex,
         words::{is_punctuation, BreakOnPunctuation, WordIterator, WordIteratorOptions},
     },
     LintLevel,
 };
 
-use super::{
-    RegexBeginning, RegexEnding, RegexSettings, Rule, RuleContext, RuleName, RuleSettings,
-};
+use super::{RegexBeginning, RegexEnding, RegexSettings, Rule, RuleName, RuleSettings};
 
 mod suggestions;
 
@@ -33,13 +42,21 @@ enum HyphenatedPart {
     MaybeSuffix,
 }
 
+#[derive(Debug, Default)]
+struct LintTimeVocabAllowed(HashMap<String, Vec<MaybeEndedLineRange>>);
+
 /// Words are checked for correct spelling.
 ///
-/// There are three ways to deal with words that are flagged, even though you're spelling them as intended:
+/// There are four ways to deal with words that are flagged, even though you're spelling them as intended:
 ///
 /// 1. For proper nouns and jargon, you can add them to the [Vocabulary](#vocabulary).
 /// 2. For function, method, and variable names, you can format them as inline code. For example, instead of `foo`, write `` `foo` ``.
-/// 3. You can disable the rule by using one of the disable directives. This should be used as a last resort.
+/// 3. You can add a temporary configuration, which will take effect for either the next line or the rest of the file. This configuration adds the specified words to the vocabulary temporarily. Words added are case-sensitive.
+///    ```markdown
+///    {/* supa-mdx-lint-configure Rule003Spelling +Supabase */}
+///    {/* supa-mdx-lint-configure-next-line Rule003Spelling +pgTAP */}
+///    ```
+/// 4. You can disable the rule by using one of the disable directives. This should be used as a last resort.
 ///    ```markdown
 ///    {/* supa-mdx-lint-disable Rule003Spelling */}
 ///    {/* supa-mdx-lint-disable-next-line Rule003Spelling */}
@@ -72,6 +89,7 @@ pub struct Rule003Spelling {
     allow_list: Vec<Regex>,
     prefixes: HashSet<String>,
     dictionary: HashSet<String>,
+    config_cache: Rc<RefCell<LruCache<ContextId, Option<LintTimeVocabAllowed>>>>,
     suggestion_matcher: SuggestionMatcher,
 }
 
@@ -80,6 +98,7 @@ impl std::fmt::Debug for Rule003Spelling {
         f.debug_struct("Rule003Spelling")
             .field("allow_list", &self.allow_list)
             .field("prefixes", &self.prefixes)
+            .field("configuration_cache", &self.config_cache)
             .field("dictionary", &"[OMITTED (too large)]")
             .finish()
     }
@@ -113,7 +132,7 @@ impl Rule for Rule003Spelling {
     fn check(
         &self,
         ast: &mdast::Node,
-        context: &RuleContext,
+        context: &Context,
         level: LintLevel,
     ) -> Option<Vec<LintError>> {
         self.check_node(ast, context, level)
@@ -154,10 +173,56 @@ impl Rule003Spelling {
         self.suggestion_matcher = suggestion_matcher;
     }
 
+    /// Parse lint-time configuration comments for this rule.
+    ///
+    /// ## Examples
+    ///
+    /// 1. Allows "Supabase" for the rest of the file:
+    ///    ```mdx
+    ///    {/* supa-mdx-lint-configure Rule003Spelling +Supabase */}
+    ///    ```
+    /// 1. Allows "Supabase" for the next line:
+    ///    ```mdx
+    ///    {/* supa-mdx-lint-configure-next-line Rule003Spelling +Supabase */}
+    ///    ```
+    fn parse_lint_time_config(&self, cache_key: &ContextId, config: &LintTimeRuleConfigs) {
+        if self.config_cache.borrow().contains_key(cache_key) {
+            return;
+        }
+
+        let map = config.get(&self.name().into()).map(|list| {
+            let mut map = HashMap::new();
+            for (word, range) in list {
+                if !word.starts_with('+') {
+                    continue;
+                }
+                let word = word.trim_start_matches('+');
+                map.entry(word.to_string())
+                    .or_insert_with(Vec::new)
+                    .push(range.clone());
+            }
+            LintTimeVocabAllowed(map)
+        });
+        self.config_cache
+            .borrow_mut()
+            .insert(cache_key.clone(), map);
+    }
+
+    fn with_lint_time_config<F, R>(&self, cache_key: &ContextId, f: F) -> Option<R>
+    where
+        F: FnOnce(&LintTimeVocabAllowed) -> R,
+    {
+        self.config_cache
+            .borrow_mut()
+            .get(cache_key)?
+            .as_ref()
+            .map(f)
+    }
+
     fn check_node(
         &self,
         node: &mdast::Node,
-        context: &RuleContext,
+        context: &Context,
         level: LintLevel,
     ) -> Option<Vec<LintError>> {
         trace!("[Rule003Spelling] Checking node: {node:#?}");
@@ -170,6 +235,8 @@ impl Rule003Spelling {
             };
 
             if let Some(position) = node.position() {
+                self.parse_lint_time_config(&context.key, &context.lint_time_rule_configs);
+
                 let range = AdjustedRange::from_unadjusted_position(position, context);
                 let text = context
                     .rope()
@@ -181,27 +248,50 @@ impl Rule003Spelling {
         errors
     }
 
+    fn get_ignored_ranges(&self, text: &str, offset: usize, ctx: &Context) -> RangeSet {
+        let mut ignored_ranges: RangeSet = RangeSet::new();
+        for exception in self.allow_list.iter() {
+            trace!("Checking exception: {exception}");
+            let iter = exception.find_iter(&text);
+            for match_result in iter {
+                trace!("Found exception match: {match_result:?}");
+                ignored_ranges.push(AdjustedRange::new(
+                    (match_result.start() + offset).into(),
+                    (match_result.end() + offset).into(),
+                ));
+            }
+        }
+        self.with_lint_time_config(&ctx.key, |config| {
+            config.0.iter().for_each(|(word, ranges)| {
+                let word_pattern =
+                    regex::Regex::new(&format!(r"\b{}\b", regex::escape(word))).unwrap();
+                for r#match in word_pattern.find_iter(&text) {
+                    let word_start = r#match.start() + offset;
+                    let word_end = r#match.end() + offset;
+                    let word_range = AdjustedRange::new(word_start.into(), word_end.into());
+
+                    for range in ranges {
+                        if range.overlaps_lines(&word_range, ctx.rope()) {
+                            ignored_ranges.push(word_range.clone());
+                        }
+                    }
+                }
+            })
+        });
+        ignored_ranges
+    }
+
     fn check_spelling(
         &self,
         text: RopeSlice,
         text_offset_in_parent: usize,
-        context: &RuleContext,
+        context: &Context,
         level: LintLevel,
         errors: &mut Option<Vec<LintError>>,
     ) {
         let text_as_string = text.to_string();
-        let mut ignored_ranges: RangeSet = RangeSet::new();
-        for exception in self.allow_list.iter() {
-            trace!("Checking exception: {exception}");
-            let iter = exception.find_iter(&text_as_string);
-            for match_result in iter {
-                trace!("Found exception match: {match_result:?}");
-                ignored_ranges.push(AdjustedRange::new(
-                    (match_result.start() + text_offset_in_parent).into(),
-                    (match_result.end() + text_offset_in_parent).into(),
-                ));
-            }
-        }
+        let ignored_ranges =
+            self.get_ignored_ranges(&text_as_string, text_offset_in_parent, context);
         debug!("Ignored ranges: {ignored_ranges:#?}");
 
         trace!("Starting tokenizer with text_offset_in_parent: {text_offset_in_parent}");
@@ -286,7 +376,7 @@ impl Rule003Spelling {
         word: &str,
         hyphenation: Option<HyphenatedPart>,
         location: AdjustedRange,
-        context: &RuleContext,
+        context: &Context,
         level: LintLevel,
         errors: &mut Option<Vec<LintError>>,
     ) {
@@ -442,7 +532,7 @@ mod tests {
     fn test_rule003_spelling_good() {
         let mdx = "hello world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -471,7 +561,7 @@ mod tests {
     fn test_rule003_spelling_bad() {
         let mdx = "heloo world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -507,7 +597,7 @@ mod tests {
     fn test_rule003_with_exception() {
         let mdx = "heloo world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -537,7 +627,7 @@ mod tests {
     fn test_rule003_with_repeated_exception() {
         let mdx = "heloo world heloo";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -567,7 +657,7 @@ mod tests {
     fn test_rule003_with_regex_exception() {
         let mdx = "Heloo world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -597,7 +687,7 @@ mod tests {
     fn test_rule003_with_punctuation() {
         let mdx = "heloo, 'asdf' world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -639,7 +729,7 @@ mod tests {
         // Shouldn't is in dictionary, but hell'o is not
         let mdx = "hell'o world shouldn't work";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -675,7 +765,7 @@ mod tests {
     fn test_rule003_with_multiple_lines() {
         let mdx = "hello world\nhello world\nheloo world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -711,7 +801,7 @@ mod tests {
     fn test_rule003_with_prefix() {
         let mdx = "hello pre-world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -741,7 +831,7 @@ mod tests {
     fn test_rule003_ignore_filenames() {
         let mdx = "use the file hello.toml";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -771,7 +861,7 @@ mod tests {
     fn test_rule003_ignore_complex_regex() {
         let mdx = "test a thing [#rest-api-overview]";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -802,7 +892,7 @@ mod tests {
     fn test_rule003_ignore_emojis() {
         let mdx = "hello 🤝 world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -831,7 +921,7 @@ mod tests {
     fn test_rule003_bare_prefixes() {
         let mdx = "pre- and post-world";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
@@ -861,7 +951,7 @@ mod tests {
     fn test_rule003_suggestions() {
         let mdx = "heloo wrld";
         let parse_result = parse(mdx).unwrap();
-        let context = RuleContext::builder()
+        let context = Context::builder()
             .parse_result(&parse_result)
             .build()
             .unwrap();
