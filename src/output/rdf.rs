@@ -8,6 +8,7 @@ use crate::{
     errors::LintLevel,
     fix::LintCorrection,
     geometry::{AdjustedPoint, DenormalizedLocation},
+    output::OutputFormatter,
 };
 
 use super::LintOutput;
@@ -100,12 +101,12 @@ impl<'fix> RdfSuggestion<'fix> {
     }
 }
 
-impl RdfFormatter {
-    pub(super) fn format<Writer: Write>(
-        &self,
-        output: &[LintOutput],
-        io: &mut Writer,
-    ) -> Result<()> {
+impl OutputFormatter for RdfFormatter {
+    fn id(&self) -> &'static str {
+        "rdf"
+    }
+
+    fn format(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
         for output in output.iter() {
             for error in output.errors.iter() {
                 let suggestions = match (error.fix.as_ref(), error.suggestions.as_ref()) {
@@ -157,7 +158,7 @@ impl RdfFormatter {
         Ok(())
     }
 
-    pub(super) fn should_log_metadata(&self) -> bool {
+    fn should_log_metadata(&self) -> bool {
         false
     }
 }

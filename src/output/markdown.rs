@@ -2,17 +2,24 @@ use std::{fs, io::Write};
 
 use anyhow::Result;
 
-use crate::{errors::LintError, fix::LintCorrection, rope::Rope, utils::num_digits, LintOutput};
+use crate::{
+    errors::LintError, fix::LintCorrection, output::OutputFormatter, rope::Rope, utils::num_digits,
+    LintOutput,
+};
 
 #[derive(Debug, Clone)]
 pub struct MarkdownFormatter;
 
-impl MarkdownFormatter {
-    pub fn should_log_metadata(&self) -> bool {
+impl OutputFormatter for MarkdownFormatter {
+    fn id(&self) -> &'static str {
+        "markdown"
+    }
+
+    fn should_log_metadata(&self) -> bool {
         true
     }
 
-    pub fn format<Writer: Write>(&self, output: &[LintOutput], io: &mut Writer) -> Result<()> {
+    fn format(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
         writeln!(io, "# supa-mdx-lint results")?;
         writeln!(io)?;
 
@@ -29,13 +36,10 @@ impl MarkdownFormatter {
 
         Ok(())
     }
+}
 
-    fn format_error<Writer: Write>(
-        &self,
-        file_path: &str,
-        error: &LintError,
-        io: &mut Writer,
-    ) -> Result<()> {
+impl MarkdownFormatter {
+    fn format_error(&self, file_path: &str, error: &LintError, io: &mut dyn Write) -> Result<()> {
         writeln!(io, "```")?;
         writeln!(io, "{}", self.get_error_snippet(file_path, error)?)?;
         writeln!(io, "```")?;
