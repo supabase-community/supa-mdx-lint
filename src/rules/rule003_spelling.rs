@@ -252,7 +252,7 @@ impl Rule003Spelling {
         let mut ignored_ranges: RangeSet = RangeSet::new();
         for exception in self.allow_list.iter() {
             trace!("Checking exception: {exception}");
-            let iter = exception.find_iter(&text);
+            let iter = exception.find_iter(text);
             for match_result in iter {
                 trace!("Found exception match: {match_result:?}");
                 ignored_ranges.push(AdjustedRange::new(
@@ -265,7 +265,7 @@ impl Rule003Spelling {
             config.0.iter().for_each(|(word, ranges)| {
                 let word_pattern =
                     regex::Regex::new(&format!(r"\b{}\b", regex::escape(word))).unwrap();
-                for r#match in word_pattern.find_iter(&text) {
+                for r#match in word_pattern.find_iter(text) {
                     let word_start = r#match.start() + offset;
                     let word_end = r#match.end() + offset;
                     let word_range = AdjustedRange::new(word_start.into(), word_end.into());

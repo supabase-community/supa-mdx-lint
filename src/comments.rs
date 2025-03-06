@@ -1,8 +1,8 @@
 use std::{
     borrow::Cow,
-    cell::OnceCell,
     collections::{HashMap, VecDeque},
     hash::{Hash, Hasher},
+    sync::OnceLock,
 };
 
 use anyhow::Result;
@@ -44,9 +44,7 @@ impl<'node> Hash for HashableMdxNode<'node> {
 
 /// Collect a map of comment pairs and their next non-comment nodes from the
 /// given AST.
-fn collect_comment_pairs<'ast>(
-    root: &'ast Node,
-) -> Option<HashMap<HashableMdxNode<'ast>, Option<&'ast Node>>> {
+fn collect_comment_pairs(root: &Node) -> Option<HashMap<HashableMdxNode<'_>, Option<&Node>>> {
     let mut comment_q = None::<VecDeque<_>>;
     let mut pairs = None::<HashMap<_, _>>;
 
@@ -240,16 +238,15 @@ enum ConfigurationComment<'comment> {
     EnableDisable(RuleToggle),
 }
 
-const CONFIG_COMMENT_REGEX: OnceCell<Regex> = OnceCell::new();
+static CONFIG_COMMENT_REGEX: OnceLock<Regex> = OnceLock::new();
 
 #[bon]
 impl<'comment> ConfigurationComment<'comment> {
     fn parse(value: &'comment str) -> Option<Self> {
-        let comment_string = value.into_comment()?;
+        let comment_string = value.as_comment()?;
 
-        let regex = CONFIG_COMMENT_REGEX;
         // supa-mdx-lint configure-next-line Rule001HeadingCase +Supabase +pgjwt
-        let regex = regex.get_or_init(||
+        let regex = CONFIG_COMMENT_REGEX.get_or_init(||
             Regex::new(r"^supa-mdx-lint-(enable|disable|disable-next-line|configure|configure-next-line)(?:\s+(\S+)(?:\s+(.+))?)?$").expect("Hardcoded regex should not fail")
         );
 
@@ -269,7 +266,7 @@ impl<'comment> ConfigurationComment<'comment> {
                             captures.get(3).map(|m| m.as_str()),
                         ))
                         .ok()
-                        .map(|info| ConfigurationComment::Configure(info));
+                        .map(ConfigurationComment::Configure);
                     }
                     _ => {}
                 }
@@ -321,6 +318,7 @@ impl<'comment> ConfigurationComment<'comment> {
     }
 }
 
+#[allow(clippy::type_complexity)]
 #[derive(Debug, Default)]
 pub(crate) struct ConfigurationCommentCollection<'comment>(
     Vec<
@@ -398,13 +396,13 @@ impl<'ast> ConfigurationCommentCollection<'ast> {
                 }
                 Ok(Either::Right((info, range))) => match info {
                     RuleToggle::EnableAll => {
-                        disables_builder.add_toggle(RuleKey::All.into(), Switch::On, range.clone())
+                        disables_builder.add_toggle(RuleKey::All, Switch::On, range.clone())
                     }
                     RuleToggle::EnableRule { rule } => {
                         disables_builder.add_toggle(rule.into(), Switch::On, range.clone())
                     }
                     RuleToggle::DisableAll { .. } => {
-                        disables_builder.add_toggle(RuleKey::All.into(), Switch::Off, range.clone())
+                        disables_builder.add_toggle(RuleKey::All, Switch::Off, range.clone())
                     }
                     RuleToggle::DisableRule { rule, .. } => {
                         disables_builder.add_toggle(rule.into(), Switch::Off, range.clone())

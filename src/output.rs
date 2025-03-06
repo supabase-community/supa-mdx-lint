@@ -1,8 +1,8 @@
-use std::{io::Write, str::FromStr};
+use std::{collections::HashSet, io::Write, str::FromStr};
 
 use anyhow::Result;
 
-use crate::{app_error::PublicError, errors::LintError};
+use crate::{app_error::PublicError, errors::LintError, LintLevel};
 
 pub mod markdown;
 #[cfg(feature = "pretty")]
@@ -33,15 +33,43 @@ impl LintOutput {
     }
 }
 
+pub struct OutputSummary {
+    num_files: usize,
+    num_warnings: usize,
+    num_errors: usize,
+}
+
 pub trait OutputFormatter: Send + Sync + std::fmt::Debug {
     fn id(&self) -> &'static str;
     fn format(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()>;
     fn should_log_metadata(&self) -> bool;
+
+    fn get_summary(&self, output: &[LintOutput]) -> OutputSummary {
+        let mut seen_files = HashSet::<&str>::new();
+        let mut num_errors = 0;
+        let mut num_warnings = 0;
+
+        for o in output {
+            seen_files.insert(&o.file_path);
+            for error in &o.errors {
+                match error.level {
+                    LintLevel::Error => num_errors += 1,
+                    LintLevel::Warning => num_warnings += 1,
+                }
+            }
+        }
+
+        OutputSummary {
+            num_files: seen_files.len(),
+            num_warnings,
+            num_errors,
+        }
+    }
 }
 
 #[doc(hidden)]
 pub(crate) mod internal {
-    //! Contains internal implementatons that are needed for the supa-mdx-lint
+    //! Contains internal implementations that are needed for the supa-mdx-lint
     //! binary. Should **not** be used by library users as API stability is
     //! not guaranteed.
 

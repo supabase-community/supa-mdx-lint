@@ -4,8 +4,10 @@ use anyhow::Result;
 
 use crate::{
     errors::LintError, fix::LintCorrection, output::OutputFormatter, rope::Rope, utils::num_digits,
-    LintOutput,
+    LintLevel, LintOutput,
 };
+
+use super::OutputSummary;
 
 #[derive(Debug, Clone)]
 pub struct MarkdownFormatter;
@@ -34,12 +36,23 @@ impl OutputFormatter for MarkdownFormatter {
             }
         }
 
+        writeln!(io)?;
+        self.write_summary(output, io)?;
         Ok(())
     }
 }
 
 impl MarkdownFormatter {
     fn format_error(&self, file_path: &str, error: &LintError, io: &mut dyn Write) -> Result<()> {
+        writeln!(
+            io,
+            "### {}",
+            match error.level {
+                LintLevel::Warning => "Warning",
+                LintLevel::Error => "Error",
+            }
+        )?;
+        writeln!(io)?;
         writeln!(io, "```")?;
         writeln!(io, "{}", self.get_error_snippet(file_path, error)?)?;
         writeln!(io, "```")?;
@@ -86,13 +99,9 @@ impl MarkdownFormatter {
                 }
                 Some(combined)
             }
-        };
-        if all_recommendations.is_none() {
-            return None;
-        }
-        let all_recommendations = all_recommendations.unwrap();
+        }?;
 
-        let mut result = "### Recommendations\n\n".to_string();
+        let mut result = "#### Recommendations\n\n".to_string();
         let line_number_width = num_digits(all_recommendations.len());
         all_recommendations
             .iter()
@@ -101,7 +110,7 @@ impl MarkdownFormatter {
                 result += &format!(
                     "{:width$}. {}\n",
                     idx + 1,
-                    self.get_recommendation_text(*rec),
+                    self.get_recommendation_text(rec),
                     width = line_number_width
                 );
             });
@@ -139,6 +148,24 @@ impl MarkdownFormatter {
                 )
             }
         }
+    }
+
+    fn write_summary(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
+        let OutputSummary {
+            num_files,
+            num_errors,
+            num_warnings,
+        } = self.get_summary(output);
+        writeln!(io, "## Summary")?;
+        writeln!(io)?;
+        writeln!(
+            io,
+            "- 🤖 {num_files} file{} linted",
+            if num_files == 1 { "" } else { "s" }
+        )?;
+        writeln!(io, "- 🚨 {num_errors} errors")?;
+        writeln!(io, "- 🔔 {num_warnings} warnings")?;
+        Ok(())
     }
 }
 
@@ -310,6 +337,7 @@ What a wonderful world!"#;
             .sugg(suggestions)
             .call()
             .unwrap();
+        println!("{output}");
 
         assert!(output.starts_with("# supa-mdx-lint"));
         assert!(output.contains("1 | # Hello World"));

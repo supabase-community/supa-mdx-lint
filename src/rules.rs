@@ -281,7 +281,7 @@ impl RuleRegistry {
             )),
             RuleRegistryState::Ready => {
                 let mut errors = Vec::new();
-                self.check_node(&context.parse_result.ast(), context, &mut errors);
+                self.check_node(context.parse_result.ast(), context, &mut errors);
                 Ok(errors)
             }
         }
