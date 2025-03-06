@@ -1,11 +1,11 @@
-use std::{collections::HashSet, fs, io::Write};
+use std::{fs, io::Write};
 
 use anyhow::Result;
 use miette::{miette, LabeledSpan, NamedSource, Severity};
 
 use crate::{errors::LintLevel, output::OutputFormatter};
 
-use super::LintOutput;
+use super::{LintOutput, OutputSummary};
 
 impl From<LintLevel> for Severity {
     fn from(level: LintLevel) -> Self {
@@ -74,27 +74,19 @@ impl OutputFormatter for PrettyFormatter {
         if written {
             writeln!(io)?;
         }
-        Self::write_summary(output, io)?;
+        self.write_summary(output, io)?;
 
         Ok(())
     }
 }
 
 impl PrettyFormatter {
-    fn write_summary(output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
-        let mut seen_files = HashSet::<&str>::new();
-        let mut num_errors = 0;
-        let mut num_warnings = 0;
-
-        for o in output {
-            seen_files.insert(&o.file_path);
-            for error in &o.errors {
-                match error.level {
-                    LintLevel::Error => num_errors += 1,
-                    LintLevel::Warning => num_warnings += 1,
-                }
-            }
-        }
+    fn write_summary(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
+        let OutputSummary {
+            num_files,
+            num_errors,
+            num_warnings,
+        } = self.get_summary(output);
 
         let diagnostic_message = match (num_errors, num_warnings) {
             (0, 0) => "🟢 No errors or warnings found",
@@ -120,8 +112,8 @@ impl PrettyFormatter {
         writeln!(
             io,
             "🔍 {} source{} linted",
-            seen_files.len(),
-            if seen_files.len() != 1 { "s" } else { "" }
+            num_files,
+            if num_files != 1 { "s" } else { "" }
         )?;
         writeln!(io, "{}", diagnostic_message)?;
         Ok(())
