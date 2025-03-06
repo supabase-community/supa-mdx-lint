@@ -31,7 +31,7 @@ jobs:
       - name: lint
         run: cargo clippy
       - name: rust tests
-        run: cargo test
+        run: cargo test --all-features
       - name: release build (default)
         run: cargo build --release
       - name: release build (all features)
@@ -55,7 +55,7 @@ jobs:
       - name: lint
         run: cargo clippy
       - name: rust tests
-        run: cargo test
+        run: cargo test --all-features
       - name: release build (default)
         run: cargo build --release
       - name: release build (all features)
@@ -79,7 +79,7 @@ jobs:
       - name: lint
         run: cargo clippy
       - name: rust tests
-        run: cargo test
+        run: cargo test --all-features
       - name: release build (default)
         run: cargo build --release
       - name: release build (all features)
