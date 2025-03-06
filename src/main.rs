@@ -41,11 +41,11 @@ struct Args {
     fix: bool,
 
     #[cfg(feature = "interactive")]
-    #[arg(short, long, requires_all = ["fix", "enable_experimental"], conflicts_with = "silent")]
+    #[arg(short, long, requires_all = ["fix", "enable_experimental"], conflicts_with = "silent", hide = true)]
     interactive: bool,
 
     /// Output format
-    #[arg(long, value_name = "FORMAT", default_value = "simple", value_parser = clap::value_parser!(NativeOutputFormatter))]
+    #[arg(long, value_name = "FORMAT", default_value = "simple", value_parser = clap::value_parser!(NativeOutputFormatter), help = if cfg!(feature = "pretty") {r#"Output format - one of "simple", "markdown", "pretty", "rdf""#} else {r#"Output format - one of "simple", "markdown", "rdf""#})]
     format: NativeOutputFormatter,
 
     /// Turn debugging information on
@@ -60,7 +60,7 @@ struct Args {
     #[arg(long)]
     trace: bool,
 
-    #[arg(long)]
+    #[arg(long, hide = true)]
     enable_experimental: bool,
 }
 
