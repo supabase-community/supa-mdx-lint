@@ -3,7 +3,7 @@ use std::{collections::HashSet, io::Write};
 use anyhow::Result;
 use log::warn;
 
-use crate::errors::LintLevel;
+use crate::{errors::LintLevel, output::OutputFormatter};
 
 use super::LintOutput;
 
@@ -19,12 +19,12 @@ use super::LintOutput;
 #[derive(Debug, Clone)]
 pub struct SimpleFormatter;
 
-impl SimpleFormatter {
-    pub(super) fn format<Writer: Write>(
-        &self,
-        output: &[LintOutput],
-        io: &mut Writer,
-    ) -> Result<()> {
+impl OutputFormatter for SimpleFormatter {
+    fn id(&self) -> &'static str {
+        "simple"
+    }
+
+    fn format(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
         // Whether anything has been written to the output, used to determine
         // whether to write a newline before the summary.
         let mut written = false;
@@ -54,18 +54,18 @@ impl SimpleFormatter {
         if written {
             writeln!(io)?;
         }
-        SimpleFormatter::write_summary(output, io)?;
+        Self::write_summary(output, io)?;
 
         Ok(())
     }
 
-    pub(super) fn should_log_metadata(&self) -> bool {
+    fn should_log_metadata(&self) -> bool {
         true
     }
 }
 
 impl SimpleFormatter {
-    fn write_summary(output: &[LintOutput], io: &mut impl Write) -> Result<()> {
+    fn write_summary(output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
         let mut seen_files = HashSet::<&str>::new();
         let mut num_errors = 0;
         let mut num_warnings = 0;

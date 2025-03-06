@@ -15,7 +15,7 @@ use glob::glob;
 use log::{debug, error};
 use simplelog::{ColorChoice, Config as LogConfig, LevelFilter, TermLogger, TerminalMode};
 use supa_mdx_lint::{
-    utils::is_lintable, Config, LintLevel, LintOutput, LintTarget, Linter, OutputFormatter,
+    utils::is_lintable, Config, LintLevel, LintOutput, LintTarget, Linter, NativeOutputFormatter,
 };
 
 mod cli;
@@ -45,8 +45,8 @@ struct Args {
     interactive: bool,
 
     /// Output format
-    #[arg(long, value_name = "FORMAT", default_value = "simple", value_parser = clap::value_parser!(OutputFormatter))]
-    format: OutputFormatter,
+    #[arg(long, value_name = "FORMAT", default_value = "simple", value_parser = clap::value_parser!(NativeOutputFormatter))]
+    format: NativeOutputFormatter,
 
     /// Turn debugging information on
     #[arg(short, long)]

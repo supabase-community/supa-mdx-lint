@@ -2,7 +2,7 @@ use std::{io::Write, str::FromStr};
 
 use anyhow::Result;
 
-use crate::{app_error, errors::LintError};
+use crate::{app_error::PublicError, errors::LintError};
 
 pub mod markdown;
 #[cfg(feature = "pretty")]
@@ -33,48 +33,67 @@ impl LintOutput {
     }
 }
 
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum OutputFormatter {
-    Markdown(markdown::MarkdownFormatter),
-    #[cfg(feature = "pretty")]
-    Pretty(pretty::PrettyFormatter),
-    Simple(simple::SimpleFormatter),
-    Rdf(rdf::RdfFormatter),
+pub trait OutputFormatter: Send + Sync + std::fmt::Debug {
+    fn id(&self) -> &'static str;
+    fn format(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()>;
+    fn should_log_metadata(&self) -> bool;
 }
 
-impl OutputFormatter {
-    pub fn format<Writer: Write>(&self, output: &[LintOutput], io: &mut Writer) -> Result<()> {
-        match self {
-            Self::Markdown(formatter) => formatter.format(output, io),
+#[doc(hidden)]
+pub(crate) mod internal {
+    //! Contains internal implementatons that are needed for the supa-mdx-lint
+    //! binary. Should **not** be used by library users as API stability is
+    //! not guaranteed.
+
+    use super::*;
+
+    #[derive(Debug)]
+    pub struct NativeOutputFormatter(Box<dyn OutputFormatter>);
+
+    impl Clone for NativeOutputFormatter {
+        fn clone(&self) -> Self {
+            // Clone is required for clap parsing.
+            //
+            // These types are data-less structs with no state information, so
+            // cloning by recreating (a) is efficient and (b) will not cause any
+            // unexpected logic errors.
+            match self.0.id() {
+            "markdown" => Self(Box::new(markdown::MarkdownFormatter)),
             #[cfg(feature = "pretty")]
-            Self::Pretty(formatter) => formatter.format(output, io),
-            Self::Simple(formatter) => formatter.format(output, io),
-            Self::Rdf(formatter) => formatter.format(output, io),
+            "pretty" => Self(Box::new(pretty::PrettyFormatter)),
+            "rdf" => Self(Box::new(rdf::RdfFormatter)),
+            "simple" => Self(Box::new(simple::SimpleFormatter)),
+            _ => panic!("NativeOutputFormatter should only be used to wrap the native output formats, not a user-provided custom format"),
+        }
         }
     }
 
-    pub fn should_log_metadata(&self) -> bool {
-        match self {
-            Self::Markdown(formatter) => formatter.should_log_metadata(),
-            #[cfg(feature = "pretty")]
-            Self::Pretty(formatter) => formatter.should_log_metadata(),
-            Self::Simple(formatter) => formatter.should_log_metadata(),
-            Self::Rdf(formatter) => formatter.should_log_metadata(),
+    impl std::ops::Deref for NativeOutputFormatter {
+        type Target = Box<dyn OutputFormatter>;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0
         }
     }
-}
 
-impl FromStr for OutputFormatter {
-    type Err = app_error::PublicError;
+    impl std::ops::DerefMut for NativeOutputFormatter {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.0
+        }
+    }
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            #[cfg(feature = "pretty")]
-            "pretty" => Ok(Self::Pretty(pretty::PrettyFormatter)),
-            "simple" => Ok(Self::Simple(simple::SimpleFormatter)),
-            "rdf" => Ok(Self::Rdf(rdf::RdfFormatter)),
-            other => Err(app_error::PublicError::VariantNotFound(other.to_string())),
+    impl FromStr for NativeOutputFormatter {
+        type Err = PublicError;
+
+        fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+            match s {
+                "markdown" => Ok(NativeOutputFormatter(Box::new(markdown::MarkdownFormatter))),
+                #[cfg(feature = "pretty")]
+                "pretty" => Ok(NativeOutputFormatter(Box::new(pretty::PrettyFormatter))),
+                "rdf" => Ok(NativeOutputFormatter(Box::new(rdf::RdfFormatter))),
+                "simple" => Ok(NativeOutputFormatter(Box::new(simple::SimpleFormatter))),
+                s => Err(PublicError::VariantNotFound(s.to_string())),
+            }
         }
     }
 }
