@@ -4,6 +4,7 @@ use anyhow::Result;
 
 use crate::{app_error, errors::LintError};
 
+pub mod markdown;
 #[cfg(feature = "pretty")]
 pub mod pretty;
 pub mod rdf;
@@ -32,9 +33,10 @@ impl LintOutput {
     }
 }
 
-#[derive(Debug, Clone)]
 #[non_exhaustive]
+#[derive(Debug, Clone)]
 pub enum OutputFormatter {
+    Markdown(markdown::MarkdownFormatter),
     #[cfg(feature = "pretty")]
     Pretty(pretty::PrettyFormatter),
     Simple(simple::SimpleFormatter),
@@ -44,6 +46,7 @@ pub enum OutputFormatter {
 impl OutputFormatter {
     pub fn format<Writer: Write>(&self, output: &[LintOutput], io: &mut Writer) -> Result<()> {
         match self {
+            Self::Markdown(formatter) => formatter.format(output, io),
             #[cfg(feature = "pretty")]
             Self::Pretty(formatter) => formatter.format(output, io),
             Self::Simple(formatter) => formatter.format(output, io),
@@ -53,6 +56,7 @@ impl OutputFormatter {
 
     pub fn should_log_metadata(&self) -> bool {
         match self {
+            Self::Markdown(formatter) => formatter.should_log_metadata(),
             #[cfg(feature = "pretty")]
             Self::Pretty(formatter) => formatter.should_log_metadata(),
             Self::Simple(formatter) => formatter.should_log_metadata(),
