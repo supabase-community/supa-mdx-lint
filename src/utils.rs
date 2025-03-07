@@ -5,7 +5,7 @@ pub(crate) mod path;
 pub(crate) mod regex;
 pub(crate) mod words;
 
-use std::path::Path;
+use std::{borrow::Cow, path::Path};
 
 pub fn is_lintable(path: impl AsRef<Path>) -> bool {
     let path = path.as_ref();
@@ -41,6 +41,22 @@ pub(crate) fn num_digits(n: usize) -> usize {
     }
 
     count
+}
+
+pub(crate) fn pluralize(num: usize) -> &'static str {
+    if num == 1 {
+        ""
+    } else {
+        "s"
+    }
+}
+
+pub(crate) fn escape_backticks(s: &str) -> Cow<'_, str> {
+    if s.contains('`') {
+        Cow::Owned(s.replace('`', "\\`"))
+    } else {
+        Cow::Borrowed(s)
+    }
 }
 
 #[cfg(test)]

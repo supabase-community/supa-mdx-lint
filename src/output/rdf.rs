@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use anyhow::Result;
 use log::{debug, warn};
 use serde::Serialize;
@@ -106,8 +104,13 @@ impl OutputFormatter for RdfFormatter {
         "rdf"
     }
 
-    fn format(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
-        for output in output.iter() {
+    fn should_log_metadata(&self) -> bool {
+        false
+    }
+
+    fn format(&self, outputs: &[LintOutput]) -> Result<String> {
+        let mut result = String::new();
+        for output in outputs.iter() {
             for error in output.errors.iter() {
                 let suggestions = match (error.fix.as_ref(), error.suggestions.as_ref()) {
                     (None, None) => None,
@@ -145,21 +148,12 @@ impl OutputFormatter for RdfFormatter {
                         return Err(err.into());
                     }
                 };
-                match writeln!(io, "{}", json_string) {
-                    Ok(_) => {}
-                    Err(err) => {
-                        warn!("Failed to write to output: {}", err);
-                        return Err(err.into());
-                    }
-                }
+                result.push_str(&json_string);
+                result.push('\n');
             }
         }
 
-        Ok(())
-    }
-
-    fn should_log_metadata(&self) -> bool {
-        false
+        Ok(result)
     }
 }
 
@@ -188,10 +182,7 @@ mod tests {
         let output = vec![output];
 
         let formatter = RdfFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
-
-        let result = String::from_utf8(result).unwrap();
+        let result = formatter.format(&output).unwrap();
         let result = result.trim();
         let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}"#;
         assert_eq!(result, expected);
@@ -216,10 +207,8 @@ mod tests {
         let output = vec![output];
 
         let formatter = RdfFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
+        let result = formatter.format(&output).unwrap();
 
-        let result = String::from_utf8(result).unwrap();
         let result = result.trim();
         let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}}},"severity":"ERROR","suggestions":[{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":""}]}"#;
         assert_eq!(result, expected);
@@ -248,10 +237,8 @@ mod tests {
         let output = vec![output];
 
         let formatter = RdfFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
+        let result = formatter.format(&output).unwrap();
 
-        let result = String::from_utf8(result).unwrap();
         let result = result.trim();
         let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
 {"message":"This is another error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":5,"column":3}}},"severity":"ERROR"}"#;
@@ -289,10 +276,8 @@ mod tests {
         let output = vec![output_1, output_2];
 
         let formatter = RdfFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
+        let result = formatter.format(&output).unwrap();
 
-        let result = String::from_utf8(result).unwrap();
         let result = result.trim();
         let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
 {"message":"This is another error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
@@ -324,10 +309,8 @@ mod tests {
         let output = vec![output];
 
         let formatter = RdfFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
+        let result = formatter.format(&output).unwrap();
 
-        let result = String::from_utf8(result).unwrap();
         let result = result.trim();
         let expected = r#"{"message":"This is an error with fixes and suggestions","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}}},"severity":"ERROR","suggestions":[{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":""},{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":"replacement text"}]}"#;
         assert_eq!(result, expected);
@@ -353,10 +336,8 @@ mod tests {
         let output = vec![output];
 
         let formatter = RdfFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
+        let result = formatter.format(&output).unwrap();
 
-        let result = String::from_utf8(result).unwrap();
         let result = result.trim();
         let expected = r#"{"message":"This is an error with only suggestions","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}}},"severity":"ERROR","suggestions":[{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":"replacement text"}]}"#;
         assert_eq!(result, expected);
