@@ -22,7 +22,10 @@ pub mod utils;
 
 pub use crate::config::Config;
 pub use crate::errors::LintLevel;
-pub use crate::output::{rdf::RdfFormatter, simple::SimpleFormatter, LintOutput, OutputFormatter};
+pub use crate::output::{
+    internal::NativeOutputFormatter, markdown::MarkdownFormatter, rdf::RdfFormatter,
+    simple::SimpleFormatter, LintOutput,
+};
 
 use crate::parser::parse;
 

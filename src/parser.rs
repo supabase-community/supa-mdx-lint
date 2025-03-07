@@ -137,7 +137,7 @@ fn parse_internal(input: &str) -> Result<Node> {
 
 pub(crate) trait CommentString {
     fn is_comment(&self) -> bool;
-    fn into_comment(&self) -> Option<&str>;
+    fn as_comment(&self) -> Option<&str>;
 }
 
 impl CommentString for str {
@@ -146,7 +146,7 @@ impl CommentString for str {
         trimmed.starts_with("/*") && trimmed.ends_with("*/")
     }
 
-    fn into_comment(&self) -> Option<&str> {
+    fn as_comment(&self) -> Option<&str> {
         let trimmed = self.trim();
         if !self.is_comment() {
             return None;

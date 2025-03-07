@@ -22,6 +22,7 @@ pub(crate) enum ParseError {
     ),
 }
 
+#[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum PublicError {
     #[error("Variant not found: {0}")]
