@@ -1,4 +1,4 @@
-use std::{collections::HashSet, io::Write, str::FromStr};
+use std::{collections::HashSet, str::FromStr};
 
 use anyhow::Result;
 
@@ -41,7 +41,7 @@ pub struct OutputSummary {
 
 pub trait OutputFormatter: Send + Sync + std::fmt::Debug {
     fn id(&self) -> &'static str;
-    fn format(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()>;
+    fn format(&self, output: &[LintOutput]) -> Result<String>;
     fn should_log_metadata(&self) -> bool;
 
     fn get_summary(&self, output: &[LintOutput]) -> OutputSummary {
@@ -82,17 +82,17 @@ pub(crate) mod internal {
         fn clone(&self) -> Self {
             // Clone is required for clap parsing.
             //
-            // These types are data-less structs with no state information, so
-            // cloning by recreating (a) is efficient and (b) will not cause any
-            // unexpected logic errors.
+            // These are zero-sized types with no state information, so
+            // cloning by recreating (a) is efficient and (b) will not cause
+            // any unexpected logic errors.
             match self.0.id() {
-            "markdown" => Self(Box::new(markdown::MarkdownFormatter)),
-            #[cfg(feature = "pretty")]
-            "pretty" => Self(Box::new(pretty::PrettyFormatter)),
-            "rdf" => Self(Box::new(rdf::RdfFormatter)),
-            "simple" => Self(Box::new(simple::SimpleFormatter)),
-            _ => panic!("NativeOutputFormatter should only be used to wrap the native output formats, not a user-provided custom format"),
-        }
+                "markdown" => Self(Box::new(markdown::MarkdownFormatter)),
+                #[cfg(feature = "pretty")]
+                "pretty" => Self(Box::new(pretty::PrettyFormatter)),
+                "rdf" => Self(Box::new(rdf::RdfFormatter)),
+                "simple" => Self(Box::new(simple::SimpleFormatter)),
+                _ => panic!("NativeOutputFormatter should only be used to wrap the native output formats, not a user-provided custom format"),
+            }
         }
     }
 

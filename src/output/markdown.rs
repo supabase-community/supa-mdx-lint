@@ -1,9 +1,13 @@
-use std::{fs, io::Write};
+use std::fs;
 
 use anyhow::Result;
 
 use crate::{
-    errors::LintError, fix::LintCorrection, output::OutputFormatter, rope::Rope, utils::num_digits,
+    errors::LintError,
+    fix::LintCorrection,
+    output::OutputFormatter,
+    rope::Rope,
+    utils::{escape_backticks, num_digits, pluralize},
     LintLevel, LintOutput,
 };
 
@@ -21,47 +25,44 @@ impl OutputFormatter for MarkdownFormatter {
         true
     }
 
-    fn format(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
-        writeln!(io, "# supa-mdx-lint results")?;
-        writeln!(io)?;
+    fn format(&self, output: &[LintOutput]) -> Result<String> {
+        let mut result = String::new();
+        result.push_str("# supa-mdx-lint results\n\n");
 
         for output in output {
             if output.errors.is_empty() {
                 continue;
             }
-            writeln!(io, "## {}", output.file_path)?;
-            writeln!(io)?;
+            result.push_str(&format!("## {}\n\n", output.file_path));
             for error in &output.errors {
-                self.format_error(&output.file_path, error, io)?;
+                result.push_str(&self.format_error(&output.file_path, error)?);
             }
         }
 
-        writeln!(io)?;
-        self.write_summary(output, io)?;
-        Ok(())
+        result.push_str(&self.format_summary(output));
+        Ok(result)
     }
 }
 
 impl MarkdownFormatter {
-    fn format_error(&self, file_path: &str, error: &LintError, io: &mut dyn Write) -> Result<()> {
-        writeln!(
-            io,
-            "### {}",
+    fn format_error(&self, file_path: &str, error: &LintError) -> Result<String> {
+        let mut result = String::new();
+        result.push_str(&format!(
+            "### {}\n\n",
             match error.level {
                 LintLevel::Warning => "Warning",
                 LintLevel::Error => "Error",
             }
-        )?;
-        writeln!(io)?;
-        writeln!(io, "```")?;
-        writeln!(io, "{}", self.get_error_snippet(file_path, error)?)?;
-        writeln!(io, "```")?;
-        writeln!(io, "{}", error.message)?;
-        writeln!(io)?;
+        ));
+        result.push_str("```\n");
+        result.push_str(&self.get_error_snippet(file_path, error)?);
+        result.push_str("```\n");
+        result.push_str(&format!("{}\n\n", error.message));
         if let Some(rec_text) = self.get_recommendations_text(error) {
-            writeln!(io, "{}", rec_text)?;
+            result.push_str(&rec_text);
         }
-        Ok(())
+        result.push('\n');
+        Ok(result)
     }
 
     fn get_error_snippet(&self, file_path: &str, error: &LintError) -> Result<String> {
@@ -122,10 +123,10 @@ impl MarkdownFormatter {
         match corr {
             LintCorrection::Insert(ins) => {
                 format!(
-                    "Insert the following text at row {}, column {}: {}",
+                    "Insert the following text at row {}, column {}: `{}`",
                     ins.location.start.row + 1,
                     ins.location.start.column + 1,
-                    ins.text
+                    escape_backticks(&ins.text)
                 )
             }
             LintCorrection::Delete(del) => {
@@ -139,33 +140,38 @@ impl MarkdownFormatter {
             }
             LintCorrection::Replace(rep) => {
                 format!(
-                    "Replace the text from row {}, column {} to row {}, column {} with {}",
+                    "Replace the text from row {}, column {} to row {}, column {} with `{}`",
                     rep.location.start.row + 1,
                     rep.location.start.column + 1,
                     rep.location.end.row + 1,
                     rep.location.end.column + 1,
-                    rep.text
+                    escape_backticks(&rep.text)
                 )
             }
         }
     }
 
-    fn write_summary(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
+    fn format_summary(&self, output: &[LintOutput]) -> String {
+        let mut result = String::new();
         let OutputSummary {
             num_files,
             num_errors,
             num_warnings,
         } = self.get_summary(output);
-        writeln!(io, "## Summary")?;
-        writeln!(io)?;
-        writeln!(
-            io,
-            "- 🤖 {num_files} file{} linted",
-            if num_files == 1 { "" } else { "s" }
-        )?;
-        writeln!(io, "- 🚨 {num_errors} errors")?;
-        writeln!(io, "- 🔔 {num_warnings} warnings")?;
-        Ok(())
+        result.push_str("## Summary\n\n");
+        result.push_str(&format!(
+            "- 🤖 {num_files} file{} linted\n",
+            pluralize(num_files)
+        ));
+        result.push_str(&format!(
+            "- 🚨 {num_errors} error{}\n",
+            pluralize(num_errors)
+        ));
+        result.push_str(&format!(
+            "- 🔔 {num_warnings} warning{}\n",
+            pluralize(num_warnings)
+        ));
+        result
     }
 }
 
@@ -213,9 +219,7 @@ mod tests {
         let output = vec![output];
 
         let formatter = MarkdownFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result)?;
-        String::from_utf8(result).map_err(|e| e.into())
+        formatter.format(&output)
     }
 
     #[test]
@@ -326,7 +330,7 @@ What a wonderful world!"#;
             }),
             LintCorrection::Insert(LintCorrectionInsert {
                 location: DenormalizedLocation::dummy(13, 13, 0, 13, 0, 13),
-                text: " and Universe".to_string(),
+                text: " and `Universe`".to_string(),
             }),
         ];
 
@@ -337,18 +341,19 @@ What a wonderful world!"#;
             .sugg(suggestions)
             .call()
             .unwrap();
-        println!("{output}");
 
         assert!(output.starts_with("# supa-mdx-lint"));
         assert!(output.contains("1 | # Hello World"));
         assert!(output.contains("This is an error"));
         assert!(output.contains("Recommendations"));
-        assert!(output
-            .contains("1. Replace the text from row 1, column 9 to row 1, column 14 with Friend"));
         assert!(output.contains(
-            "2. Replace the text from row 1, column 9 to row 1, column 14 with Neighbor"
+            "1. Replace the text from row 1, column 9 to row 1, column 14 with `Friend`"
         ));
-        assert!(output.contains("3. Insert the following text at row 1, column 14:  and Universe"));
+        assert!(output.contains(
+            "2. Replace the text from row 1, column 9 to row 1, column 14 with `Neighbor`"
+        ));
+        assert!(output
+            .contains("3. Insert the following text at row 1, column 14: ` and \\`Universe\\``"));
     }
 
     #[test]
@@ -379,9 +384,7 @@ What a wonderful world!"#;
         };
 
         let formatter = MarkdownFormatter;
-        let mut result = Vec::new();
-        formatter.format(&[output], &mut result).unwrap();
-        let output_str = String::from_utf8(result).unwrap();
+        let output_str = formatter.format(&[output]).unwrap();
 
         assert!(output_str.starts_with("# supa-mdx-lint"));
         assert!(output_str.contains("1 | # Hello World"));
@@ -425,9 +428,7 @@ What a wonderful world!"#;
         };
 
         let formatter = MarkdownFormatter;
-        let mut result = Vec::new();
-        formatter.format(&[output1, output2], &mut result).unwrap();
-        let output_str = String::from_utf8(result).unwrap();
+        let output_str = formatter.format(&[output1, output2]).unwrap();
 
         assert!(output_str.starts_with("# supa-mdx-lint"));
 
