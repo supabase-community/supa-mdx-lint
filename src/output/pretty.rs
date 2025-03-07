@@ -1,4 +1,4 @@
-use std::{fs, io::Write};
+use std::fs;
 
 use anyhow::Result;
 use miette::{miette, LabeledSpan, NamedSource, Severity};
@@ -33,8 +33,9 @@ impl OutputFormatter for PrettyFormatter {
         true
     }
 
-    fn format(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
-        // Whether anything has been written to the output, used to determine
+    fn format(&self, output: &[LintOutput]) -> Result<String> {
+        let mut result = String::new();
+        // Whether anything has been written to the result, used to determine
         // whether to write a newline before each section.
         let mut written = false;
 
@@ -43,7 +44,7 @@ impl OutputFormatter for PrettyFormatter {
                 continue;
             }
             if written {
-                writeln!(io)?;
+                result.push('\n');
             }
             written |= true;
 
@@ -51,7 +52,7 @@ impl OutputFormatter for PrettyFormatter {
 
             for (idx, error) in curr.errors.iter().enumerate() {
                 if idx > 0 {
-                    writeln!(io)?;
+                    result.push('\n');
                 }
 
                 let severity: Severity = error.level.into();
@@ -67,21 +68,22 @@ impl OutputFormatter for PrettyFormatter {
                     message
                 )
                 .with_source_code(NamedSource::new(&curr.file_path, content.clone()));
-                writeln!(io, "{:?}", error)?;
+                result.push_str(&format!("{:?}", error));
             }
         }
 
         if written {
-            writeln!(io)?;
+            result.push('\n');
         }
-        self.write_summary(output, io)?;
+        result.push_str(&self.format_summary(output));
 
-        Ok(())
+        Ok(result)
     }
 }
 
 impl PrettyFormatter {
-    fn write_summary(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
+    fn format_summary(&self, output: &[LintOutput]) -> String {
+        let mut result = String::new();
         let OutputSummary {
             num_files,
             num_errors,
@@ -109,14 +111,13 @@ impl PrettyFormatter {
             ),
         };
 
-        writeln!(
-            io,
-            "🔍 {} source{} linted",
+        result.push_str(&format!(
+            "🔍 {} source{} linted\n",
             num_files,
             if num_files != 1 { "s" } else { "" }
-        )?;
-        writeln!(io, "{}", diagnostic_message)?;
-        Ok(())
+        ));
+        result.push_str(diagnostic_message);
+        result
     }
 }
 
@@ -151,9 +152,7 @@ mod tests {
         let output = vec![output];
 
         let formatter = PrettyFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
-        let result = String::from_utf8(result).unwrap();
+        let result = formatter.format(&output).unwrap();
 
         assert!(result.contains("test.md"));
         assert!(result.contains("This is an error"));
@@ -171,9 +170,7 @@ mod tests {
         let output = vec![output];
 
         let formatter = PrettyFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
-        let result = String::from_utf8(result).unwrap();
+        let result = formatter.format(&output).unwrap();
 
         assert!(result.contains("1 source"));
         assert!(result.contains("No errors"));
@@ -206,9 +203,7 @@ mod tests {
         let output = vec![output];
 
         let formatter = PrettyFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
-        let result = String::from_utf8(result).unwrap();
+        let result = formatter.format(&output).unwrap();
 
         assert!(result.contains("This is an error"));
         assert!(result.contains("This is another error"));
@@ -245,9 +240,7 @@ mod tests {
         let output = vec![output_1, output_2];
 
         let formatter = PrettyFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
-        let result = String::from_utf8(result).unwrap();
+        let result = formatter.format(&output).unwrap();
 
         assert!(result.contains("test.md"));
         assert!(result.contains("test2.md"));

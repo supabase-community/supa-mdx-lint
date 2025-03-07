@@ -228,7 +228,8 @@ fn execute(args: Args) -> Result<Result<()>> {
     }
 
     if !args.silent {
-        args.format.format(&diagnostics, &mut stdout)?;
+        let output = args.format.format(&diagnostics)?;
+        write!(stdout, "{}", output)?;
         if args.format.should_log_metadata() {
             let millis = start.elapsed().as_millis();
             if millis < 1000 {
