@@ -1,11 +1,8 @@
-use std::{collections::HashSet, io::Write};
-
 use anyhow::Result;
-use log::warn;
 
-use crate::{errors::LintLevel, output::OutputFormatter};
+use crate::output::OutputFormatter;
 
-use super::LintOutput;
+use super::{LintOutput, OutputSummary};
 
 /// Outputs linter diagnostics in the simple format, for CLI display, which has
 /// the structure:
@@ -24,7 +21,8 @@ impl OutputFormatter for SimpleFormatter {
         "simple"
     }
 
-    fn format(&self, output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
+    fn format(&self, output: &[LintOutput]) -> Result<String> {
+        let mut result = String::new();
         // Whether anything has been written to the output, used to determine
         // whether to write a newline before the summary.
         let mut written = false;
@@ -33,30 +31,23 @@ impl OutputFormatter for SimpleFormatter {
             for error in output.errors.iter() {
                 written |= true;
 
-                match writeln!(
-                    io,
-                    "{}:{}:{}: [{}] {}",
+                result.push_str(&format!(
+                    "{}:{}:{}: [{}] {}\n",
                     output.file_path,
                     error.location.start.row + 1,
                     error.location.start.column + 1,
                     error.level,
                     error.message,
-                ) {
-                    Ok(_) => {}
-                    Err(err) => {
-                        warn!("Failed to write to output: {}", err);
-                        return Err(err.into());
-                    }
-                }
+                ));
             }
         }
 
         if written {
-            writeln!(io)?;
+            result.push('\n');
         }
-        Self::write_summary(output, io)?;
+        result.push_str(&self.format_summary(output));
 
-        Ok(())
+        Ok(result)
     }
 
     fn should_log_metadata(&self) -> bool {
@@ -65,20 +56,13 @@ impl OutputFormatter for SimpleFormatter {
 }
 
 impl SimpleFormatter {
-    fn write_summary(output: &[LintOutput], io: &mut dyn Write) -> Result<()> {
-        let mut seen_files = HashSet::<&str>::new();
-        let mut num_errors = 0;
-        let mut num_warnings = 0;
-
-        for o in output {
-            seen_files.insert(&o.file_path);
-            for error in &o.errors {
-                match error.level {
-                    LintLevel::Error => num_errors += 1,
-                    LintLevel::Warning => num_warnings += 1,
-                }
-            }
-        }
+    fn format_summary(&self, output: &[LintOutput]) -> String {
+        let mut result = String::new();
+        let OutputSummary {
+            num_errors,
+            num_files,
+            num_warnings,
+        } = self.get_summary(output);
 
         let diagnostic_message = match (num_errors, num_warnings) {
             (0, 0) => "🟢 No errors or warnings found",
@@ -101,14 +85,13 @@ impl SimpleFormatter {
             ),
         };
 
-        writeln!(
-            io,
-            "🔍 {} source{} linted",
-            seen_files.len(),
-            if seen_files.len() != 1 { "s" } else { "" }
-        )?;
-        writeln!(io, "{}", diagnostic_message)?;
-        Ok(())
+        result.push_str(&format!(
+            "🔍 {} source{} linted\n",
+            num_files,
+            if num_files != 1 { "s" } else { "" }
+        ));
+        result.push_str(&format!("{}\n", diagnostic_message));
+        result
     }
 }
 
@@ -137,10 +120,9 @@ mod tests {
         let output = vec![output];
 
         let formatter = SimpleFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
+        let result = formatter.format(&output).unwrap();
         assert_eq!(
-            String::from_utf8(result).unwrap(),
+            result,
             "test.md:1:1: [ERROR] This is an error\n\n🔍 1 source linted\n🔴 Found 1 error\n"
         );
     }
@@ -161,10 +143,9 @@ mod tests {
         let output = vec![output];
 
         let formatter = SimpleFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
+        let result = formatter.format(&output).unwrap();
         assert_eq!(
-            String::from_utf8(result).unwrap(),
+            result,
             "test.md:1:1: [WARN] This is a warning\n\n🔍 1 source linted\n🟡 Found 1 warning\n"
         );
     }
@@ -191,10 +172,9 @@ mod tests {
         let output = vec![output];
 
         let formatter = SimpleFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
+        let result = formatter.format(&output).unwrap();
         assert_eq!(
-            String::from_utf8(result).unwrap(),
+            result,
             "test.md:1:1: [ERROR] This is an error\ntest.md:4:1: [WARN] This is a warning\n\n🔍 1 source linted\n🔴 Found 1 error and 1 warning\n"
         );
     }
@@ -209,10 +189,9 @@ mod tests {
         let output = vec![output];
 
         let formatter = SimpleFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
+        let result = formatter.format(&output).unwrap();
         assert_eq!(
-            String::from_utf8(result).unwrap(),
+            result,
             "🔍 1 source linted\n🟢 No errors or warnings found\n"
         );
     }
@@ -240,10 +219,9 @@ mod tests {
         let output = vec![output];
 
         let formatter = SimpleFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
+        let result = formatter.format(&output).unwrap();
         assert_eq!(
-            String::from_utf8(result).unwrap(),
+            result,
             "test.md:1:1: [ERROR] This is an error\ntest.md:4:1: [ERROR] This is another error\n\n🔍 1 source linted\n🔴 Found 2 errors\n"
         );
     }
@@ -291,10 +269,9 @@ mod tests {
         let output = vec![output_1, output_2];
 
         let formatter = SimpleFormatter;
-        let mut result = Vec::new();
-        formatter.format(&output, &mut result).unwrap();
+        let result = formatter.format(&output).unwrap();
         assert_eq!(
-            String::from_utf8(result).unwrap(),
+            result,
             "test.md:1:1: [ERROR] This is an error\ntest.md:4:1: [ERROR] This is another error\ntest2.md:1:1: [ERROR] This is an error\ntest2.md:4:1: [ERROR] This is another error\n\n🔍 2 sources linted\n🔴 Found 4 errors\n"
         );
     }
