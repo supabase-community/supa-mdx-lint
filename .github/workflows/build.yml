@@ -41,7 +41,7 @@ jobs:
           DOCKER_TAG: ${{ matrix.container }}
 
       - run: mv target/${{ matrix.target }}/release/supa-mdx-lint supa-mdx-lint-Linux-${{ matrix.arch }}
-      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 #v4.6.0
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 #v4.6.1
         with:
           name: artifact-bin-linux-${{ matrix.arch }}
           path: supa-mdx-lint-Linux-${{ matrix.arch }}
@@ -69,7 +69,7 @@ jobs:
       - run: cargo build --all-features --target=${{ matrix.target }} --release --locked
 
       - run: mv target/${{ matrix.target }}/release/supa-mdx-lint supa-mdx-lint-Darwin-${{ matrix.arch }}
-      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 #v4.6.0
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 #v4.6.1
         with:
           name: artifact-bin-macos-${{ matrix.arch }}
           path: supa-mdx-lint-Darwin-${{ matrix.arch }}
@@ -89,7 +89,7 @@ jobs:
       - name: Link universal binary
         run: lipo -create -output supa-mdx-lint-Darwin-universal supa-mdx-lint-Darwin-x86_64 supa-mdx-lint-Darwin-arm64
 
-      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 #v4.6.0
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 #v4.6.1
         with:
           name: artifact-bin-macos-universal
           path: supa-mdx-lint-Darwin-universal
@@ -118,7 +118,7 @@ jobs:
 
       - run: mv target/${{ matrix.target }}/release/supa-mdx-lint.exe supa-mdx-lint-Windows-${{ matrix.arch }}.exe
 
-      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 #v4.6.0
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 #v4.6.1
         with:
           name: artifact-bin-windows-${{ matrix.arch }}
           path: supa-mdx-lint-Windows-${{ matrix.arch }}.exe
@@ -150,7 +150,7 @@ jobs:
       - run: npm pack
         working-directory: packages/supa-mdx-lint
 
-      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 #v4.6.0
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 #v4.6.1
         with:
           name: artifact-pkg-node
           path: "packages/supa-mdx-lint/*.tgz"
@@ -192,7 +192,7 @@ jobs:
           done
 
       - name: Upload packaged npm binary distributions
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 #v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 #v4.6.1
         with:
           name: artifact-npm-binary-distributions
           path: npm-binary-distributions/*/*.tgz
