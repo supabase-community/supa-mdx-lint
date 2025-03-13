@@ -9,7 +9,7 @@ use crate::{
     context::Context,
     fix::LintCorrection,
     geometry::{AdjustedPoint, AdjustedRange, DenormalizedLocation},
-    utils::Offsets,
+    internal::Offsets,
 };
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

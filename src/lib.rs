@@ -5,29 +5,29 @@ use rules::RuleFilter;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::{fs, io::Read};
-use utils::is_lintable;
+
+use crate::output::LintOutput;
+use crate::parser::parse;
 
 mod app_error;
 mod comments;
 mod config;
 mod context;
-pub mod errors;
-pub mod fix;
+mod errors;
 mod geometry;
-mod output;
 mod parser;
+mod utils;
+
+pub mod fix;
+pub mod output;
+#[doc(hidden)]
 pub mod rope;
 pub mod rules;
-pub mod utils;
 
-pub use crate::config::Config;
-pub use crate::errors::LintLevel;
-pub use crate::output::{
-    internal::NativeOutputFormatter, markdown::MarkdownFormatter, rdf::RdfFormatter,
-    simple::SimpleFormatter, LintOutput,
-};
-
-use crate::parser::parse;
+#[doc(inline)]
+pub use crate::config::{Config, ConfigDir};
+#[doc(inline)]
+pub use crate::errors::{LintError, LintLevel};
 
 #[derive(Debug)]
 pub struct Linter {
@@ -55,6 +55,14 @@ impl Linter {
             .setup(&mut this.config.rule_specific_settings)?;
 
         Ok(this)
+    }
+
+    pub fn is_lintable(&self, path: impl AsRef<Path>) -> bool {
+        self.config.is_lintable(path)
+    }
+
+    pub fn is_ignored(&self, path: impl AsRef<Path>) -> bool {
+        self.config.is_ignored(path)
     }
 
     pub fn lint(&self, input: &LintTarget) -> Result<Vec<LintOutput>> {
@@ -97,7 +105,7 @@ impl Linter {
         } else if path.is_dir() {
             let collected_vec = fs::read_dir(path)?
                 .filter_map(Result::ok)
-                .filter(|dir_entry| is_lintable(dir_entry.path()))
+                .filter(|dir_entry| self.is_lintable(dir_entry.path()))
                 .flat_map(|entry| {
                     self.lint_file_or_directory(&entry.path(), check_only_rules)
                         .unwrap_or_default()
@@ -142,6 +150,11 @@ impl Linter {
             Err(err) => Err(err),
         }
     }
+}
+
+#[doc(hidden)]
+pub mod internal {
+    pub use crate::geometry::Offsets;
 }
 
 #[cfg(test)]
