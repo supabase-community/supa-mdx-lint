@@ -374,6 +374,21 @@ impl RangeSet {
     }
 }
 
+pub trait Offsets {
+    fn start(&self) -> usize;
+    fn end(&self) -> usize;
+}
+
+impl<T: Offsets> Offsets for &T {
+    fn start(&self) -> usize {
+        (*self).start()
+    }
+
+    fn end(&self) -> usize {
+        (*self).end()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{AdjustedOffset, AdjustedPoint, AdjustedRange, DenormalizedLocation};

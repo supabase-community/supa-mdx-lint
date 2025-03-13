@@ -6,11 +6,10 @@ use dialoguer::{Confirm, Editor, Select};
 use miette::{miette, LabeledSpan, NamedSource, Severity};
 use owo_colors::OwoColorize;
 use supa_mdx_lint::{
-    errors::LintError,
     fix::LintCorrection,
+    internal::Offsets,
     rope::{Rope, RopeSlice},
-    utils::Offsets,
-    LintTarget, Linter,
+    LintError, LintTarget, Linter,
 };
 
 enum CorrectionStrategy {
@@ -123,9 +122,9 @@ impl<'a, 'b> InteractiveFixManager<'a, 'b> {
     pub fn run_relint_loop(&mut self) -> Result<()> {
         'relint: loop {
             let diagnostics = self.linter.lint(&LintTarget::String(
-                &self.curr_file.as_ref().unwrap().content.as_str(),
+                self.curr_file.as_ref().unwrap().content.as_str(),
             ))?;
-            match diagnostics.get(0) {
+            match diagnostics.first() {
                 Some(diagnostic) if !diagnostic.errors().is_empty() => {
                     self.curr_file.as_mut().unwrap().has_diagnostics = true;
                     for error in diagnostic.errors().iter() {
@@ -158,17 +157,11 @@ impl<'a, 'b> InteractiveFixManager<'a, 'b> {
     fn prompt_error(&mut self, error: &LintError) -> Result<Option<CorrectionStrategy>> {
         let pretty_error = self.pretty_error(
             error,
-            &self
-                .curr_file
-                .as_ref()
-                .unwrap()
-                .path
-                .to_string_lossy()
-                .to_string(),
+            &self.curr_file.as_ref().unwrap().path.to_string_lossy(),
             self.curr_file.as_ref().unwrap().content.clone(),
         );
 
-        let message = format!("\n\nError");
+        let message = "\n\nError";
         let suggestions_heading = "Suggestions"
             .bold()
             .underline()
@@ -261,7 +254,7 @@ impl<'a, 'b> InteractiveFixManager<'a, 'b> {
         rope: RopeSlice<'_>,
     ) -> Vec<(String, &'a LintCorrection)> {
         suggestions
-            .into_iter()
+            .iter()
             .map(|suggestion| (self.format_suggestion(suggestion, rope), *suggestion))
             .collect::<Vec<_>>()
     }

@@ -9,12 +9,10 @@ use crate::{
     app_error::AppError,
     context::Context,
     geometry::{AdjustedRange, DenormalizedLocation},
+    internal::Offsets,
     output::LintOutput,
     rope::Rope,
-    utils::{
-        words::{is_sentence_start, WordIterator},
-        Offsets,
-    },
+    utils::words::{is_sentence_start, WordIterator},
     Linter,
 };
 
@@ -37,6 +35,16 @@ pub struct LintCorrectionDelete {
     pub(crate) location: DenormalizedLocation,
 }
 
+impl Offsets for LintCorrectionDelete {
+    fn start(&self) -> usize {
+        self.location.offset_range.start.into()
+    }
+
+    fn end(&self) -> usize {
+        self.location.offset_range.end.into()
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub struct LintCorrectionReplace {
     pub(crate) location: DenormalizedLocation,
@@ -56,16 +64,6 @@ impl Offsets for LintCorrectionInsert {
 impl LintCorrectionInsert {
     pub fn text(&self) -> &str {
         &self.text
-    }
-}
-
-impl Offsets for LintCorrectionDelete {
-    fn start(&self) -> usize {
-        self.location.offset_range.start.into()
-    }
-
-    fn end(&self) -> usize {
-        self.location.offset_range.end.into()
     }
 }
 

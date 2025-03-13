@@ -15,7 +15,8 @@ use glob::glob;
 use log::{debug, error};
 use simplelog::{ColorChoice, Config as LogConfig, LevelFilter, TermLogger, TerminalMode};
 use supa_mdx_lint::{
-    utils::is_lintable, Config, LintLevel, LintOutput, LintTarget, Linter, NativeOutputFormatter,
+    output::{internal::NativeOutputFormatter, LintOutput},
+    Config, LintLevel, LintTarget, Linter,
 };
 
 mod cli;
@@ -91,10 +92,11 @@ fn setup_logging(args: &Args) -> Result<LevelFilter> {
 }
 
 #[builder]
-fn get_targets(
-    targets: &[String],
+fn get_targets<'targets>(
+    targets: &'targets [String],
+    linter: &Linter,
     #[builder(default = false)] expand_dirs: bool,
-) -> Result<Vec<LintTarget<'_>>> {
+) -> Result<Vec<LintTarget<'targets>>> {
     let mut all_targets = Vec::new();
 
     for target in targets.iter() {
@@ -102,7 +104,7 @@ fn get_targets(
         target
             .into_iter()
             .filter_map(|res| res.ok())
-            .filter(|path| is_lintable(path))
+            .filter(|path| linter.is_lintable(path))
             .map(LintTarget::FileOrDirectory)
             .for_each(|target| all_targets.push(target));
     }
@@ -122,7 +124,7 @@ fn get_targets(
                         for entry in std::fs::read_dir(path).context("Failed to read directory")? {
                             let entry = entry.context("Failed to get directory entry")?;
                             let path = entry.path();
-                            if is_lintable(&path) {
+                            if linter.is_lintable(&path) {
                                 all_targets.push(LintTarget::FileOrDirectory(path));
                             }
                         }
@@ -143,7 +145,7 @@ fn get_targets(
 }
 
 fn get_diagnostics(targets: &[String], linter: &Linter) -> Result<Vec<LintOutput>> {
-    let all_targets = get_targets().targets(targets).call()?;
+    let all_targets = get_targets().targets(targets).linter(linter).call()?;
     debug!("Lint targets: {targets:#?}");
 
     let mut diagnostics = Vec::new();
@@ -198,6 +200,7 @@ fn execute(args: Args) -> Result<Result<()>> {
             get_targets()
                 .targets(&args.target)
                 .expand_dirs(true)
+                .linter(&linter)
                 .call()?,
         )
         .run());

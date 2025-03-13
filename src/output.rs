@@ -17,7 +17,7 @@ pub struct LintOutput {
 }
 
 impl LintOutput {
-    pub fn new(file_path: impl AsRef<str>, errors: Vec<LintError>) -> Self {
+    pub(crate) fn new(file_path: impl AsRef<str>, errors: Vec<LintError>) -> Self {
         Self {
             file_path: file_path.as_ref().to_string(),
             errors,
@@ -34,9 +34,9 @@ impl LintOutput {
 }
 
 pub struct OutputSummary {
-    num_files: usize,
-    num_warnings: usize,
-    num_errors: usize,
+    pub num_files: usize,
+    pub num_warnings: usize,
+    pub num_errors: usize,
 }
 
 pub trait OutputFormatter: Send + Sync + std::fmt::Debug {
@@ -68,7 +68,7 @@ pub trait OutputFormatter: Send + Sync + std::fmt::Debug {
 }
 
 #[doc(hidden)]
-pub(crate) mod internal {
+pub mod internal {
     //! Contains internal implementations that are needed for the supa-mdx-lint
     //! binary. Should **not** be used by library users as API stability is
     //! not guaranteed.

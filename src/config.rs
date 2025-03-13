@@ -16,7 +16,17 @@ use crate::{
 const IGNORE_GLOBS_KEY: &str = "ignore_patterns";
 
 #[derive(Debug, Clone)]
-pub struct ConfigDir(pub Option<PathBuf>);
+pub struct ConfigDir(Option<PathBuf>);
+
+impl ConfigDir {
+    pub fn none() -> Self {
+        Self(None)
+    }
+
+    pub fn new(path: PathBuf) -> Self {
+        Self(Some(path))
+    }
+}
 
 #[derive(Debug)]
 pub struct Config {
@@ -211,7 +221,13 @@ impl Config {
         Ok((registry, rule_specific_settings, ignore_globs))
     }
 
-    pub fn is_ignored(&self, path: &Path) -> bool {
+    pub(crate) fn is_lintable(&self, path: impl AsRef<Path>) -> bool {
+        let path = path.as_ref();
+        path.is_dir() || path.extension().map_or(false, |ext| ext == "mdx")
+    }
+
+    pub(crate) fn is_ignored(&self, path: impl AsRef<Path>) -> bool {
+        let path = path.as_ref();
         let path = if path.is_relative() {
             let current_dir = env::current_dir().unwrap();
             &current_dir.join(path)
