@@ -14,7 +14,7 @@ use regex::Regex;
 use crate::{
     app_error::{MultiError, ParseError, ResultBoth},
     context::Context,
-    geometry::{AdjustedOffset, AdjustedPoint, DenormalizedLocation, MaybeEndedLineRange},
+    location::{AdjustedOffset, AdjustedPoint, DenormalizedLocation, MaybeEndedLineRange},
     parser::{CommentString, ParseResult},
     utils::mdast::{MaybePosition, VariantName},
 };

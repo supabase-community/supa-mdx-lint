@@ -14,7 +14,7 @@ mod comments;
 mod config;
 mod context;
 mod errors;
-mod geometry;
+pub mod location;
 mod parser;
 mod utils;
 
@@ -152,9 +152,9 @@ impl Linter {
     }
 }
 
-#[doc(hidden)]
-pub mod internal {
-    pub use crate::geometry::Offsets;
+mod private {
+    pub trait Sealed {}
+    impl<T: Sealed> Sealed for &T {}
 }
 
 #[cfg(test)]

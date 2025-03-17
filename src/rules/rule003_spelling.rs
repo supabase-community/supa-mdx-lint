@@ -18,7 +18,7 @@ use crate::{
     context::{Context, ContextId},
     errors::LintError,
     fix::{LintCorrection, LintCorrectionReplace},
-    geometry::{
+    location::{
         AdjustedOffset, AdjustedRange, DenormalizedLocation, MaybeEndedLineRange, RangeSet,
     },
     utils::{
@@ -524,7 +524,7 @@ impl Rule003Spelling {
 
 #[cfg(test)]
 mod tests {
-    use crate::{geometry::AdjustedOffset, parser::parse};
+    use crate::{location::AdjustedOffset, parser::parse};
 
     use super::*;
 

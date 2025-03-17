@@ -5,7 +5,7 @@ use serde::Serialize;
 use crate::{
     errors::LintLevel,
     fix::LintCorrection,
-    geometry::{AdjustedPoint, DenormalizedLocation},
+    location::{AdjustedPoint, DenormalizedLocation},
     output::OutputFormatter,
 };
 

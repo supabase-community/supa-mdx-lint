@@ -6,7 +6,7 @@ use log::debug;
 
 use crate::{
     comments::{ConfigurationCommentCollection, LintDisables, LintTimeRuleConfigs},
-    geometry::AdjustedOffset,
+    location::AdjustedOffset,
     parser::ParseResult,
     rope::Rope,
     rules::RuleFilter,

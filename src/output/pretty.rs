@@ -128,7 +128,7 @@ mod tests {
     use super::*;
     use crate::{
         errors::{LintError, LintLevel},
-        geometry::DenormalizedLocation,
+        location::DenormalizedLocation,
     };
 
     #[test]

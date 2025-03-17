@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     app_error::AppError,
     context::Context,
-    geometry::{AdjustedRange, DenormalizedLocation},
-    internal::Offsets,
+    location::{AdjustedRange, DenormalizedLocation, Offsets},
     output::LintOutput,
     rope::Rope,
     utils::words::{is_sentence_start, WordIterator},
@@ -35,6 +34,9 @@ pub struct LintCorrectionDelete {
     pub(crate) location: DenormalizedLocation,
 }
 
+// Required to implement sealed trait Offsets
+impl crate::private::Sealed for LintCorrectionDelete {}
+
 impl Offsets for LintCorrectionDelete {
     fn start(&self) -> usize {
         self.location.offset_range.start.into()
@@ -51,6 +53,9 @@ pub struct LintCorrectionReplace {
     pub(crate) text: String,
 }
 
+// Required to implement sealed trait Offsets
+impl crate::private::Sealed for LintCorrectionInsert {}
+
 impl Offsets for LintCorrectionInsert {
     fn start(&self) -> usize {
         self.location.offset_range.start.into()
@@ -66,6 +71,9 @@ impl LintCorrectionInsert {
         &self.text
     }
 }
+
+// Required to implement sealed trait Offsets
+impl crate::private::Sealed for LintCorrectionReplace {}
 
 impl Offsets for LintCorrectionReplace {
     fn start(&self) -> usize {

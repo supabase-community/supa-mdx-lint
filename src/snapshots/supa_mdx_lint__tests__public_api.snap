@@ -71,7 +71,7 @@ pub fn supa_mdx_lint::fix::LintCorrectionDelete::fmt(&self, f: &mut core::fmt::F
 impl core::marker::StructuralPartialEq for supa_mdx_lint::fix::LintCorrectionDelete
 impl serde::ser::Serialize for supa_mdx_lint::fix::LintCorrectionDelete
 pub fn supa_mdx_lint::fix::LintCorrectionDelete::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde::ser::Serializer>::Ok, <__S as serde::ser::Serializer>::Error> where __S: serde::ser::Serializer
-impl supa_mdx_lint::geometry::Offsets for supa_mdx_lint::fix::LintCorrectionDelete
+impl supa_mdx_lint::location::Offsets for supa_mdx_lint::fix::LintCorrectionDelete
 pub fn supa_mdx_lint::fix::LintCorrectionDelete::end(&self) -> usize
 pub fn supa_mdx_lint::fix::LintCorrectionDelete::start(&self) -> usize
 impl<'de> serde::de::Deserialize<'de> for supa_mdx_lint::fix::LintCorrectionDelete
@@ -123,7 +123,7 @@ pub fn supa_mdx_lint::fix::LintCorrectionInsert::fmt(&self, f: &mut core::fmt::F
 impl core::marker::StructuralPartialEq for supa_mdx_lint::fix::LintCorrectionInsert
 impl serde::ser::Serialize for supa_mdx_lint::fix::LintCorrectionInsert
 pub fn supa_mdx_lint::fix::LintCorrectionInsert::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde::ser::Serializer>::Ok, <__S as serde::ser::Serializer>::Error> where __S: serde::ser::Serializer
-impl supa_mdx_lint::geometry::Offsets for supa_mdx_lint::fix::LintCorrectionInsert
+impl supa_mdx_lint::location::Offsets for supa_mdx_lint::fix::LintCorrectionInsert
 pub fn supa_mdx_lint::fix::LintCorrectionInsert::end(&self) -> usize
 pub fn supa_mdx_lint::fix::LintCorrectionInsert::start(&self) -> usize
 impl<'de> serde::de::Deserialize<'de> for supa_mdx_lint::fix::LintCorrectionInsert
@@ -175,7 +175,7 @@ pub fn supa_mdx_lint::fix::LintCorrectionReplace::fmt(&self, f: &mut core::fmt::
 impl core::marker::StructuralPartialEq for supa_mdx_lint::fix::LintCorrectionReplace
 impl serde::ser::Serialize for supa_mdx_lint::fix::LintCorrectionReplace
 pub fn supa_mdx_lint::fix::LintCorrectionReplace::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde::ser::Serializer>::Ok, <__S as serde::ser::Serializer>::Error> where __S: serde::ser::Serializer
-impl supa_mdx_lint::geometry::Offsets for supa_mdx_lint::fix::LintCorrectionReplace
+impl supa_mdx_lint::location::Offsets for supa_mdx_lint::fix::LintCorrectionReplace
 pub fn supa_mdx_lint::fix::LintCorrectionReplace::end(&self) -> usize
 pub fn supa_mdx_lint::fix::LintCorrectionReplace::start(&self) -> usize
 impl<'de> serde::de::Deserialize<'de> for supa_mdx_lint::fix::LintCorrectionReplace
@@ -214,6 +214,25 @@ impl<T> core::convert::From<T> for supa_mdx_lint::fix::LintCorrectionReplace
 pub fn supa_mdx_lint::fix::LintCorrectionReplace::from(t: T) -> T
 impl<T> either::into_either::IntoEither for supa_mdx_lint::fix::LintCorrectionReplace
 impl<T> serde::de::DeserializeOwned for supa_mdx_lint::fix::LintCorrectionReplace where T: for<'de> serde::de::Deserialize<'de>
+pub mod supa_mdx_lint::location
+pub trait supa_mdx_lint::location::Offsets: supa_mdx_lint::private::Sealed
+pub fn supa_mdx_lint::location::Offsets::end(&self) -> usize
+pub fn supa_mdx_lint::location::Offsets::start(&self) -> usize
+impl supa_mdx_lint::location::Offsets for supa_mdx_lint::LintError
+pub fn supa_mdx_lint::LintError::end(&self) -> usize
+pub fn supa_mdx_lint::LintError::start(&self) -> usize
+impl supa_mdx_lint::location::Offsets for supa_mdx_lint::fix::LintCorrectionDelete
+pub fn supa_mdx_lint::fix::LintCorrectionDelete::end(&self) -> usize
+pub fn supa_mdx_lint::fix::LintCorrectionDelete::start(&self) -> usize
+impl supa_mdx_lint::location::Offsets for supa_mdx_lint::fix::LintCorrectionInsert
+pub fn supa_mdx_lint::fix::LintCorrectionInsert::end(&self) -> usize
+pub fn supa_mdx_lint::fix::LintCorrectionInsert::start(&self) -> usize
+impl supa_mdx_lint::location::Offsets for supa_mdx_lint::fix::LintCorrectionReplace
+pub fn supa_mdx_lint::fix::LintCorrectionReplace::end(&self) -> usize
+pub fn supa_mdx_lint::fix::LintCorrectionReplace::start(&self) -> usize
+impl<T: supa_mdx_lint::location::Offsets + supa_mdx_lint::private::Sealed> supa_mdx_lint::location::Offsets for &T
+pub fn &T::end(&self) -> usize
+pub fn &T::start(&self) -> usize
 pub mod supa_mdx_lint::output
 pub mod supa_mdx_lint::output::markdown
 pub struct supa_mdx_lint::output::markdown::MarkdownFormatter
@@ -691,7 +710,7 @@ impl core::fmt::Debug for supa_mdx_lint::LintError
 pub fn supa_mdx_lint::LintError::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl serde::ser::Serialize for supa_mdx_lint::LintError
 pub fn supa_mdx_lint::LintError::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde::ser::Serializer>::Ok, <__S as serde::ser::Serializer>::Error> where __S: serde::ser::Serializer
-impl supa_mdx_lint::geometry::Offsets for supa_mdx_lint::LintError
+impl supa_mdx_lint::location::Offsets for supa_mdx_lint::LintError
 pub fn supa_mdx_lint::LintError::end(&self) -> usize
 pub fn supa_mdx_lint::LintError::start(&self) -> usize
 impl<'de> serde::de::Deserialize<'de> for supa_mdx_lint::LintError

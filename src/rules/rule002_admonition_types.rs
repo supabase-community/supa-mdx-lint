@@ -6,7 +6,7 @@ use supa_mdx_macros::RuleName;
 use crate::{
     context::Context,
     errors::{LintError, LintLevel},
-    geometry::{AdjustedOffset, AdjustedRange, DenormalizedLocation},
+    location::{AdjustedOffset, AdjustedRange, DenormalizedLocation},
 };
 
 use super::{Rule, RuleName, RuleSettings};
