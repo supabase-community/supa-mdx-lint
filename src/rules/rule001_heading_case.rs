@@ -10,7 +10,7 @@ use crate::{
     context::Context,
     errors::{LintError, LintLevel},
     fix::{LintCorrection, LintCorrectionReplace},
-    geometry::{AdjustedOffset, AdjustedRange, DenormalizedLocation},
+    location::{AdjustedOffset, AdjustedRange, DenormalizedLocation},
     utils::{
         mdast::HasChildren,
         words::{Capitalize, CapitalizeTriggerPunctuation, WordIterator, WordIteratorOptions},

@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use log::{debug, trace};
 use markdown::{mdast::Node, to_mdast, Constructs, ParseOptions};
 
-use crate::{geometry::AdjustedOffset, rope::Rope};
+use crate::{location::AdjustedOffset, rope::Rope};
 
 type Frontmatter = Box<dyn Any>;
 

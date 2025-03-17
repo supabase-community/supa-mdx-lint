@@ -184,7 +184,7 @@ mod tests {
     use crate::{
         errors::{LintError, LintLevel},
         fix::{LintCorrectionDelete, LintCorrectionInsert, LintCorrectionReplace},
-        geometry::DenormalizedLocation,
+        location::DenormalizedLocation,
     };
 
     #[builder]

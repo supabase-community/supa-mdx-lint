@@ -7,7 +7,7 @@ use miette::{miette, LabeledSpan, NamedSource, Severity};
 use owo_colors::OwoColorize;
 use supa_mdx_lint::{
     fix::LintCorrection,
-    internal::Offsets,
+    location::Offsets,
     rope::{Rope, RopeSlice},
     LintError, LintTarget, Linter,
 };

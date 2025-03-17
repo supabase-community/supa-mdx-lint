@@ -9,7 +9,7 @@ use crate::rope::Rope;
 
 /// An offset in the source document, accounting for frontmatter lines.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Deserialize, Serialize)]
-pub struct AdjustedOffset(usize);
+pub(crate) struct AdjustedOffset(usize);
 
 impl Deref for AdjustedOffset {
     type Target = usize;
@@ -89,7 +89,7 @@ impl AdjustedOffset {
 
 /// An offset in the source document, not accounting for frontmatter lines.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Deserialize, Serialize)]
-pub struct UnadjustedOffset(usize);
+pub(crate) struct UnadjustedOffset(usize);
 
 impl Deref for UnadjustedOffset {
     type Target = usize;
@@ -131,7 +131,7 @@ impl From<&markdown::unist::Point> for UnadjustedOffset {
 
 /// A point in the source document, accounting for frontmatter lines.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct AdjustedPoint {
+pub(crate) struct AdjustedPoint {
     pub row: usize,
     pub column: usize,
 }
@@ -162,7 +162,7 @@ impl AdjustedPoint {
 /// A range in the source document, accounting for frontmatter lines.
 /// The start point is inclusive, the end point is exclusive.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct AdjustedRange(Range<AdjustedOffset>);
+pub(crate) struct AdjustedRange(Range<AdjustedOffset>);
 
 impl Deref for AdjustedRange {
     type Target = Range<AdjustedOffset>;
@@ -228,7 +228,7 @@ impl AdjustedRange {
 
     // Helper method to avoid having to call the ridiculous
     // `Into::<Range<usize>>::into` in many places.
-    pub fn to_usize_range(&self) -> Range<usize> {
+    pub(crate) fn to_usize_range(&self) -> Range<usize> {
         Into::<Range<usize>>::into(self)
     }
 }
@@ -251,11 +251,11 @@ impl DerefMut for MaybeEndedLineRange {
 }
 
 impl MaybeEndedLineRange {
-    pub fn new(start: usize, end: Option<usize>) -> Self {
+    pub(crate) fn new(start: usize, end: Option<usize>) -> Self {
         Self(MaybeEndedRange { start, end })
     }
 
-    pub fn overlaps_lines(&self, range: &AdjustedRange, rope: &Rope) -> bool {
+    pub(crate) fn overlaps_lines(&self, range: &AdjustedRange, rope: &Rope) -> bool {
         let range_start_line = AdjustedPoint::from_adjusted_offset(&range.start, rope).row;
         let range_end_line = AdjustedPoint::from_adjusted_offset(&range.end, rope).row;
         self.start <= range_start_line && self.end.map_or(true, |end| end > range_start_line)
@@ -288,7 +288,7 @@ impl<T: Ord> MaybeEndedRange<T> {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
-pub struct DenormalizedLocation {
+pub(crate) struct DenormalizedLocation {
     pub offset_range: AdjustedRange,
     pub start: AdjustedPoint,
     pub end: AdjustedPoint,
@@ -374,12 +374,12 @@ impl RangeSet {
     }
 }
 
-pub trait Offsets {
+pub trait Offsets: crate::private::Sealed {
     fn start(&self) -> usize;
     fn end(&self) -> usize;
 }
 
-impl<T: Offsets> Offsets for &T {
+impl<T: Offsets + crate::private::Sealed> Offsets for &T {
     fn start(&self) -> usize {
         (*self).start()
     }

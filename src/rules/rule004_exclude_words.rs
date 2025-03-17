@@ -17,7 +17,7 @@ use crate::{
     context::Context,
     errors::LintError,
     fix::LintCorrection,
-    geometry::{AdjustedRange, DenormalizedLocation},
+    location::{AdjustedRange, DenormalizedLocation},
     rope::Rope,
     utils::words::{
         extras::{WordIteratorExtension, WordIteratorPrefix},
@@ -785,7 +785,7 @@ fn substitute_format_string(s: String, word: RopeSlice<'_>, replacement: Option<
 mod tests {
     use crate::{
         fix::LintCorrectionReplace,
-        geometry::AdjustedOffset,
+        location::AdjustedOffset,
         parser::{parse, ParseResult},
     };
 

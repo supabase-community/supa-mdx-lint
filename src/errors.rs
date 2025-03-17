@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     context::Context,
     fix::LintCorrection,
-    geometry::{AdjustedPoint, AdjustedRange, DenormalizedLocation},
-    internal::Offsets,
+    location::{AdjustedPoint, AdjustedRange, DenormalizedLocation, Offsets},
 };
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -51,6 +50,9 @@ pub struct LintError {
     pub(crate) fix: Option<Vec<LintCorrection>>,
     pub(crate) suggestions: Option<Vec<LintCorrection>>,
 }
+
+// Required to implement sealed trait Offsets
+impl crate::private::Sealed for LintError {}
 
 impl Offsets for LintError {
     fn start(&self) -> usize {
