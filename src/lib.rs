@@ -25,13 +25,19 @@ pub mod rope;
 pub mod rules;
 
 #[doc(inline)]
-pub use crate::config::{Config, ConfigDir};
+pub use crate::config::{Config, ConfigDir, ConfigMetadata};
 #[doc(inline)]
 pub use crate::errors::{LintError, LintLevel};
 
 #[derive(Debug)]
+pub struct PhaseSetup;
+
+#[derive(Debug)]
+pub struct PhaseReady;
+
+#[derive(Debug)]
 pub struct Linter {
-    config: Config,
+    config: Config<PhaseReady>,
 }
 
 #[derive(Debug)]
@@ -45,16 +51,14 @@ struct LintSourceReference<'reference>(Option<&'reference Path>);
 #[bon]
 impl Linter {
     #[builder]
-    pub fn new(config: Option<Config>) -> Result<Self> {
-        let mut this = Self {
-            config: config.unwrap_or_default(),
-        };
+    pub fn new(config: Option<Config<PhaseSetup>>) -> Result<Self> {
+        Ok(Self {
+            config: config.unwrap_or_default().try_into()?,
+        })
+    }
 
-        this.config
-            .rule_registry
-            .setup(&mut this.config.rule_specific_settings)?;
-
-        Ok(this)
+    pub fn config_metadata(&self) -> ConfigMetadata {
+        (&self.config).into()
     }
 
     pub fn is_lintable(&self, path: impl AsRef<Path>) -> bool {
