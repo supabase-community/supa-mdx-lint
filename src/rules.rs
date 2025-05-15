@@ -3,7 +3,7 @@ use log::{debug, warn};
 use markdown::mdast::Node;
 use regex::Regex;
 use serde::Deserialize;
-use std::{collections::HashMap, fmt::Debug};
+use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 
 #[cfg(test)]
 use serde::Serialize;
@@ -11,6 +11,7 @@ use serde::Serialize;
 use crate::{
     context::Context,
     errors::{LintError, LintLevel},
+    PhaseReady, PhaseSetup,
 };
 
 mod rule001_heading_case;
@@ -211,80 +212,47 @@ impl RuleSettings {
 pub(crate) type RuleFilter<'filter> = Option<&'filter [&'filter str]>;
 
 #[derive(Debug)]
-pub(crate) struct RuleRegistry {
-    state: RuleRegistryState,
+pub(crate) struct RuleRegistry<Phase> {
+    _phase: PhantomData<Phase>,
     rules: Vec<Box<dyn Rule>>,
     configured_levels: HashMap<String, LintLevel>,
 }
 
-#[derive(Debug)]
-enum RuleRegistryState {
-    PreSetup,
-    Ready,
-}
-
-impl RuleRegistry {
+impl RuleRegistry<PhaseSetup> {
     pub fn new() -> Self {
         Self {
-            state: RuleRegistryState::PreSetup,
+            _phase: PhantomData,
             rules: get_all_rules(),
             configured_levels: Default::default(),
         }
-    }
-
-    pub fn is_valid_rule(&self, rule_name: &str) -> bool {
-        self.rules.iter().any(|rule| rule.name() == rule_name)
-    }
-
-    pub fn deactivate_rule(&mut self, rule_name: &str) {
-        self.rules.retain(|rule| rule.name() != rule_name);
     }
 
     pub fn save_configured_level(&mut self, rule_name: &str, level: LintLevel) {
         self.configured_levels.insert(rule_name.to_string(), level);
     }
 
-    pub fn get_configured_level(&self, rule_name: &str) -> Option<LintLevel> {
-        self.configured_levels.get(rule_name).cloned()
-    }
-
-    #[cfg(test)]
-    pub fn is_rule_active(&self, rule_name: &str) -> bool {
-        self.rules.iter().any(|rule| rule.name() == rule_name)
-    }
-
-    #[cfg(test)]
-    pub fn deactivate_all_but(&mut self, rule_name: &str) {
-        self.rules.retain(|rule| rule.name() == rule_name)
-    }
-
-    pub fn setup(&mut self, settings: &mut HashMap<String, RuleSettings>) -> Result<()> {
-        match self.state {
-            RuleRegistryState::PreSetup => {
-                for rule in &mut self.rules {
-                    let rule_settings = settings.get_mut(rule.name());
-                    rule.setup(rule_settings);
-                }
-                self.state = RuleRegistryState::Ready;
-                Ok(())
-            }
-            RuleRegistryState::Ready => Err(anyhow::anyhow!(
-                "Cannot set up rule registry if it is already set up"
-            )),
+    pub fn setup(
+        mut self,
+        settings: &mut HashMap<String, RuleSettings>,
+    ) -> Result<RuleRegistry<PhaseReady>> {
+        for rule in &mut self.rules {
+            let rule_settings = settings.get_mut(rule.name());
+            rule.setup(rule_settings);
         }
-    }
 
+        Ok(RuleRegistry {
+            _phase: PhantomData,
+            rules: self.rules,
+            configured_levels: self.configured_levels,
+        })
+    }
+}
+
+impl RuleRegistry<PhaseReady> {
     pub fn run(&self, context: &Context) -> Result<Vec<LintError>> {
-        match self.state {
-            RuleRegistryState::PreSetup => Err(anyhow::anyhow!(
-                "Cannot run rule registry in pre-setup state"
-            )),
-            RuleRegistryState::Ready => {
-                let mut errors = Vec::new();
-                self.check_node(context.parse_result.ast(), context, &mut errors);
-                Ok(errors)
-            }
-        }
+        let mut errors = Vec::new();
+        self.check_node(context.parse_result.ast(), context, &mut errors);
+        Ok(errors)
     }
 
     fn check_node(&self, ast: &Node, context: &Context, errors: &mut Vec<LintError>) {
@@ -315,6 +283,30 @@ impl RuleRegistry {
                 self.check_node(child, context, errors);
             }
         }
+    }
+}
+
+impl<State> RuleRegistry<State> {
+    pub fn is_valid_rule(&self, rule_name: &str) -> bool {
+        self.rules.iter().any(|rule| rule.name() == rule_name)
+    }
+
+    pub fn deactivate_rule(&mut self, rule_name: &str) {
+        self.rules.retain(|rule| rule.name() != rule_name);
+    }
+
+    pub fn get_configured_level(&self, rule_name: &str) -> Option<LintLevel> {
+        self.configured_levels.get(rule_name).cloned()
+    }
+
+    #[cfg(test)]
+    pub fn is_rule_active(&self, rule_name: &str) -> bool {
+        self.rules.iter().any(|rule| rule.name() == rule_name)
+    }
+
+    #[cfg(test)]
+    pub fn deactivate_all_but(&mut self, rule_name: &str) {
+        self.rules.retain(|rule| rule.name() == rule_name)
     }
 }
 
@@ -381,7 +373,7 @@ mod tests {
         let check_count_2 = mock_rule_2.check_count.clone();
 
         let registry = RuleRegistry {
-            state: RuleRegistryState::Ready,
+            _phase: PhantomData,
             rules: vec![Box::new(mock_rule_1), Box::new(mock_rule_2)],
             configured_levels: Default::default(),
         };
@@ -409,7 +401,7 @@ mod tests {
         let check_count_2 = mock_rule_2.check_count.clone();
 
         let registry = RuleRegistry {
-            state: RuleRegistryState::Ready,
+            _phase: PhantomData,
             rules: vec![Box::new(mock_rule_1), Box::new(mock_rule_2)],
             configured_levels: Default::default(),
         };

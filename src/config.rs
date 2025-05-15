@@ -1,8 +1,9 @@
 use anyhow::Result;
+use bon::bon;
 use glob::{MatchOptions, Pattern};
 use log::{debug, error, warn};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{hash_map, HashMap, HashSet},
     env,
     path::{Path, PathBuf},
 };
@@ -10,13 +11,17 @@ use std::{
 use crate::{
     errors::LintLevel,
     rules::{RuleRegistry, RuleSettings},
-    utils::path::{normalize_path, IsGlob},
+    utils::{
+        path::{normalize_path, IsGlob},
+        path_relative_from,
+    },
+    PhaseReady, PhaseSetup,
 };
 
 const IGNORE_GLOBS_KEY: &str = "ignore_patterns";
 
 #[derive(Debug, Clone)]
-pub struct ConfigDir(Option<PathBuf>);
+pub struct ConfigDir(pub Option<PathBuf>);
 
 impl ConfigDir {
     pub fn none() -> Self {
@@ -28,25 +33,63 @@ impl ConfigDir {
     }
 }
 
-#[derive(Debug)]
-pub struct Config {
-    pub(crate) rule_registry: RuleRegistry,
-    pub(crate) rule_specific_settings: HashMap<String, RuleSettings>,
-    /// A list of globs to ignore.
-    ignore_globs: HashSet<Pattern>,
-}
+#[derive(Debug, Default)]
+pub struct ConfigFileLocations(Option<HashMap<String, String>>);
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            rule_registry: RuleRegistry::new(),
-            rule_specific_settings: HashMap::new(),
-            ignore_globs: HashSet::new(),
+impl ConfigFileLocations {
+    fn insert(&mut self, key: &str, value: &Path) {
+        let map = self.0.get_or_insert_with(HashMap::new);
+        if !map.contains_key(key) {
+            map.insert(
+                key.to_string(),
+                std::fs::canonicalize(value)
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .unwrap_or(value.to_string_lossy().into_owned()),
+            );
+        }
+    }
+
+    fn iter(&self) -> ConfigFileLocationsIterator {
+        ConfigFileLocationsIterator {
+            inner: self.0.as_ref().map(|map| map.iter()),
         }
     }
 }
 
-impl Config {
+struct ConfigFileLocationsIterator<'a> {
+    inner: Option<hash_map::Iter<'a, String, String>>,
+}
+
+impl<'a> Iterator for ConfigFileLocationsIterator<'a> {
+    type Item = (&'a String, &'a String);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.as_mut().and_then(|iter| iter.next())
+    }
+}
+
+#[derive(Debug)]
+pub struct Config<Phase> {
+    pub(crate) rule_registry: RuleRegistry<Phase>,
+    pub(crate) rule_specific_settings: HashMap<String, RuleSettings>,
+    /// A list of globs to ignore.
+    ignore_globs: HashSet<Pattern>,
+    config_file_locations: ConfigFileLocations,
+}
+
+impl Default for Config<PhaseSetup> {
+    fn default() -> Self {
+        Self {
+            rule_registry: RuleRegistry::<PhaseSetup>::new(),
+            rule_specific_settings: HashMap::new(),
+            ignore_globs: HashSet::new(),
+            config_file_locations: ConfigFileLocations(None),
+        }
+    }
+}
+
+#[bon]
+impl Config<PhaseSetup> {
     /// Read the rule configuration from a TOML file.
     ///
     /// The configuration file is a TOML file that contains a table of rule
@@ -75,7 +118,8 @@ impl Config {
     /// Rule003NotApplied = false
     /// ```
     pub fn from_config_file<P: AsRef<Path>>(config_file: P) -> Result<Self> {
-        let config_path = config_file.as_ref().to_path_buf();
+        let config_file = config_file.as_ref();
+        let config_path = config_file.to_path_buf();
         let config_dir = config_path.parent().ok_or_else(|| {
             anyhow::anyhow!("Unable to determine parent directory of config file: {config_path:?}")
         })?;
@@ -83,16 +127,37 @@ impl Config {
         let config_content = std::fs::read_to_string(&config_path)
             .inspect_err(|_| error!("Failed to read config file at {config_path:?}"))?;
         let table: toml::Table = toml::from_str(&config_content)?;
-        let parsed = Self::process_includes(&table, config_dir).inspect_err(|_| {
-            error!("Failed to parse config");
-            debug!("Config file content:\n\t{config_content}")
-        })?;
+
+        let mut file_locations = ConfigFileLocations::default();
+
+        let parsed = Self::process_includes()
+            .table(&table)
+            .file_locations(&mut file_locations)
+            .base_dir(config_dir)
+            .current_file(config_file)
+            .is_top_level(true)
+            .call()
+            .inspect_err(|_| {
+                error!("Failed to parse config");
+                debug!("Config file content:\n\t{config_content}")
+            })?;
 
         let config_dir = ConfigDir(Some(config_dir.to_path_buf()));
-        Self::from_serializable(parsed, &config_dir)
+        Self::from_serializable()
+            .config(parsed)
+            .config_dir(&config_dir)
+            .config_file_locations(file_locations)
+            .call()
     }
 
-    fn process_includes(table: &toml::Table, base_dir: &Path) -> Result<toml::Table> {
+    #[builder]
+    fn process_includes(
+        table: &toml::Table,
+        file_locations: &mut ConfigFileLocations,
+        base_dir: &Path,
+        current_file: &Path,
+        #[builder(default)] is_top_level: bool,
+    ) -> Result<toml::Table> {
         let mut processed_table = toml::Table::new();
 
         for (key, value) in table {
@@ -109,19 +174,45 @@ impl Config {
                             e
                         )
                     })?;
+
+                    file_locations.insert(key, include_path.as_path());
+
                     let table: toml::Table = toml::from_str(&include_content)?;
-                    toml::Value::Table(Self::process_includes(&table, base_dir).map_err(|e| {
-                        anyhow::anyhow!(
-                            "Failed to parse include file from path {:?}: {}",
-                            include_path,
-                            e
-                        )
-                    })?)
+                    toml::Value::Table(
+                        Self::process_includes()
+                            .table(&table)
+                            .file_locations(file_locations)
+                            .base_dir(base_dir)
+                            .current_file(include_path.as_path())
+                            .call()
+                            .map_err(|e| {
+                                anyhow::anyhow!(
+                                    "Failed to parse include file from path {:?}: {}",
+                                    include_path,
+                                    e
+                                )
+                            })?,
+                    )
                 }
                 toml::Value::Table(table) => {
-                    toml::Value::Table(Self::process_includes(table, base_dir)?)
+                    if is_top_level {
+                        file_locations.insert(key, current_file);
+                    }
+                    toml::Value::Table(
+                        Self::process_includes()
+                            .table(table)
+                            .file_locations(file_locations)
+                            .base_dir(base_dir)
+                            .current_file(current_file)
+                            .call()?,
+                    )
                 }
-                _ => value.clone(),
+                _ => {
+                    if is_top_level {
+                        file_locations.insert(key, current_file);
+                    }
+                    value.clone()
+                }
             };
 
             processed_table.insert(key.clone(), processed_value);
@@ -130,9 +221,12 @@ impl Config {
         Ok(processed_table)
     }
 
+    #[builder]
     pub fn from_serializable<T: serde::Serialize>(
         config: T,
         config_dir: &ConfigDir,
+        #[builder(default = ConfigFileLocations::default())]
+        config_file_locations: ConfigFileLocations,
     ) -> Result<Self> {
         let registry = RuleRegistry::new();
         let value = toml::Value::try_from(config)?;
@@ -145,6 +239,7 @@ impl Config {
             rule_registry: registry,
             rule_specific_settings: rule_settings,
             ignore_globs,
+            config_file_locations,
         })
     }
 
@@ -157,12 +252,13 @@ impl Config {
         }
     }
 
+    #[allow(clippy::type_complexity)]
     fn process_config_table(
-        mut registry: RuleRegistry,
+        mut registry: RuleRegistry<PhaseSetup>,
         table: toml::Table,
         config_dir: &ConfigDir,
     ) -> Result<(
-        RuleRegistry,
+        RuleRegistry<PhaseSetup>,
         HashMap<String, RuleSettings>,
         HashSet<Pattern>,
     )> {
@@ -220,7 +316,25 @@ impl Config {
 
         Ok((registry, rule_specific_settings, ignore_globs))
     }
+}
 
+impl TryFrom<Config<PhaseSetup>> for Config<PhaseReady> {
+    type Error = anyhow::Error;
+
+    fn try_from(mut old_config: Config<PhaseSetup>) -> Result<Self> {
+        let ready_registry = old_config
+            .rule_registry
+            .setup(&mut old_config.rule_specific_settings)?;
+        Ok(Self {
+            rule_registry: ready_registry,
+            rule_specific_settings: old_config.rule_specific_settings,
+            ignore_globs: old_config.ignore_globs,
+            config_file_locations: old_config.config_file_locations,
+        })
+    }
+}
+
+impl<RuleRegistryState> Config<RuleRegistryState> {
     pub(crate) fn is_lintable(&self, path: impl AsRef<Path>) -> bool {
         let path = path.as_ref();
         path.is_dir() || path.extension().map_or(false, |ext| ext == "mdx")
@@ -255,6 +369,33 @@ impl Config {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct ConfigMetadata {
+    pub config_file_locations: Option<HashMap<String, String>>,
+}
+
+impl From<&Config<PhaseReady>> for ConfigMetadata {
+    fn from(config: &Config<PhaseReady>) -> Self {
+        let current_directory = std::env::current_dir().unwrap();
+
+        let locations = &config.config_file_locations;
+        let mut map: Option<HashMap<String, String>> = None;
+
+        locations.iter().for_each(|(key, value)| {
+            let normalized_path = PathBuf::from(value);
+            let normalized_path =
+                path_relative_from(normalized_path.as_path(), current_directory.as_path())
+                    .unwrap_or(normalized_path);
+            map.get_or_insert_with(HashMap::new)
+                .insert(key.clone(), normalized_path.to_string_lossy().to_string());
+        });
+
+        Self {
+            config_file_locations: map,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -265,6 +406,7 @@ mod tests {
     use tempfile::NamedTempFile;
 
     const VALID_RULE_NAME: &str = "Rule001HeadingCase";
+    const VALID_RULE_NAME_2: &str = "Rule003Spelling";
 
     fn create_temp_config_file(content: &str) -> NamedTempFile {
         let file = NamedTempFile::new().unwrap();
@@ -346,7 +488,11 @@ option2 = "value"
                 "option2": "value"
             },
         });
-        let config = Config::from_serializable(config_json, &ConfigDir(None)).unwrap();
+        let config = Config::from_serializable()
+            .config(config_json)
+            .config_dir(&ConfigDir(None))
+            .call()
+            .unwrap();
         assert!(config.rule_specific_settings.contains_key(VALID_RULE_NAME));
         assert!(config.rule_registry.is_rule_active(VALID_RULE_NAME));
     }
@@ -356,13 +502,129 @@ option2 = "value"
         let config_json = json!({
             VALID_RULE_NAME: false
         });
-        let config = Config::from_serializable(config_json, &ConfigDir(None)).unwrap();
+        let config = Config::from_serializable()
+            .config(config_json)
+            .config_dir(&ConfigDir(None))
+            .call()
+            .unwrap();
         assert!(!config.rule_registry.is_rule_active(VALID_RULE_NAME));
     }
 
     #[test]
     fn test_from_serializable_invalid() {
         let invalid_config = vec![1, 2, 3]; // Not a table/object
-        assert!(Config::from_serializable(invalid_config, &ConfigDir(None)).is_err());
+        assert!(Config::from_serializable()
+            .config(invalid_config)
+            .config_dir(&ConfigDir(None))
+            .call()
+            .is_err());
+    }
+
+    #[test]
+    fn test_config_tracks_file_locations_single_file() {
+        let content = format!(
+            r#"
+    [{VALID_RULE_NAME}]
+    option1 = true
+    option2 = "value"
+    "#
+        );
+        let file = create_temp_config_file(&content);
+        let config = Config::from_config_file(file.path()).unwrap();
+
+        let metadata = ConfigMetadata::from(&Config::try_from(config).unwrap());
+        let locations = metadata.config_file_locations.unwrap();
+
+        assert!(locations.len() == 1);
+        assert!(locations.get(VALID_RULE_NAME).is_some());
+    }
+
+    #[test]
+    fn test_config_tracks_file_locations_with_includes() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        // Create include file
+        let included_content = r#"
+    option1 = true
+    option2 = "value"
+    "#;
+        let included_path = temp_dir.path().join("rule_settings.toml");
+        fs::write(&included_path, included_content).unwrap();
+
+        // Create main config that includes the above file
+        let main_content = format!(
+            r#"
+    {VALID_RULE_NAME} = "include('rule_settings.toml')"
+
+    [{VALID_RULE_NAME_2}]
+    option3 = false
+    "#
+        );
+        let main_config_path = temp_dir.path().join("config.toml");
+        fs::write(&main_config_path, &main_content).unwrap();
+
+        let config = Config::from_config_file(&main_config_path).unwrap();
+        let metadata = ConfigMetadata::from(&Config::try_from(config).unwrap());
+        let locations = metadata.config_file_locations.unwrap();
+
+        assert!(locations.len() == 2);
+        assert!(locations
+            .get(VALID_RULE_NAME)
+            .unwrap()
+            .contains("rule_settings.toml"));
+        assert!(locations
+            .get(VALID_RULE_NAME_2)
+            .unwrap()
+            .contains("config.toml"));
+    }
+
+    #[test]
+    // Known bug where the relative path calculation doesn't work on Windows
+    #[cfg(not(target_os = "windows"))]
+    fn test_config_locations_normalized() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let original_dir = env::current_dir().unwrap();
+
+        // Create a nested directory structure
+        let project_dir = temp_dir.path().join("project");
+        let config_dir = project_dir.join("configs");
+        let rules_dir = project_dir.join("rules");
+        fs::create_dir_all(&config_dir).unwrap();
+        fs::create_dir_all(&rules_dir).unwrap();
+
+        // Create rule config in rules directory
+        let rule_content = r#"
+    option1 = true
+    option2 = "value"
+    "#;
+        let rule_path = rules_dir.join("rule_config.toml");
+        fs::write(&rule_path, rule_content).unwrap();
+
+        // Create main config that includes the rule file
+        let main_content = format!(
+            r#"
+    {VALID_RULE_NAME} = "include('../rules/rule_config.toml')"
+
+    [{VALID_RULE_NAME_2}]
+    option3 = false
+    "#
+        );
+        let main_config_path = config_dir.join("main.toml");
+        fs::write(&main_config_path, &main_content).unwrap();
+
+        // Change current directory to the project root
+        env::set_current_dir(&project_dir).unwrap();
+
+        // Parse config
+        let config = Config::from_config_file(&main_config_path).unwrap();
+        let metadata = ConfigMetadata::from(&Config::try_from(config).unwrap());
+        let locations = metadata.config_file_locations.unwrap();
+
+        assert!(locations.len() == 2);
+        assert!(locations.get(VALID_RULE_NAME).unwrap() == "rules/rule_config.toml");
+        assert!(locations.get(VALID_RULE_NAME_2).unwrap() == "configs/main.toml");
+
+        // Restore original directory
+        env::set_current_dir(original_dir).unwrap();
     }
 }

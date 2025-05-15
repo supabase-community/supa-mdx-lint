@@ -1,9 +1,9 @@
-use std::fs;
+use std::{fmt::Write, fs};
 
 use anyhow::Result;
 use miette::{miette, LabeledSpan, NamedSource, Severity};
 
-use crate::{errors::LintLevel, output::OutputFormatter};
+use crate::{errors::LintLevel, output::OutputFormatter, ConfigMetadata};
 
 use super::{LintOutput, OutputSummary};
 
@@ -33,7 +33,7 @@ impl OutputFormatter for PrettyFormatter {
         true
     }
 
-    fn format(&self, output: &[LintOutput]) -> Result<String> {
+    fn format(&self, output: &[LintOutput], metadata: &ConfigMetadata) -> Result<String> {
         let mut result = String::new();
         // Whether anything has been written to the result, used to determine
         // whether to write a newline before each section.
@@ -56,7 +56,15 @@ impl OutputFormatter for PrettyFormatter {
                 }
 
                 let severity: Severity = error.level.into();
-                let message = error.message.clone();
+                let mut message = String::new();
+                writeln!(message, "[{}] {}", error.rule, error.message.clone())?;
+                if let Some(config_file_location) = metadata
+                    .config_file_locations
+                    .as_ref()
+                    .and_then(|locations| locations.get(&error.rule))
+                {
+                    writeln!(message, "  (configure rule at {})", config_file_location)?;
+                }
 
                 let error = miette!(
                     severity = severity,
@@ -152,7 +160,9 @@ mod tests {
         let output = vec![output];
 
         let formatter = PrettyFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
 
         assert!(result.contains("test.md"));
         assert!(result.contains("This is an error"));
@@ -170,7 +180,9 @@ mod tests {
         let output = vec![output];
 
         let formatter = PrettyFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
 
         assert!(result.contains("1 source"));
         assert!(result.contains("No errors"));
@@ -203,7 +215,9 @@ mod tests {
         let output = vec![output];
 
         let formatter = PrettyFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
 
         assert!(result.contains("This is an error"));
         assert!(result.contains("This is another error"));
@@ -240,7 +254,9 @@ mod tests {
         let output = vec![output_1, output_2];
 
         let formatter = PrettyFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
 
         assert!(result.contains("test.md"));
         assert!(result.contains("test2.md"));

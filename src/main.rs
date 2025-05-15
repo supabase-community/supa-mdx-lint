@@ -231,7 +231,9 @@ fn execute(args: Args) -> Result<Result<()>> {
     }
 
     if !args.silent {
-        let output = args.format.format(&diagnostics)?;
+        let output = args
+            .format
+            .format(&diagnostics, &linter.config_metadata())?;
         write!(stdout, "{}", output)?;
         if args.format.should_log_metadata() {
             let millis = start.elapsed().as_millis();

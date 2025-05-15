@@ -241,7 +241,7 @@ pub fn supa_mdx_lint::output::markdown::MarkdownFormatter::clone(&self) -> supa_
 impl core::fmt::Debug for supa_mdx_lint::output::markdown::MarkdownFormatter
 pub fn supa_mdx_lint::output::markdown::MarkdownFormatter::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl supa_mdx_lint::output::OutputFormatter for supa_mdx_lint::output::markdown::MarkdownFormatter
-pub fn supa_mdx_lint::output::markdown::MarkdownFormatter::format(&self, output: &[supa_mdx_lint::output::LintOutput]) -> anyhow::Result<alloc::string::String>
+pub fn supa_mdx_lint::output::markdown::MarkdownFormatter::format(&self, output: &[supa_mdx_lint::output::LintOutput], metadata: &supa_mdx_lint::ConfigMetadata) -> anyhow::Result<alloc::string::String>
 pub fn supa_mdx_lint::output::markdown::MarkdownFormatter::id(&self) -> &'static str
 pub fn supa_mdx_lint::output::markdown::MarkdownFormatter::should_log_metadata(&self) -> bool
 impl core::marker::Freeze for supa_mdx_lint::output::markdown::MarkdownFormatter
@@ -280,7 +280,7 @@ pub fn supa_mdx_lint::output::rdf::RdfFormatter::clone(&self) -> supa_mdx_lint::
 impl core::fmt::Debug for supa_mdx_lint::output::rdf::RdfFormatter
 pub fn supa_mdx_lint::output::rdf::RdfFormatter::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl supa_mdx_lint::output::OutputFormatter for supa_mdx_lint::output::rdf::RdfFormatter
-pub fn supa_mdx_lint::output::rdf::RdfFormatter::format(&self, outputs: &[supa_mdx_lint::output::LintOutput]) -> anyhow::Result<alloc::string::String>
+pub fn supa_mdx_lint::output::rdf::RdfFormatter::format(&self, outputs: &[supa_mdx_lint::output::LintOutput], metadata: &supa_mdx_lint::ConfigMetadata) -> anyhow::Result<alloc::string::String>
 pub fn supa_mdx_lint::output::rdf::RdfFormatter::id(&self) -> &'static str
 pub fn supa_mdx_lint::output::rdf::RdfFormatter::should_log_metadata(&self) -> bool
 impl core::marker::Freeze for supa_mdx_lint::output::rdf::RdfFormatter
@@ -319,7 +319,7 @@ pub fn supa_mdx_lint::output::simple::SimpleFormatter::clone(&self) -> supa_mdx_
 impl core::fmt::Debug for supa_mdx_lint::output::simple::SimpleFormatter
 pub fn supa_mdx_lint::output::simple::SimpleFormatter::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl supa_mdx_lint::output::OutputFormatter for supa_mdx_lint::output::simple::SimpleFormatter
-pub fn supa_mdx_lint::output::simple::SimpleFormatter::format(&self, output: &[supa_mdx_lint::output::LintOutput]) -> anyhow::Result<alloc::string::String>
+pub fn supa_mdx_lint::output::simple::SimpleFormatter::format(&self, output: &[supa_mdx_lint::output::LintOutput], _metadata: &supa_mdx_lint::ConfigMetadata) -> anyhow::Result<alloc::string::String>
 pub fn supa_mdx_lint::output::simple::SimpleFormatter::id(&self) -> &'static str
 pub fn supa_mdx_lint::output::simple::SimpleFormatter::should_log_metadata(&self) -> bool
 impl core::marker::Freeze for supa_mdx_lint::output::simple::SimpleFormatter
@@ -408,20 +408,20 @@ impl<T> core::convert::From<T> for supa_mdx_lint::output::OutputSummary
 pub fn supa_mdx_lint::output::OutputSummary::from(t: T) -> T
 impl<T> either::into_either::IntoEither for supa_mdx_lint::output::OutputSummary
 pub trait supa_mdx_lint::output::OutputFormatter: core::marker::Send + core::marker::Sync + core::fmt::Debug
-pub fn supa_mdx_lint::output::OutputFormatter::format(&self, output: &[supa_mdx_lint::output::LintOutput]) -> anyhow::Result<alloc::string::String>
+pub fn supa_mdx_lint::output::OutputFormatter::format(&self, output: &[supa_mdx_lint::output::LintOutput], metadata: &supa_mdx_lint::ConfigMetadata) -> anyhow::Result<alloc::string::String>
 pub fn supa_mdx_lint::output::OutputFormatter::get_summary(&self, output: &[supa_mdx_lint::output::LintOutput]) -> supa_mdx_lint::output::OutputSummary
 pub fn supa_mdx_lint::output::OutputFormatter::id(&self) -> &'static str
 pub fn supa_mdx_lint::output::OutputFormatter::should_log_metadata(&self) -> bool
 impl supa_mdx_lint::output::OutputFormatter for supa_mdx_lint::output::markdown::MarkdownFormatter
-pub fn supa_mdx_lint::output::markdown::MarkdownFormatter::format(&self, output: &[supa_mdx_lint::output::LintOutput]) -> anyhow::Result<alloc::string::String>
+pub fn supa_mdx_lint::output::markdown::MarkdownFormatter::format(&self, output: &[supa_mdx_lint::output::LintOutput], metadata: &supa_mdx_lint::ConfigMetadata) -> anyhow::Result<alloc::string::String>
 pub fn supa_mdx_lint::output::markdown::MarkdownFormatter::id(&self) -> &'static str
 pub fn supa_mdx_lint::output::markdown::MarkdownFormatter::should_log_metadata(&self) -> bool
 impl supa_mdx_lint::output::OutputFormatter for supa_mdx_lint::output::rdf::RdfFormatter
-pub fn supa_mdx_lint::output::rdf::RdfFormatter::format(&self, outputs: &[supa_mdx_lint::output::LintOutput]) -> anyhow::Result<alloc::string::String>
+pub fn supa_mdx_lint::output::rdf::RdfFormatter::format(&self, outputs: &[supa_mdx_lint::output::LintOutput], metadata: &supa_mdx_lint::ConfigMetadata) -> anyhow::Result<alloc::string::String>
 pub fn supa_mdx_lint::output::rdf::RdfFormatter::id(&self) -> &'static str
 pub fn supa_mdx_lint::output::rdf::RdfFormatter::should_log_metadata(&self) -> bool
 impl supa_mdx_lint::output::OutputFormatter for supa_mdx_lint::output::simple::SimpleFormatter
-pub fn supa_mdx_lint::output::simple::SimpleFormatter::format(&self, output: &[supa_mdx_lint::output::LintOutput]) -> anyhow::Result<alloc::string::String>
+pub fn supa_mdx_lint::output::simple::SimpleFormatter::format(&self, output: &[supa_mdx_lint::output::LintOutput], _metadata: &supa_mdx_lint::ConfigMetadata) -> anyhow::Result<alloc::string::String>
 pub fn supa_mdx_lint::output::simple::SimpleFormatter::id(&self) -> &'static str
 pub fn supa_mdx_lint::output::simple::SimpleFormatter::should_log_metadata(&self) -> bool
 pub mod supa_mdx_lint::rules
@@ -630,38 +630,43 @@ pub fn supa_mdx_lint::LintTarget<'a>::borrow_mut(&mut self) -> &mut T
 impl<T> core::convert::From<T> for supa_mdx_lint::LintTarget<'a>
 pub fn supa_mdx_lint::LintTarget<'a>::from(t: T) -> T
 impl<T> either::into_either::IntoEither for supa_mdx_lint::LintTarget<'a>
-pub struct supa_mdx_lint::Config
-impl supa_mdx_lint::Config
-pub fn supa_mdx_lint::Config::from_config_file<P: core::convert::AsRef<std::path::Path>>(config_file: P) -> anyhow::Result<Self>
-pub fn supa_mdx_lint::Config::from_serializable<T: serde::ser::Serialize>(config: T, config_dir: &supa_mdx_lint::ConfigDir) -> anyhow::Result<Self>
-impl core::default::Default for supa_mdx_lint::Config
-pub fn supa_mdx_lint::Config::default() -> Self
-impl core::fmt::Debug for supa_mdx_lint::Config
-pub fn supa_mdx_lint::Config::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::Freeze for supa_mdx_lint::Config
-impl !core::marker::Send for supa_mdx_lint::Config
-impl !core::marker::Sync for supa_mdx_lint::Config
-impl core::marker::Unpin for supa_mdx_lint::Config
-impl !core::panic::unwind_safe::RefUnwindSafe for supa_mdx_lint::Config
-impl !core::panic::unwind_safe::UnwindSafe for supa_mdx_lint::Config
-impl<T, U> core::convert::Into<U> for supa_mdx_lint::Config where U: core::convert::From<T>
-pub fn supa_mdx_lint::Config::into(self) -> U
-impl<T, U> core::convert::TryFrom<U> for supa_mdx_lint::Config where U: core::convert::Into<T>
-pub type supa_mdx_lint::Config::Error = core::convert::Infallible
-pub fn supa_mdx_lint::Config::try_from(value: U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
-impl<T, U> core::convert::TryInto<U> for supa_mdx_lint::Config where U: core::convert::TryFrom<T>
-pub type supa_mdx_lint::Config::Error = <U as core::convert::TryFrom<T>>::Error
-pub fn supa_mdx_lint::Config::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
-impl<T> core::any::Any for supa_mdx_lint::Config where T: 'static + ?core::marker::Sized
-pub fn supa_mdx_lint::Config::type_id(&self) -> core::any::TypeId
-impl<T> core::borrow::Borrow<T> for supa_mdx_lint::Config where T: ?core::marker::Sized
-pub fn supa_mdx_lint::Config::borrow(&self) -> &T
-impl<T> core::borrow::BorrowMut<T> for supa_mdx_lint::Config where T: ?core::marker::Sized
-pub fn supa_mdx_lint::Config::borrow_mut(&mut self) -> &mut T
-impl<T> core::convert::From<T> for supa_mdx_lint::Config
-pub fn supa_mdx_lint::Config::from(t: T) -> T
-impl<T> either::into_either::IntoEither for supa_mdx_lint::Config
-pub struct supa_mdx_lint::ConfigDir(_)
+pub struct supa_mdx_lint::Config<Phase>
+impl supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>
+pub fn supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>::from_config_file<P: core::convert::AsRef<std::path::Path>>(config_file: P) -> anyhow::Result<Self>
+pub fn supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>::from_serializable<'f1, T: serde::ser::Serialize>() -> supa_mdx_lint::config::ConfigFromSerializableBuilder<'f1, T>
+impl core::convert::From<&supa_mdx_lint::Config<supa_mdx_lint::PhaseReady>> for supa_mdx_lint::ConfigMetadata
+pub fn supa_mdx_lint::ConfigMetadata::from(config: &supa_mdx_lint::Config<supa_mdx_lint::PhaseReady>) -> Self
+impl core::convert::TryFrom<supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>> for supa_mdx_lint::Config<supa_mdx_lint::PhaseReady>
+pub type supa_mdx_lint::Config<supa_mdx_lint::PhaseReady>::Error = anyhow::Error
+pub fn supa_mdx_lint::Config<supa_mdx_lint::PhaseReady>::try_from(old_config: supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>) -> anyhow::Result<Self>
+impl core::default::Default for supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>
+pub fn supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>::default() -> Self
+impl<Phase: core::fmt::Debug> core::fmt::Debug for supa_mdx_lint::Config<Phase>
+pub fn supa_mdx_lint::Config<Phase>::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<Phase> core::marker::Freeze for supa_mdx_lint::Config<Phase>
+impl<Phase> !core::marker::Send for supa_mdx_lint::Config<Phase>
+impl<Phase> !core::marker::Sync for supa_mdx_lint::Config<Phase>
+impl<Phase> core::marker::Unpin for supa_mdx_lint::Config<Phase> where Phase: core::marker::Unpin
+impl<Phase> !core::panic::unwind_safe::RefUnwindSafe for supa_mdx_lint::Config<Phase>
+impl<Phase> !core::panic::unwind_safe::UnwindSafe for supa_mdx_lint::Config<Phase>
+impl<T, U> core::convert::Into<U> for supa_mdx_lint::Config<Phase> where U: core::convert::From<T>
+pub fn supa_mdx_lint::Config<Phase>::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for supa_mdx_lint::Config<Phase> where U: core::convert::Into<T>
+pub type supa_mdx_lint::Config<Phase>::Error = core::convert::Infallible
+pub fn supa_mdx_lint::Config<Phase>::try_from(value: U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for supa_mdx_lint::Config<Phase> where U: core::convert::TryFrom<T>
+pub type supa_mdx_lint::Config<Phase>::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn supa_mdx_lint::Config<Phase>::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for supa_mdx_lint::Config<Phase> where T: 'static + ?core::marker::Sized
+pub fn supa_mdx_lint::Config<Phase>::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for supa_mdx_lint::Config<Phase> where T: ?core::marker::Sized
+pub fn supa_mdx_lint::Config<Phase>::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for supa_mdx_lint::Config<Phase> where T: ?core::marker::Sized
+pub fn supa_mdx_lint::Config<Phase>::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for supa_mdx_lint::Config<Phase>
+pub fn supa_mdx_lint::Config<Phase>::from(t: T) -> T
+impl<T> either::into_either::IntoEither for supa_mdx_lint::Config<Phase>
+pub struct supa_mdx_lint::ConfigDir(pub core::option::Option<std::path::PathBuf>)
 impl supa_mdx_lint::ConfigDir
 pub fn supa_mdx_lint::ConfigDir::new(path: std::path::PathBuf) -> Self
 pub fn supa_mdx_lint::ConfigDir::none() -> Self
@@ -698,6 +703,37 @@ pub unsafe fn supa_mdx_lint::ConfigDir::clone_to_uninit(&self, dst: *mut u8)
 impl<T> core::convert::From<T> for supa_mdx_lint::ConfigDir
 pub fn supa_mdx_lint::ConfigDir::from(t: T) -> T
 impl<T> either::into_either::IntoEither for supa_mdx_lint::ConfigDir
+pub struct supa_mdx_lint::ConfigMetadata
+pub supa_mdx_lint::ConfigMetadata::config_file_locations: core::option::Option<std::collections::hash::map::HashMap<alloc::string::String, alloc::string::String>>
+impl core::convert::From<&supa_mdx_lint::Config<supa_mdx_lint::PhaseReady>> for supa_mdx_lint::ConfigMetadata
+pub fn supa_mdx_lint::ConfigMetadata::from(config: &supa_mdx_lint::Config<supa_mdx_lint::PhaseReady>) -> Self
+impl core::default::Default for supa_mdx_lint::ConfigMetadata
+pub fn supa_mdx_lint::ConfigMetadata::default() -> supa_mdx_lint::ConfigMetadata
+impl core::fmt::Debug for supa_mdx_lint::ConfigMetadata
+pub fn supa_mdx_lint::ConfigMetadata::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for supa_mdx_lint::ConfigMetadata
+impl core::marker::Send for supa_mdx_lint::ConfigMetadata
+impl core::marker::Sync for supa_mdx_lint::ConfigMetadata
+impl core::marker::Unpin for supa_mdx_lint::ConfigMetadata
+impl core::panic::unwind_safe::RefUnwindSafe for supa_mdx_lint::ConfigMetadata
+impl core::panic::unwind_safe::UnwindSafe for supa_mdx_lint::ConfigMetadata
+impl<T, U> core::convert::Into<U> for supa_mdx_lint::ConfigMetadata where U: core::convert::From<T>
+pub fn supa_mdx_lint::ConfigMetadata::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for supa_mdx_lint::ConfigMetadata where U: core::convert::Into<T>
+pub type supa_mdx_lint::ConfigMetadata::Error = core::convert::Infallible
+pub fn supa_mdx_lint::ConfigMetadata::try_from(value: U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for supa_mdx_lint::ConfigMetadata where U: core::convert::TryFrom<T>
+pub type supa_mdx_lint::ConfigMetadata::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn supa_mdx_lint::ConfigMetadata::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for supa_mdx_lint::ConfigMetadata where T: 'static + ?core::marker::Sized
+pub fn supa_mdx_lint::ConfigMetadata::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for supa_mdx_lint::ConfigMetadata where T: ?core::marker::Sized
+pub fn supa_mdx_lint::ConfigMetadata::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for supa_mdx_lint::ConfigMetadata where T: ?core::marker::Sized
+pub fn supa_mdx_lint::ConfigMetadata::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for supa_mdx_lint::ConfigMetadata
+pub fn supa_mdx_lint::ConfigMetadata::from(t: T) -> T
+impl<T> either::into_either::IntoEither for supa_mdx_lint::ConfigMetadata
 pub struct supa_mdx_lint::LintError
 impl supa_mdx_lint::LintError
 pub fn supa_mdx_lint::LintError::combined_suggestions(&self) -> core::option::Option<alloc::vec::Vec<&supa_mdx_lint::fix::LintCorrection>>
@@ -748,6 +784,7 @@ impl<T> serde::de::DeserializeOwned for supa_mdx_lint::LintError where T: for<'d
 pub struct supa_mdx_lint::Linter
 impl supa_mdx_lint::Linter
 pub fn supa_mdx_lint::Linter::builder() -> supa_mdx_lint::LinterBuilder
+pub fn supa_mdx_lint::Linter::config_metadata(&self) -> supa_mdx_lint::ConfigMetadata
 pub fn supa_mdx_lint::Linter::is_ignored(&self, path: impl core::convert::AsRef<std::path::Path>) -> bool
 pub fn supa_mdx_lint::Linter::is_lintable(&self, path: impl core::convert::AsRef<std::path::Path>) -> bool
 pub fn supa_mdx_lint::Linter::lint(&self, input: &supa_mdx_lint::LintTarget<'_>) -> anyhow::Result<alloc::vec::Vec<supa_mdx_lint::output::LintOutput>>
@@ -782,8 +819,8 @@ impl<T> either::into_either::IntoEither for supa_mdx_lint::Linter
 pub struct supa_mdx_lint::LinterBuilder<S: supa_mdx_lint::linter_builder::State>
 impl<S: supa_mdx_lint::linter_builder::State> supa_mdx_lint::LinterBuilder<S>
 pub fn supa_mdx_lint::LinterBuilder<S>::build(self) -> anyhow::Result<supa_mdx_lint::Linter> where S: supa_mdx_lint::linter_builder::IsComplete
-pub fn supa_mdx_lint::LinterBuilder<S>::config(self, value: supa_mdx_lint::Config) -> supa_mdx_lint::LinterBuilder<supa_mdx_lint::linter_builder::SetConfig<S>> where <S as supa_mdx_lint::linter_builder::State>::Config: bon::builder_state::IsUnset
-pub fn supa_mdx_lint::LinterBuilder<S>::maybe_config(self, value: core::option::Option<supa_mdx_lint::Config>) -> supa_mdx_lint::LinterBuilder<supa_mdx_lint::linter_builder::SetConfig<S>> where <S as supa_mdx_lint::linter_builder::State>::Config: bon::builder_state::IsUnset
+pub fn supa_mdx_lint::LinterBuilder<S>::config(self, value: supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>) -> supa_mdx_lint::LinterBuilder<supa_mdx_lint::linter_builder::SetConfig<S>> where <S as supa_mdx_lint::linter_builder::State>::Config: bon::builder_state::IsUnset
+pub fn supa_mdx_lint::LinterBuilder<S>::maybe_config(self, value: core::option::Option<supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>>) -> supa_mdx_lint::LinterBuilder<supa_mdx_lint::linter_builder::SetConfig<S>> where <S as supa_mdx_lint::linter_builder::State>::Config: bon::builder_state::IsUnset
 impl<S> core::marker::Freeze for supa_mdx_lint::LinterBuilder<S>
 impl<S> !core::marker::Send for supa_mdx_lint::LinterBuilder<S>
 impl<S> !core::marker::Sync for supa_mdx_lint::LinterBuilder<S>
@@ -807,3 +844,55 @@ pub fn supa_mdx_lint::LinterBuilder<S>::borrow_mut(&mut self) -> &mut T
 impl<T> core::convert::From<T> for supa_mdx_lint::LinterBuilder<S>
 pub fn supa_mdx_lint::LinterBuilder<S>::from(t: T) -> T
 impl<T> either::into_either::IntoEither for supa_mdx_lint::LinterBuilder<S>
+pub struct supa_mdx_lint::PhaseReady
+impl core::fmt::Debug for supa_mdx_lint::PhaseReady
+pub fn supa_mdx_lint::PhaseReady::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for supa_mdx_lint::PhaseReady
+impl core::marker::Send for supa_mdx_lint::PhaseReady
+impl core::marker::Sync for supa_mdx_lint::PhaseReady
+impl core::marker::Unpin for supa_mdx_lint::PhaseReady
+impl core::panic::unwind_safe::RefUnwindSafe for supa_mdx_lint::PhaseReady
+impl core::panic::unwind_safe::UnwindSafe for supa_mdx_lint::PhaseReady
+impl<T, U> core::convert::Into<U> for supa_mdx_lint::PhaseReady where U: core::convert::From<T>
+pub fn supa_mdx_lint::PhaseReady::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for supa_mdx_lint::PhaseReady where U: core::convert::Into<T>
+pub type supa_mdx_lint::PhaseReady::Error = core::convert::Infallible
+pub fn supa_mdx_lint::PhaseReady::try_from(value: U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for supa_mdx_lint::PhaseReady where U: core::convert::TryFrom<T>
+pub type supa_mdx_lint::PhaseReady::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn supa_mdx_lint::PhaseReady::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for supa_mdx_lint::PhaseReady where T: 'static + ?core::marker::Sized
+pub fn supa_mdx_lint::PhaseReady::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for supa_mdx_lint::PhaseReady where T: ?core::marker::Sized
+pub fn supa_mdx_lint::PhaseReady::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for supa_mdx_lint::PhaseReady where T: ?core::marker::Sized
+pub fn supa_mdx_lint::PhaseReady::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for supa_mdx_lint::PhaseReady
+pub fn supa_mdx_lint::PhaseReady::from(t: T) -> T
+impl<T> either::into_either::IntoEither for supa_mdx_lint::PhaseReady
+pub struct supa_mdx_lint::PhaseSetup
+impl core::fmt::Debug for supa_mdx_lint::PhaseSetup
+pub fn supa_mdx_lint::PhaseSetup::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for supa_mdx_lint::PhaseSetup
+impl core::marker::Send for supa_mdx_lint::PhaseSetup
+impl core::marker::Sync for supa_mdx_lint::PhaseSetup
+impl core::marker::Unpin for supa_mdx_lint::PhaseSetup
+impl core::panic::unwind_safe::RefUnwindSafe for supa_mdx_lint::PhaseSetup
+impl core::panic::unwind_safe::UnwindSafe for supa_mdx_lint::PhaseSetup
+impl<T, U> core::convert::Into<U> for supa_mdx_lint::PhaseSetup where U: core::convert::From<T>
+pub fn supa_mdx_lint::PhaseSetup::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for supa_mdx_lint::PhaseSetup where U: core::convert::Into<T>
+pub type supa_mdx_lint::PhaseSetup::Error = core::convert::Infallible
+pub fn supa_mdx_lint::PhaseSetup::try_from(value: U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for supa_mdx_lint::PhaseSetup where U: core::convert::TryFrom<T>
+pub type supa_mdx_lint::PhaseSetup::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn supa_mdx_lint::PhaseSetup::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for supa_mdx_lint::PhaseSetup where T: 'static + ?core::marker::Sized
+pub fn supa_mdx_lint::PhaseSetup::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for supa_mdx_lint::PhaseSetup where T: ?core::marker::Sized
+pub fn supa_mdx_lint::PhaseSetup::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for supa_mdx_lint::PhaseSetup where T: ?core::marker::Sized
+pub fn supa_mdx_lint::PhaseSetup::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for supa_mdx_lint::PhaseSetup
+pub fn supa_mdx_lint::PhaseSetup::from(t: T) -> T
+impl<T> either::into_either::IntoEither for supa_mdx_lint::PhaseSetup

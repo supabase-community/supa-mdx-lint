@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::output::OutputFormatter;
+use crate::{output::OutputFormatter, ConfigMetadata};
 
 use super::{LintOutput, OutputSummary};
 
@@ -21,7 +21,7 @@ impl OutputFormatter for SimpleFormatter {
         "simple"
     }
 
-    fn format(&self, output: &[LintOutput]) -> Result<String> {
+    fn format(&self, output: &[LintOutput], _metadata: &ConfigMetadata) -> Result<String> {
         let mut result = String::new();
         // Whether anything has been written to the output, used to determine
         // whether to write a newline before the summary.
@@ -120,7 +120,9 @@ mod tests {
         let output = vec![output];
 
         let formatter = SimpleFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
         assert_eq!(
             result,
             "test.md:1:1: [ERROR] This is an error\n\n🔍 1 source linted\n🔴 Found 1 error\n"
@@ -143,7 +145,9 @@ mod tests {
         let output = vec![output];
 
         let formatter = SimpleFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
         assert_eq!(
             result,
             "test.md:1:1: [WARN] This is a warning\n\n🔍 1 source linted\n🟡 Found 1 warning\n"
@@ -172,7 +176,9 @@ mod tests {
         let output = vec![output];
 
         let formatter = SimpleFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
         assert_eq!(
             result,
             "test.md:1:1: [ERROR] This is an error\ntest.md:4:1: [WARN] This is a warning\n\n🔍 1 source linted\n🔴 Found 1 error and 1 warning\n"
@@ -189,7 +195,9 @@ mod tests {
         let output = vec![output];
 
         let formatter = SimpleFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
         assert_eq!(
             result,
             "🔍 1 source linted\n🟢 No errors or warnings found\n"
@@ -219,7 +227,9 @@ mod tests {
         let output = vec![output];
 
         let formatter = SimpleFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
         assert_eq!(
             result,
             "test.md:1:1: [ERROR] This is an error\ntest.md:4:1: [ERROR] This is another error\n\n🔍 1 source linted\n🔴 Found 2 errors\n"
@@ -269,7 +279,9 @@ mod tests {
         let output = vec![output_1, output_2];
 
         let formatter = SimpleFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
         assert_eq!(
             result,
             "test.md:1:1: [ERROR] This is an error\ntest.md:4:1: [ERROR] This is another error\ntest2.md:1:1: [ERROR] This is an error\ntest2.md:4:1: [ERROR] This is another error\n\n🔍 2 sources linted\n🔴 Found 4 errors\n"

@@ -2,7 +2,7 @@ use std::{collections::HashSet, str::FromStr};
 
 use anyhow::Result;
 
-use crate::{app_error::PublicError, errors::LintError, LintLevel};
+use crate::{app_error::PublicError, errors::LintError, ConfigMetadata, LintLevel};
 
 pub mod markdown;
 #[cfg(feature = "pretty")]
@@ -41,7 +41,7 @@ pub struct OutputSummary {
 
 pub trait OutputFormatter: Send + Sync + std::fmt::Debug {
     fn id(&self) -> &'static str;
-    fn format(&self, output: &[LintOutput]) -> Result<String>;
+    fn format(&self, output: &[LintOutput], metadata: &ConfigMetadata) -> Result<String>;
     fn should_log_metadata(&self) -> bool;
 
     fn get_summary(&self, output: &[LintOutput]) -> OutputSummary {

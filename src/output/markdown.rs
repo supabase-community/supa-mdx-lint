@@ -1,4 +1,4 @@
-use std::fs;
+use std::{collections::HashMap, fs};
 
 use anyhow::Result;
 
@@ -8,7 +8,7 @@ use crate::{
     output::OutputFormatter,
     rope::Rope,
     utils::{escape_backticks, num_digits, pluralize},
-    LintLevel, LintOutput,
+    ConfigMetadata, LintLevel, LintOutput,
 };
 
 use super::OutputSummary;
@@ -25,7 +25,7 @@ impl OutputFormatter for MarkdownFormatter {
         true
     }
 
-    fn format(&self, output: &[LintOutput]) -> Result<String> {
+    fn format(&self, output: &[LintOutput], metadata: &ConfigMetadata) -> Result<String> {
         let mut result = String::new();
         result.push_str("# supa-mdx-lint results\n\n");
 
@@ -35,7 +35,11 @@ impl OutputFormatter for MarkdownFormatter {
             }
             result.push_str(&format!("## {}\n\n", output.file_path));
             for error in &output.errors {
-                result.push_str(&self.format_error(&output.file_path, error)?);
+                result.push_str(&self.format_error(
+                    &output.file_path,
+                    error,
+                    metadata.config_file_locations.as_ref(),
+                )?);
             }
         }
 
@@ -45,7 +49,12 @@ impl OutputFormatter for MarkdownFormatter {
 }
 
 impl MarkdownFormatter {
-    fn format_error(&self, file_path: &str, error: &LintError) -> Result<String> {
+    fn format_error(
+        &self,
+        file_path: &str,
+        error: &LintError,
+        config_file_locations: Option<&HashMap<String, String>>,
+    ) -> Result<String> {
         let mut result = String::new();
         result.push_str(&format!(
             "### {}\n\n",
@@ -56,8 +65,17 @@ impl MarkdownFormatter {
         ));
         result.push_str("```\n");
         result.push_str(&self.get_error_snippet(file_path, error)?);
-        result.push_str("```\n");
-        result.push_str(&format!("{}\n\n", error.message));
+        result.push_str("```\n\n");
+        result.push_str(&format!("[{}] {}\n", error.rule, error.message));
+        if let Some(config_file_location) =
+            config_file_locations.and_then(|locations| locations.get(&error.rule))
+        {
+            result.push_str(&format!(
+                "   (customize configuration at {})\n",
+                config_file_location
+            ));
+        }
+        result.push('\n');
         if let Some(rec_text) = self.get_recommendations_text(error) {
             result.push_str(&rec_text);
         }
@@ -219,7 +237,7 @@ mod tests {
         let output = vec![output];
 
         let formatter = MarkdownFormatter;
-        formatter.format(&output)
+        formatter.format(&output, &ConfigMetadata::default())
     }
 
     #[test]
@@ -384,7 +402,9 @@ What a wonderful world!"#;
         };
 
         let formatter = MarkdownFormatter;
-        let output_str = formatter.format(&[output]).unwrap();
+        let output_str = formatter
+            .format(&[output], &ConfigMetadata::default())
+            .unwrap();
 
         assert!(output_str.starts_with("# supa-mdx-lint"));
         assert!(output_str.contains("1 | # Hello World"));
@@ -428,7 +448,9 @@ What a wonderful world!"#;
         };
 
         let formatter = MarkdownFormatter;
-        let output_str = formatter.format(&[output1, output2]).unwrap();
+        let output_str = formatter
+            .format(&[output1, output2], &ConfigMetadata::default())
+            .unwrap();
 
         assert!(output_str.starts_with("# supa-mdx-lint"));
 

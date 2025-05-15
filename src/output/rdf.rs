@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use anyhow::Result;
 use log::{debug, warn};
 use serde::Serialize;
@@ -7,6 +9,7 @@ use crate::{
     fix::LintCorrection,
     location::{AdjustedPoint, DenormalizedLocation},
     output::OutputFormatter,
+    ConfigMetadata,
 };
 
 use super::LintOutput;
@@ -108,7 +111,7 @@ impl OutputFormatter for RdfFormatter {
         false
     }
 
-    fn format(&self, outputs: &[LintOutput]) -> Result<String> {
+    fn format(&self, outputs: &[LintOutput], metadata: &ConfigMetadata) -> Result<String> {
         let mut result = String::new();
         for output in outputs.iter() {
             for error in output.errors.iter() {
@@ -126,8 +129,25 @@ impl OutputFormatter for RdfFormatter {
                     }
                 };
 
+                let mut message = String::new();
+                write!(
+                    message,
+                    "[{}] {}{}",
+                    error.rule,
+                    error.message,
+                    if let Some(location) = metadata
+                        .config_file_locations
+                        .as_ref()
+                        .and_then(|locations| locations.get(&error.rule))
+                    {
+                        format!(" (configure rule at {location})")
+                    } else {
+                        "".to_string()
+                    }
+                )?;
+
                 let rdf_output = RdfOutput {
-                    message: &error.message,
+                    message: &message,
                     location: RdfLocation {
                         path: &output.file_path,
                         range: (&error.location).into(),
@@ -182,9 +202,11 @@ mod tests {
         let output = vec![output];
 
         let formatter = RdfFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
         let result = result.trim();
-        let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}"#;
+        let expected = r#"{"message":"[MockRule] This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}"#;
         assert_eq!(result, expected);
     }
 
@@ -207,10 +229,12 @@ mod tests {
         let output = vec![output];
 
         let formatter = RdfFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
 
         let result = result.trim();
-        let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}}},"severity":"ERROR","suggestions":[{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":""}]}"#;
+        let expected = r#"{"message":"[MockRule] This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}}},"severity":"ERROR","suggestions":[{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":""}]}"#;
         assert_eq!(result, expected);
     }
 
@@ -237,11 +261,13 @@ mod tests {
         let output = vec![output];
 
         let formatter = RdfFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
 
         let result = result.trim();
-        let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
-{"message":"This is another error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":5,"column":3}}},"severity":"ERROR"}"#;
+        let expected = r#"{"message":"[MockRule] This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
+{"message":"[MockRule] This is another error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":5,"column":3}}},"severity":"ERROR"}"#;
         assert_eq!(result, expected);
     }
 
@@ -276,13 +302,15 @@ mod tests {
         let output = vec![output_1, output_2];
 
         let formatter = RdfFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
 
         let result = result.trim();
-        let expected = r#"{"message":"This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
-{"message":"This is another error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
-{"message":"This is an error","location":{"path":"test2.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
-{"message":"This is another error","location":{"path":"test2.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}"#;
+        let expected = r#"{"message":"[MockRule] This is an error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
+{"message":"[MockRule] This is another error","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
+{"message":"[MockRule] This is an error","location":{"path":"test2.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}
+{"message":"[MockRule] This is another error","location":{"path":"test2.md","range":{"start":{"line":1,"column":1},"end":{"line":2,"column":1}}},"severity":"ERROR"}"#;
         assert_eq!(result, expected);
     }
 
@@ -309,10 +337,12 @@ mod tests {
         let output = vec![output];
 
         let formatter = RdfFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
 
         let result = result.trim();
-        let expected = r#"{"message":"This is an error with fixes and suggestions","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}}},"severity":"ERROR","suggestions":[{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":""},{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":"replacement text"}]}"#;
+        let expected = r#"{"message":"[MockRule] This is an error with fixes and suggestions","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}}},"severity":"ERROR","suggestions":[{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":""},{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":"replacement text"}]}"#;
         assert_eq!(result, expected);
     }
 
@@ -336,10 +366,12 @@ mod tests {
         let output = vec![output];
 
         let formatter = RdfFormatter;
-        let result = formatter.format(&output).unwrap();
+        let result = formatter
+            .format(&output, &ConfigMetadata::default())
+            .unwrap();
 
         let result = result.trim();
-        let expected = r#"{"message":"This is an error with only suggestions","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}}},"severity":"ERROR","suggestions":[{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":"replacement text"}]}"#;
+        let expected = r#"{"message":"[MockRule] This is an error with only suggestions","location":{"path":"test.md","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}}},"severity":"ERROR","suggestions":[{"range":{"start":{"line":1,"column":1},"end":{"line":1,"column":9}},"text":"replacement text"}]}"#;
         assert_eq!(result, expected);
     }
 }
