@@ -1,6 +1,6 @@
 {
   "name": "@supabase/supa-mdx-lint-linux-arm",
-  "version": "0.2.8-alpha",
+  "version": "0.2.9-alpha",
   "repository": {
     "url": "https://github.com/supabase-community/supa-mdx-lint"
   },
