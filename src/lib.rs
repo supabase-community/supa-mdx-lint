@@ -15,7 +15,7 @@ mod config;
 mod context;
 mod errors;
 pub mod location;
-mod parser;
+pub(crate) mod parser;
 mod utils;
 
 pub mod fix;
