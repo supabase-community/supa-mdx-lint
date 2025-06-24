@@ -258,8 +258,8 @@ impl MaybeEndedLineRange {
     pub(crate) fn overlaps_lines(&self, range: &AdjustedRange, rope: &Rope) -> bool {
         let range_start_line = AdjustedPoint::from_adjusted_offset(&range.start, rope).row;
         let range_end_line = AdjustedPoint::from_adjusted_offset(&range.end, rope).row;
-        self.start <= range_start_line && self.end.map_or(true, |end| end > range_start_line)
-            || self.start <= range_end_line && self.end.map_or(true, |end| end > range_end_line)
+        self.start <= range_start_line && self.end.is_none_or(|end| end > range_start_line)
+            || self.start <= range_end_line && self.end.is_none_or(|end| end > range_end_line)
     }
 }
 
@@ -282,8 +282,8 @@ impl<T: Ord> MaybeEndedRange<T> {
      * not considered to overlap if they are merely adjoining.)
      */
     pub(crate) fn overlaps_strict(&self, other: &Self) -> bool {
-        self.start <= other.start && self.end.as_ref().map_or(true, |end| *end > other.start)
-            || other.start <= self.start && other.end.as_ref().map_or(true, |end| *end > self.start)
+        self.start <= other.start && self.end.as_ref().is_none_or(|end| *end > other.start)
+            || other.start <= self.start && other.end.as_ref().is_none_or(|end| *end > self.start)
     }
 }
 
