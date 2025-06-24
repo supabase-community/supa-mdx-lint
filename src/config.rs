@@ -337,7 +337,7 @@ impl TryFrom<Config<PhaseSetup>> for Config<PhaseReady> {
 impl<RuleRegistryState> Config<RuleRegistryState> {
     pub(crate) fn is_lintable(&self, path: impl AsRef<Path>) -> bool {
         let path = path.as_ref();
-        path.is_dir() || path.extension().map_or(false, |ext| ext == "mdx")
+        path.is_dir() || path.extension().is_some_and(|ext| ext == "mdx")
     }
 
     pub(crate) fn is_ignored(&self, path: impl AsRef<Path>) -> bool {

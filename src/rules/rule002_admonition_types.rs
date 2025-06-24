@@ -65,7 +65,7 @@ impl Rule002AdmonitionTypes {
                 if element
                     .name
                     .as_ref()
-                    .map_or(false, |name| name == "Admonition") =>
+                    .is_some_and(|name| name == "Admonition") =>
             {
                 for attr in &element.attributes {
                     match attr {

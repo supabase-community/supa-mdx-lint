@@ -528,7 +528,7 @@ pub(crate) fn is_sentence_start(
         && queried_word
             .chars()
             .next()
-            .map_or(false, |c: char| c.is_uppercase()))
+            .is_some_and(|c: char| c.is_uppercase()))
     {
         return false;
     }
