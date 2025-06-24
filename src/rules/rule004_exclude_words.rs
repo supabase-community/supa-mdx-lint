@@ -324,7 +324,7 @@ impl WordExclusionIndex {
         }
     }
 
-    fn get<'a, 'b: 'a>(&'a self, prefix: &'b str) -> IndexLookupResult {
+    fn get<'a, 'b: 'a>(&'a self, prefix: &'b str) -> IndexLookupResult<'a> {
         let case_sensitive_key = Prefix::from((Cow::from(prefix), CaseSensitivity::Sensitive));
         let case_insensitive_key = Prefix::from((Cow::from(prefix), CaseSensitivity::Insensitive));
 
