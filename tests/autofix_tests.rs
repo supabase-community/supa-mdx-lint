@@ -103,3 +103,119 @@ title: Something
 This is bad, and should be fixed."#
     );
 }
+
+#[test]
+fn test_autofix_rule005_admonition_newlines() {
+    let tempdir = TempDir::new().unwrap();
+    let bad_file = r#"# Test admonition newlines
+
+<Admonition type="caution">
+This content is missing newlines around it.
+</Admonition>
+
+<Admonition type="info">
+
+This one is missing the closing newline.
+</Admonition>
+
+<Admonition type="warning">
+This one is missing the opening newline.
+
+</Admonition>"#;
+    fs::write(tempdir.path().join("bad.mdx"), bad_file).unwrap();
+
+    let mut cmd = Command::cargo_bin("supa-mdx-lint").unwrap();
+    cmd.arg(tempdir.path().join("bad.mdx"))
+        .arg("--config")
+        .arg("tests/supa-mdx-lint.config.toml")
+        .arg("--fix");
+    cmd.assert().success();
+
+    let result = fs::read_to_string(tempdir.path().join("bad.mdx")).unwrap();
+    assert_eq!(
+        result,
+        r#"# Test admonition newlines
+
+<Admonition type="caution">
+
+This content is missing newlines around it.
+
+</Admonition>
+
+<Admonition type="info">
+
+This one is missing the closing newline.
+
+</Admonition>
+
+<Admonition type="warning">
+
+This one is missing the opening newline.
+
+</Admonition>"#
+    );
+}
+
+#[test]
+fn test_autofix_rule005_admonition_newlines_with_frontmatter() {
+    let tempdir = TempDir::new().unwrap();
+    let bad_file = r#"---
+title: Test Document
+description: Testing admonition auto-fix with frontmatter
+author: Test Author
+---
+
+# Test admonition newlines with frontmatter
+
+<Admonition type="caution">
+This content is missing newlines around it.
+</Admonition>
+
+<Admonition type="info">
+
+This one is missing the closing newline.
+</Admonition>
+
+<Admonition type="warning">
+This one is missing the opening newline.
+
+</Admonition>"#;
+    fs::write(tempdir.path().join("bad.mdx"), bad_file).unwrap();
+
+    let mut cmd = Command::cargo_bin("supa-mdx-lint").unwrap();
+    cmd.arg(tempdir.path().join("bad.mdx"))
+        .arg("--config")
+        .arg("tests/supa-mdx-lint.config.toml")
+        .arg("--fix");
+    cmd.assert().success();
+
+    let result = fs::read_to_string(tempdir.path().join("bad.mdx")).unwrap();
+    assert_eq!(
+        result,
+        r#"---
+title: Test Document
+description: Testing admonition auto-fix with frontmatter
+author: Test Author
+---
+
+# Test admonition newlines with frontmatter
+
+<Admonition type="caution">
+
+This content is missing newlines around it.
+
+</Admonition>
+
+<Admonition type="info">
+
+This one is missing the closing newline.
+
+</Admonition>
+
+<Admonition type="warning">
+
+This one is missing the opening newline.
+
+</Admonition>"#
+    );
+}
