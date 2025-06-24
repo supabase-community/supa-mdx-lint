@@ -32,7 +32,7 @@ fn get_all_rules() -> Vec<Box<dyn Rule>> {
         Box::new(Rule002AdmonitionTypes::default()),
         Box::new(Rule003Spelling::default()),
         Box::new(Rule004ExcludeWords::default()),
-        Box::new(Rule005AdmonitionNewlines::default()),
+        Box::new(Rule005AdmonitionNewlines),
     ]
 }
 

@@ -7,7 +7,7 @@ use supa_mdx_macros::RuleName;
 use crate::{
     context::Context,
     errors::{LintError, LintLevel},
-    fix::{LintCorrection, LintCorrectionReplace},
+    fix::{LintCorrection, LintCorrectionInsert},
     location::{AdjustedRange, DenormalizedLocation},
 };
 
@@ -16,6 +16,7 @@ use super::{Rule, RuleName, RuleSettings};
 #[derive(Debug)]
 struct ErrorInfo {
     message: String,
+    fixes: Vec<LintCorrection>,
 }
 
 static ADMONITION_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
@@ -66,15 +67,14 @@ impl Rule for Rule005AdmonitionNewlines {
     fn check(&self, ast: &Node, context: &Context, level: LintLevel) -> Option<Vec<LintError>> {
         if let Node::MdxJsxFlowElement(element) = ast {
             if element.name.as_ref().is_some_and(|name| name == "Admonition") {
-                let mut fixes: Option<Vec<LintCorrection>> = None;
-                if let Some(error_info) = self.check_admonition_newlines(element, context, &mut fixes) {
+                if let Some(error_info) = self.check_admonition_newlines(element, context) {
                     return LintError::from_node()
                         .node(ast)
                         .context(context)
                         .rule(self.name())
                         .level(level)
                         .message(&error_info.message)
-                        .fix(fixes.unwrap_or_default())
+                        .fix(error_info.fixes)
                         .call()
                         .map(|error| vec![error]);
                 }
@@ -89,7 +89,6 @@ impl Rule005AdmonitionNewlines {
         &self,
         element: &markdown::mdast::MdxJsxFlowElement,
         context: &Context,
-        fixes: &mut Option<Vec<LintCorrection>>,
     ) -> Option<ErrorInfo> {
         let position = element.position.as_ref()?;
         // Convert to adjusted range immediately to handle frontmatter offsets
@@ -105,9 +104,10 @@ impl Rule005AdmonitionNewlines {
         
         // Check if the content matches the valid pattern
         if !self.has_proper_newlines(&admonition_content) {
-            self.generate_fixes(&admonition_content, &adjusted_range, context, fixes);
+            let fixes = self.generate_fixes(&admonition_content, &adjusted_range, context);
             return Some(ErrorInfo {
                 message: "Admonition must have empty lines between tags and content".to_string(),
+                fixes,
             });
         }
         
@@ -126,11 +126,10 @@ impl Rule005AdmonitionNewlines {
         content: &str,
         adjusted_range: &AdjustedRange,
         context: &Context,
-        fixes: &mut Option<Vec<LintCorrection>>,
-    ) {
+    ) -> Vec<LintCorrection> {
         let lines: Vec<&str> = content.lines().collect();
         if lines.is_empty() {
-            return;
+            return Vec::new();
         }
         
         let mut fix_list = Vec::new();
@@ -167,7 +166,7 @@ impl Rule005AdmonitionNewlines {
                 context,
             );
             
-            fix_list.push(LintCorrection::Replace(LintCorrectionReplace {
+            fix_list.push(LintCorrection::Insert(LintCorrectionInsert {
                 location,
                 text: "\n".to_string(),
             }));
@@ -192,15 +191,13 @@ impl Rule005AdmonitionNewlines {
                 context,
             );
             
-            fix_list.push(LintCorrection::Replace(LintCorrectionReplace {
+            fix_list.push(LintCorrection::Insert(LintCorrectionInsert {
                 location,
                 text: "\n".to_string(),
             }));
         }
         
-        if !fix_list.is_empty() {
-            *fixes = Some(fix_list);
-        }
+        fix_list
     }
 }
 
@@ -211,7 +208,7 @@ mod tests {
     use crate::parser::parse;
 
     #[test]
-    fn test_valid_admonition_with_empty_lines() {
+    fn test_rule005_valid_admonition_with_empty_lines() {
         let mdx = r#"<Admonition type="caution">
 
 This is the content.
@@ -238,7 +235,7 @@ This is the content.
     }
 
     #[test]
-    fn test_invalid_admonition_without_empty_lines() {
+    fn test_rule005_invalid_admonition_without_empty_lines() {
         let mdx = r#"<Admonition type="caution">
 This is the content.
 </Admonition>"#;
@@ -260,11 +257,16 @@ This is the content.
         let result = rule.check(admonition, &context, LintLevel::Error);
 
         assert!(result.is_some(), "Expected lint error for invalid admonition");
-        assert_eq!(result.unwrap().len(), 1);
+        let errors = result.unwrap();
+        assert_eq!(errors.len(), 1);
+        
+        let error = &errors[0];
+        assert_eq!(error.location.start.row, 0);
+        assert_eq!(error.location.start.column, 0);
     }
 
     #[test]
-    fn test_admonition_missing_opening_empty_line() {
+    fn test_rule005_admonition_missing_opening_empty_line() {
         let mdx = r#"<Admonition type="caution">
 This is the content.
 
@@ -287,10 +289,16 @@ This is the content.
         let result = rule.check(admonition, &context, LintLevel::Error);
 
         assert!(result.is_some(), "Expected lint error for missing opening empty line");
+        let errors = result.unwrap();
+        assert_eq!(errors.len(), 1);
+        
+        let error = &errors[0];
+        assert_eq!(error.location.start.row, 0);
+        assert_eq!(error.location.start.column, 0);
     }
 
     #[test]
-    fn test_admonition_missing_closing_empty_line() {
+    fn test_rule005_admonition_missing_closing_empty_line() {
         let mdx = r#"<Admonition type="caution">
 
 This is the content.
@@ -313,10 +321,16 @@ This is the content.
         let result = rule.check(admonition, &context, LintLevel::Error);
 
         assert!(result.is_some(), "Expected lint error for missing closing empty line");
+        let errors = result.unwrap();
+        assert_eq!(errors.len(), 1);
+        
+        let error = &errors[0];
+        assert_eq!(error.location.start.row, 0);
+        assert_eq!(error.location.start.column, 0);
     }
 
     #[test]
-    fn test_auto_fix_missing_opening_empty_line() {
+    fn test_rule005_auto_fix_missing_opening_empty_line() {
         let mdx = r#"<Admonition type="caution">
 This is the content.
 
@@ -343,21 +357,25 @@ This is the content.
         assert_eq!(errors.len(), 1);
 
         let error = &errors[0];
+        assert_eq!(error.location.start.row, 0);
+        assert_eq!(error.location.start.column, 0);
         assert!(error.fix.is_some(), "Expected fix to be present");
         
         let fixes = error.fix.as_ref().unwrap();
         assert_eq!(fixes.len(), 1, "Expected exactly one fix");
         
         match &fixes[0] {
-            LintCorrection::Replace(fix) => {
+            LintCorrection::Insert(fix) => {
                 assert_eq!(fix.text, "\n", "Expected fix to add newline");
+                assert_eq!(fix.location.start.row, 1);
+                assert_eq!(fix.location.start.column, 0);
             }
-            _ => panic!("Expected Replace fix"),
+            _ => panic!("Expected Insert fix"),
         }
     }
 
     #[test]
-    fn test_auto_fix_missing_closing_empty_line() {
+    fn test_rule005_auto_fix_missing_closing_empty_line() {
         let mdx = r#"<Admonition type="caution">
 
 This is the content.
@@ -384,21 +402,25 @@ This is the content.
         assert_eq!(errors.len(), 1);
 
         let error = &errors[0];
+        assert_eq!(error.location.start.row, 0);
+        assert_eq!(error.location.start.column, 0);
         assert!(error.fix.is_some(), "Expected fix to be present");
         
         let fixes = error.fix.as_ref().unwrap();
         assert_eq!(fixes.len(), 1, "Expected exactly one fix");
         
         match &fixes[0] {
-            LintCorrection::Replace(fix) => {
+            LintCorrection::Insert(fix) => {
                 assert_eq!(fix.text, "\n", "Expected fix to add newline");
+                assert_eq!(fix.location.start.row, 3);
+                assert_eq!(fix.location.start.column, 0);
             }
-            _ => panic!("Expected Replace fix"),
+            _ => panic!("Expected Insert fix"),
         }
     }
 
     #[test]
-    fn test_auto_fix_missing_both_empty_lines() {
+    fn test_rule005_auto_fix_missing_both_empty_lines() {
         let mdx = r#"<Admonition type="caution">
 This is the content.
 </Admonition>"#;
@@ -424,24 +446,36 @@ This is the content.
         assert_eq!(errors.len(), 1);
 
         let error = &errors[0];
+        assert_eq!(error.location.start.row, 0);
+        assert_eq!(error.location.start.column, 0);
         assert!(error.fix.is_some(), "Expected fix to be present");
         
         let fixes = error.fix.as_ref().unwrap();
         assert_eq!(fixes.len(), 2, "Expected exactly two fixes");
         
-        // Both fixes should add newlines
-        for fix in fixes {
-            match fix {
-                LintCorrection::Replace(fix) => {
-                    assert_eq!(fix.text, "\n", "Expected fix to add newline");
-                }
-                _ => panic!("Expected Replace fix"),
+        // First fix should be for opening newline
+        match &fixes[0] {
+            LintCorrection::Insert(fix) => {
+                assert_eq!(fix.text, "\n", "Expected fix to add newline");
+                assert_eq!(fix.location.start.row, 1);
+                assert_eq!(fix.location.start.column, 0);
             }
+            _ => panic!("Expected Insert fix"),
+        }
+        
+        // Second fix should be for closing newline
+        match &fixes[1] {
+            LintCorrection::Insert(fix) => {
+                assert_eq!(fix.text, "\n", "Expected fix to add newline");
+                assert_eq!(fix.location.start.row, 2);
+                assert_eq!(fix.location.start.column, 0);
+            }
+            _ => panic!("Expected Insert fix"),
         }
     }
 
     #[test]
-    fn test_no_fix_for_valid_admonition() {
+    fn test_rule005_no_fix_for_valid_admonition() {
         let mdx = r#"<Admonition type="caution">
 
 This is the content.
@@ -466,4 +500,4 @@ This is the content.
 
         assert!(result.is_none(), "Expected no lint error for valid admonition");
     }
-
+}
