@@ -132,6 +132,14 @@ impl Rule005AdmonitionNewlines {
             return Vec::new();
         }
         
+        // Detect the line ending style used in the content
+        let line_ending = if content.contains("\r\n") {
+            "\r\n"
+        } else {
+            "\n"
+        };
+        let line_ending_len = line_ending.len();
+        
         let mut fix_list = Vec::new();
         
         let opening_tag_line = 0;
@@ -156,7 +164,7 @@ impl Rule005AdmonitionNewlines {
         // Add fix for opening newline
         if needs_opening_newline {
             // Position after the opening tag line + its newline
-            let relative_offset = lines[opening_tag_line].len() + 1;
+            let relative_offset = lines[opening_tag_line].len() + line_ending_len;
             
             let mut start_point = adjusted_range.start;
             start_point.increment(relative_offset);
@@ -168,7 +176,7 @@ impl Rule005AdmonitionNewlines {
             
             fix_list.push(LintCorrection::Insert(LintCorrectionInsert {
                 location,
-                text: "\n".to_string(),
+                text: line_ending.to_string(),
             }));
         }
         
@@ -180,7 +188,7 @@ impl Rule005AdmonitionNewlines {
                 if i == closing_tag_line {
                     break;
                 }
-                relative_offset += line.len() + 1; // +1 for newline character
+                relative_offset += line.len() + line_ending_len;
             }
             
             let mut start_point = adjusted_range.start;
@@ -193,7 +201,7 @@ impl Rule005AdmonitionNewlines {
             
             fix_list.push(LintCorrection::Insert(LintCorrectionInsert {
                 location,
-                text: "\n".to_string(),
+                text: line_ending.to_string(),
             }));
         }
         
