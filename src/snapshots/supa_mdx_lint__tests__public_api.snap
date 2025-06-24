@@ -537,6 +537,34 @@ pub fn supa_mdx_lint::rules::Rule004ExcludeWords::borrow_mut(&mut self) -> &mut 
 impl<T> core::convert::From<T> for supa_mdx_lint::rules::Rule004ExcludeWords
 pub fn supa_mdx_lint::rules::Rule004ExcludeWords::from(t: T) -> T
 impl<T> either::into_either::IntoEither for supa_mdx_lint::rules::Rule004ExcludeWords
+pub struct supa_mdx_lint::rules::Rule005AdmonitionNewlines
+impl core::default::Default for supa_mdx_lint::rules::Rule005AdmonitionNewlines
+pub fn supa_mdx_lint::rules::Rule005AdmonitionNewlines::default() -> supa_mdx_lint::rules::Rule005AdmonitionNewlines
+impl core::fmt::Debug for supa_mdx_lint::rules::Rule005AdmonitionNewlines
+pub fn supa_mdx_lint::rules::Rule005AdmonitionNewlines::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for supa_mdx_lint::rules::Rule005AdmonitionNewlines
+impl core::marker::Send for supa_mdx_lint::rules::Rule005AdmonitionNewlines
+impl core::marker::Sync for supa_mdx_lint::rules::Rule005AdmonitionNewlines
+impl core::marker::Unpin for supa_mdx_lint::rules::Rule005AdmonitionNewlines
+impl core::panic::unwind_safe::RefUnwindSafe for supa_mdx_lint::rules::Rule005AdmonitionNewlines
+impl core::panic::unwind_safe::UnwindSafe for supa_mdx_lint::rules::Rule005AdmonitionNewlines
+impl<T, U> core::convert::Into<U> for supa_mdx_lint::rules::Rule005AdmonitionNewlines where U: core::convert::From<T>
+pub fn supa_mdx_lint::rules::Rule005AdmonitionNewlines::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for supa_mdx_lint::rules::Rule005AdmonitionNewlines where U: core::convert::Into<T>
+pub type supa_mdx_lint::rules::Rule005AdmonitionNewlines::Error = core::convert::Infallible
+pub fn supa_mdx_lint::rules::Rule005AdmonitionNewlines::try_from(value: U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for supa_mdx_lint::rules::Rule005AdmonitionNewlines where U: core::convert::TryFrom<T>
+pub type supa_mdx_lint::rules::Rule005AdmonitionNewlines::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn supa_mdx_lint::rules::Rule005AdmonitionNewlines::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> core::any::Any for supa_mdx_lint::rules::Rule005AdmonitionNewlines where T: 'static + ?core::marker::Sized
+pub fn supa_mdx_lint::rules::Rule005AdmonitionNewlines::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for supa_mdx_lint::rules::Rule005AdmonitionNewlines where T: ?core::marker::Sized
+pub fn supa_mdx_lint::rules::Rule005AdmonitionNewlines::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for supa_mdx_lint::rules::Rule005AdmonitionNewlines where T: ?core::marker::Sized
+pub fn supa_mdx_lint::rules::Rule005AdmonitionNewlines::borrow_mut(&mut self) -> &mut T
+impl<T> core::convert::From<T> for supa_mdx_lint::rules::Rule005AdmonitionNewlines
+pub fn supa_mdx_lint::rules::Rule005AdmonitionNewlines::from(t: T) -> T
+impl<T> either::into_either::IntoEither for supa_mdx_lint::rules::Rule005AdmonitionNewlines
 pub enum supa_mdx_lint::LintLevel
 pub supa_mdx_lint::LintLevel::Error
 pub supa_mdx_lint::LintLevel::Warning
