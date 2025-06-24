@@ -74,7 +74,7 @@ impl RuleSettings {
     }
 
     #[cfg(test)]
-    pub fn has_key(&self, key: &str) -> bool {
+    pub(crate) fn has_key(&self, key: &str) -> bool {
         self.0
             .as_table()
             .map(|table| table.contains_key(key))
@@ -82,14 +82,14 @@ impl RuleSettings {
     }
 
     #[cfg(test)]
-    fn from_key_value(key: &str, value: toml::Value) -> Self {
+    pub(crate) fn from_key_value(key: &str, value: toml::Value) -> Self {
         let mut table = toml::Table::new();
         table.insert(key.to_string(), value);
         Self::new(table)
     }
 
     #[cfg(test)]
-    fn with_array_of_strings(key: &str, values: Vec<&str>) -> Self {
+    pub(crate) fn with_array_of_strings(key: &str, values: Vec<&str>) -> Self {
         let array = values
             .into_iter()
             .map(|s| toml::Value::String(s.to_string()))
@@ -192,7 +192,7 @@ impl RuleSettings {
     }
 
     #[cfg(test)]
-    fn with_serializable<T: Serialize>(key: &str, value: &T) -> Self {
+    pub(crate) fn with_serializable<T: Serialize>(key: &str, value: &T) -> Self {
         Self::from_key_value(key, toml::Value::try_from(value).unwrap())
     }
 
@@ -300,12 +300,12 @@ impl<State> RuleRegistry<State> {
     }
 
     #[cfg(test)]
-    pub fn is_rule_active(&self, rule_name: &str) -> bool {
+    pub(crate) fn is_rule_active(&self, rule_name: &str) -> bool {
         self.rules.iter().any(|rule| rule.name() == rule_name)
     }
 
     #[cfg(test)]
-    pub fn deactivate_all_but(&mut self, rule_name: &str) {
+    pub(crate) fn deactivate_all_but(&mut self, rule_name: &str) {
         self.rules.retain(|rule| rule.name() == rule_name)
     }
 }
