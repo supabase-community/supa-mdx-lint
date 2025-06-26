@@ -321,15 +321,31 @@ impl<'a, 'b> InteractiveFixManager<'a, 'b> {
     fn custom_edit(&mut self, error: &LintError) -> Result<()> {
         let rope = &mut self.curr_file.as_mut().unwrap().rope;
         let edit_range = Self::bytes_from_offsets(error, rope.byte_slice(..));
+        let slice = rope.byte_slice(edit_range.clone());
 
-        let Some(revised_content) =
-            Editor::new().edit(&rope.byte_slice(edit_range.clone()).to_string())?
+        // If the original slice did not end with a newline, assume a newline
+        // post-editing was added by the editor and trim it off.
+        let trim_newline = {
+            let len = slice.byte_len();
+            !(slice.is_char_boundary(len - 1) && slice.byte(len - 1) == b'\n')
+        };
+
+        let Some(revised_content) = Editor::new()
+            .trim_newlines(false)
+            .edit(&slice.to_string())?
         else {
             println!("Editing canceled");
             return Ok(());
         };
 
-        rope.replace(edit_range, &revised_content);
+        rope.replace(
+            edit_range,
+            if trim_newline {
+                revised_content.trim_end()
+            } else {
+                &revised_content
+            },
+        );
         self.curr_file.as_mut().unwrap().sync_staged_contents();
         Ok(())
     }
