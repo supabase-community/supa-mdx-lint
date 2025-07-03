@@ -20,7 +20,8 @@ struct ErrorInfo {
 }
 
 static ADMONITION_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?s)<Admonition[^>]*>\s*\n\s*\n.*?\n\s*\n\s*</Admonition>").unwrap()
+    Regex::new(r"(?s)<Admonition[^>]*>\s*\r?\n\s*\r?\n.*?\r?\n\s*\r?\n\s*</Admonition>")
+        .unwrap()
 });
 
 /// Admonition JSX tags must have empty line separation from their content.
