@@ -219,3 +219,38 @@ This one is missing the opening newline.
 </Admonition>"#
     );
 }
+
+#[test]
+fn test_autofix_admonition_and_word_replace_offset_bug() {
+    let tempdir = TempDir::new().unwrap();
+    let bad_file = r#"# Test
+
+<Admonition type=\"caution\">
+This is the content.
+</Admonition>
+
+Some text to be replaced."#;
+    fs::write(tempdir.path().join("bad.mdx"), bad_file).unwrap();
+
+    let mut cmd = Command::cargo_bin("supa-mdx-lint").unwrap();
+    cmd.arg(tempdir.path().join("bad.mdx"))
+        .arg("--config")
+        .arg("tests/supa-mdx-lint.config.toml")
+        .arg("--fix");
+    cmd.assert().success();
+
+    let result = fs::read_to_string(tempdir.path().join("bad.mdx")).unwrap();
+    // The expected output assumes both fixes are applied at the correct locations
+    assert_eq!(
+        result,
+        r#"# Test
+
+<Admonition type=\"caution\">
+
+This is the content.
+
+</Admonition>
+
+Some text to be replaced."#
+    );
+}
