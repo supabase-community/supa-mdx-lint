@@ -1,0 +1,21 @@
+# Test absolute URLs
+
+This document tests various URL patterns:
+
+1. Absolute URL matching base URL (should error):
+[Documentation](https://supabase.com/docs/auth)
+
+2. Image with absolute URL matching base URL (should error):
+![Logo](https://supabase.com/images/logo.png)
+
+3. URL in display text and href (should only fix href):
+[https://supabase.com](https://supabase.com/docs/guides)
+
+4. External absolute URL (should not error):
+[Google](https://google.com/search)
+
+5. Already relative URL (should not error):
+[Local docs](/docs/local)
+
+6. Root URL (should error):
+[Home](https://supabase.com/)

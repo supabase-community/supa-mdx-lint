@@ -1,6 +1,8 @@
 Rule001HeadingCase = false
 Rule003Spelling = false
 Rule004ExcludeWords = false
+Rule005AdmonitionNewlines = false
+Rule006NoAbsoluteUrls = false
 
 [Rule002AdmonitionTypes]
 admonition_types = ["note", "tip", "caution", "deprecation", "danger"]

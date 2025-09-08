@@ -21,7 +21,7 @@ use super::{Rule, RuleName, RuleSettings};
 /// ![Logo](/images/logo.png)
 /// ```
 ///
-/// ### Invalid (assuming base_url is "https://supabase.com")
+/// ### Invalid (assuming base_url is `https://supabase.com`)
 ///
 /// ```markdown
 /// [Documentation](https://supabase.com/docs/auth)

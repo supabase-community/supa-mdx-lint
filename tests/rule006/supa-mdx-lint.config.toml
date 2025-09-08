@@ -1,8 +1,8 @@
 Rule001HeadingCase = false
 Rule002AdmonitionTypes = false
+Rule003Spelling = false
 Rule004ExcludeWords = false
 Rule005AdmonitionNewlines = false
-Rule006NoAbsoluteUrls = false
 
-[Rule003Spelling]
-allow_list = ["Supabase"]
+[Rule006NoAbsoluteUrls]
+base_url = "https://supabase.com"
