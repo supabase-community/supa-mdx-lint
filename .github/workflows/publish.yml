@@ -39,17 +39,17 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           scope: "supabase"
 
+      # Ensure npm 11.5.1 or later is installed for trusted publishing support
+      - name: Update npm
+        run: npm install -g npm@latest
+
       - name: Publish binary distrubutions
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
         run: |
           for tarball in ./npm-binary-distributions/*/*.tgz; do
             npm publish --provenance --access public "$tarball"
           done
 
       - name: Publish Node package
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
         run: |
           for tarball in ./node-pkg/*.tgz; do
             npm publish --provenance --access public "$tarball"
