@@ -212,21 +212,30 @@ impl Rule001HeadingCase {
 
         let text = rope.to_string();
         debug!("Checking for exceptions in {text}");
+
+        let mut longest_match: Option<regex::Match<'_>> = None;
         for pattern in patterns {
             if let Some(match_result) = pattern.find(&text) {
                 debug!("Found exception match: {match_result:?}");
-                while offset + match_result.len()
-                    > word_iterator
-                        .curr_index()
-                        .expect("WordIterator index should not be queried while unstable")
-                {
-                    if word_iterator.next().is_none() {
-                        break;
-                    }
+                if longest_match.is_none() || match_result.len() > longest_match.unwrap().len() {
+                    longest_match = Some(match_result);
                 }
-
-                return true;
             }
+        }
+
+        if let Some(match_result) = longest_match {
+            debug!("Using longest exception match: {match_result:?}");
+            while offset + match_result.len()
+                > word_iterator
+                    .curr_index()
+                    .expect("WordIterator index should not be queried while unstable")
+            {
+                if word_iterator.next().is_none() {
+                    break;
+                }
+            }
+
+            return true;
         }
 
         false
@@ -508,6 +517,56 @@ mod tests {
             &context,
             LintLevel::Error,
         );
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_rule001_exception_including_initialism() {
+        let mut rule = Rule001HeadingCase::default();
+        let mut settings =
+            RuleSettings::with_array_of_strings("may_uppercase", vec!["MCP Inspector"]);
+        rule.setup(Some(&mut settings));
+
+        let mdx = "### Test with MCP Inspector";
+        let parse_result = parse(mdx).unwrap();
+        let context = Context::builder()
+            .parse_result(&parse_result)
+            .build()
+            .unwrap();
+
+        let result = rule.check(
+            parse_result.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_rule001_longer_exception_preferred_over_regex() {
+        // Regression test: when a regex like "[A-Z]{2,5}" could match "MCP" but
+        // a longer literal "MCP Inspector" also matches, the longer match should win.
+        let mut rule = Rule001HeadingCase::default();
+        let mut settings = RuleSettings::with_array_of_strings(
+            "may_uppercase",
+            vec!["[A-Z]{2,5}", "MCP Inspector"],
+        );
+        rule.setup(Some(&mut settings));
+
+        let mdx = "#### Test with MCP Inspector";
+        let parse_result = parse(mdx).unwrap();
+        let context = Context::builder()
+            .parse_result(&parse_result)
+            .build()
+            .unwrap();
+
+        let result = rule.check(
+            parse_result.ast().children().unwrap().first().unwrap(),
+            &context,
+            LintLevel::Error,
+        );
+        // Should pass because "MCP Inspector" is matched as a whole,
+        // not just "MCP" leaving "Inspector" unmatched.
         assert!(result.is_none());
     }
 

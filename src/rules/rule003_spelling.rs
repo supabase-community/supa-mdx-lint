@@ -477,7 +477,7 @@ impl Rule003Spelling {
         AdjustedRange::new(start, end)
     }
 
-    fn normalize_word(word: &str) -> Cow<str> {
+    fn normalize_word(word: &str) -> Cow<'_, str> {
         let mut word = Cow::Borrowed(word);
 
         let quote_chars = ['‘', '’', '“', '”'];

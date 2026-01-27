@@ -49,7 +49,7 @@ impl ConfigFileLocations {
         }
     }
 
-    fn iter(&self) -> ConfigFileLocationsIterator {
+    fn iter(&self) -> ConfigFileLocationsIterator<'_> {
         ConfigFileLocationsIterator {
             inner: self.0.as_ref().map(|map| map.iter()),
         }

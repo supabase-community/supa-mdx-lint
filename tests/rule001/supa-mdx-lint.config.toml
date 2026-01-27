@@ -1,0 +1,10 @@
+Rule002AdmonitionTypes = false
+Rule003Spelling = false
+Rule004ExcludeWords = false
+Rule005AdmonitionNewlines = false
+Rule006NoAbsoluteUrls = false
+
+[Rule001HeadingCase]
+# Include a regex that could match "MCP" and a longer literal "MCP Inspector"
+# The longer match should be preferred
+may_uppercase = ["[A-Z]{2,5}", "MCP Inspector"]
