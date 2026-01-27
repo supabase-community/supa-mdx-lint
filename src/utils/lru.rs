@@ -100,8 +100,10 @@ mod tests {
 
     #[test]
     fn test_lru_cache_eviction() {
-        let mut cache = LruCache::<String, i32>::default();
-        cache.capacity = 3;
+        let mut cache = LruCache::<String, i32> {
+            capacity: 3,
+            ..Default::default()
+        };
 
         // Fill the cache
         cache.insert("a".to_string(), 1);

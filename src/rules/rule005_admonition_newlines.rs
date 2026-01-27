@@ -237,7 +237,7 @@ This is the content.
 
 </Admonition>"#;
 
-        let rule = Rule005AdmonitionNewlines::default();
+        let rule = Rule005AdmonitionNewlines;
         let parse_result = parse(mdx).unwrap();
         let context = Context::builder()
             .parse_result(&parse_result)
@@ -248,8 +248,7 @@ This is the content.
             .parse_result
             .ast()
             .children()
-            .unwrap()
-            .get(0)
+            .unwrap().first()
             .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
@@ -265,7 +264,7 @@ This is the content.
 This is the content.
 </Admonition>"#;
 
-        let rule = Rule005AdmonitionNewlines::default();
+        let rule = Rule005AdmonitionNewlines;
         let parse_result = parse(mdx).unwrap();
         let context = Context::builder()
             .parse_result(&parse_result)
@@ -276,8 +275,7 @@ This is the content.
             .parse_result
             .ast()
             .children()
-            .unwrap()
-            .get(0)
+            .unwrap().first()
             .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
@@ -300,7 +298,7 @@ This is the content.
 
 </Admonition>"#;
 
-        let rule = Rule005AdmonitionNewlines::default();
+        let rule = Rule005AdmonitionNewlines;
         let parse_result = parse(mdx).unwrap();
         let context = Context::builder()
             .parse_result(&parse_result)
@@ -311,8 +309,7 @@ This is the content.
             .parse_result
             .ast()
             .children()
-            .unwrap()
-            .get(0)
+            .unwrap().first()
             .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
@@ -335,7 +332,7 @@ This is the content.
 This is the content.
 </Admonition>"#;
 
-        let rule = Rule005AdmonitionNewlines::default();
+        let rule = Rule005AdmonitionNewlines;
         let parse_result = parse(mdx).unwrap();
         let context = Context::builder()
             .parse_result(&parse_result)
@@ -346,8 +343,7 @@ This is the content.
             .parse_result
             .ast()
             .children()
-            .unwrap()
-            .get(0)
+            .unwrap().first()
             .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
@@ -370,7 +366,7 @@ This is the content.
 
 </Admonition>"#;
 
-        let rule = Rule005AdmonitionNewlines::default();
+        let rule = Rule005AdmonitionNewlines;
         let parse_result = parse(mdx).unwrap();
         let context = Context::builder()
             .parse_result(&parse_result)
@@ -381,8 +377,7 @@ This is the content.
             .parse_result
             .ast()
             .children()
-            .unwrap()
-            .get(0)
+            .unwrap().first()
             .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
@@ -418,7 +413,7 @@ This is the content.
 This is the content.
 </Admonition>"#;
 
-        let rule = Rule005AdmonitionNewlines::default();
+        let rule = Rule005AdmonitionNewlines;
         let parse_result = parse(mdx).unwrap();
         let context = Context::builder()
             .parse_result(&parse_result)
@@ -429,8 +424,7 @@ This is the content.
             .parse_result
             .ast()
             .children()
-            .unwrap()
-            .get(0)
+            .unwrap().first()
             .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
@@ -465,7 +459,7 @@ This is the content.
 This is the content.
 </Admonition>"#;
 
-        let rule = Rule005AdmonitionNewlines::default();
+        let rule = Rule005AdmonitionNewlines;
         let parse_result = parse(mdx).unwrap();
         let context = Context::builder()
             .parse_result(&parse_result)
@@ -476,8 +470,7 @@ This is the content.
             .parse_result
             .ast()
             .children()
-            .unwrap()
-            .get(0)
+            .unwrap().first()
             .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
@@ -525,7 +518,7 @@ This is the content.
 
 </Admonition>"#;
 
-        let rule = Rule005AdmonitionNewlines::default();
+        let rule = Rule005AdmonitionNewlines;
         let parse_result = parse(mdx).unwrap();
         let context = Context::builder()
             .parse_result(&parse_result)
@@ -536,8 +529,7 @@ This is the content.
             .parse_result
             .ast()
             .children()
-            .unwrap()
-            .get(0)
+            .unwrap().first()
             .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
@@ -552,7 +544,7 @@ This is the content.
         let mdx =
             r#"<Admonition type="note" label="Data changes are not merged into production." />"#;
 
-        let rule = Rule005AdmonitionNewlines::default();
+        let rule = Rule005AdmonitionNewlines;
         let parse_result = parse(mdx).unwrap();
         let context = Context::builder()
             .parse_result(&parse_result)
@@ -563,8 +555,7 @@ This is the content.
             .parse_result
             .ast()
             .children()
-            .unwrap()
-            .get(0)
+            .unwrap().first()
             .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 

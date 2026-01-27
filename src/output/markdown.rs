@@ -218,7 +218,7 @@ mod tests {
     ) -> Result<String> {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join(mock_path);
-        fs::write(&file_path, &contents).unwrap();
+        fs::write(&file_path, contents).unwrap();
 
         let error = LintError::from_raw_location()
             .rule(rule_name)

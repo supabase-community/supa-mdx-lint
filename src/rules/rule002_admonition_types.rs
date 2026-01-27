@@ -197,14 +197,13 @@ Some text.
             .parse_result
             .ast()
             .children()
-            .unwrap()
-            .get(0)
+            .unwrap().first()
             .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
         assert!(result.is_some());
         assert!(result.as_ref().unwrap().len() == 1);
-        let location = &result.as_ref().unwrap().get(0).unwrap().location;
+        let location = &result.as_ref().unwrap().first().unwrap().location;
         assert!(location.start.row == 4);
         assert!(location.start.column == 12);
         assert!(location.end.row == 4);
@@ -228,8 +227,7 @@ Some text.
             .parse_result
             .ast()
             .children()
-            .unwrap()
-            .get(0)
+            .unwrap().first()
             .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
@@ -243,8 +241,9 @@ Some text.
 Some text.
 </Admonition>"#;
 
-        let mut rule = Rule002AdmonitionTypes::default();
-        rule.admonition_types = vec!["note".to_string()];
+        let rule = Rule002AdmonitionTypes {
+            admonition_types: vec!["note".to_string()],
+        };
         let parse_result = parse(mdx).unwrap();
         let context = Context::builder()
             .parse_result(&parse_result)
@@ -255,8 +254,7 @@ Some text.
             .parse_result
             .ast()
             .children()
-            .unwrap()
-            .get(0)
+            .unwrap().first()
             .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 

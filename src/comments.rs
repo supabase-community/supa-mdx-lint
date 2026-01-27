@@ -615,7 +615,7 @@ A list:
         let first = comment_pairs.first().unwrap();
         assert_eq!(first.0.inner.value, "/* Comment 1 */");
         match first.1 {
-            Some(Node::Paragraph(Paragraph { children, .. })) => match children.get(0).unwrap() {
+            Some(Node::Paragraph(Paragraph { children, .. })) => match children.first().unwrap() {
                 Node::Text(text) => {
                     assert_eq!(text.value, "Paragraph 1");
                 }
@@ -631,7 +631,7 @@ A list:
         let second = comment_pairs.get(1).unwrap();
         assert_eq!(second.0.inner.value, "/* Comment 2 */");
         match second.1 {
-            Some(Node::Paragraph(Paragraph { children, .. })) => match children.get(0).unwrap() {
+            Some(Node::Paragraph(Paragraph { children, .. })) => match children.first().unwrap() {
                 Node::Text(text) => {
                     assert_eq!(text.value, "Paragraph 1");
                 }
@@ -647,8 +647,8 @@ A list:
         let third = comment_pairs.get(2).unwrap();
         assert_eq!(third.0.inner.value, "/* Comment 3 */");
         match third.1 {
-            Some(Node::ListItem(list_item)) => match list_item.children.get(0).unwrap() {
-                Node::Paragraph(Paragraph { children, .. }) => match children.get(0).unwrap() {
+            Some(Node::ListItem(list_item)) => match list_item.children.first().unwrap() {
+                Node::Paragraph(Paragraph { children, .. }) => match children.first().unwrap() {
                     Node::Text(text) => {
                         assert_eq!(text.value, "Item 2");
                     }
