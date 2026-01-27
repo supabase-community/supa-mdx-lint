@@ -694,7 +694,7 @@ fn combine_exclusions<'a>(
 ) -> Peekable<impl Iterator<Item = (usize, Suffix<'a>, CaseSensitivity, &'a Option<String>)>> {
     fn remainders_iter(
         details: &WordExclusionMeta,
-    ) -> impl Iterator<Item = (usize, Suffix, &Option<String>)> {
+    ) -> impl Iterator<Item = (usize, Suffix<'_>, &Option<String>)> {
         details.remainders.iter().enumerate().map(|(i, rem)| {
             let (rule_index, replacement) = details
                 .details
