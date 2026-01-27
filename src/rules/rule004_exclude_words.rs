@@ -864,7 +864,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "Don't use 'Foo'");
         assert_eq!(error.level, LintLevel::Error);
         assert_eq!(error.location.offset_range.start, AdjustedOffset::from(10));
@@ -898,7 +898,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "Don't use 'Foo'");
         assert_eq!(error.level, LintLevel::Error);
         assert_eq!(error.location.offset_range.start, AdjustedOffset::from(10));
@@ -907,7 +907,7 @@ mod tests {
         assert!(error.suggestions.is_some());
         let suggestions = error.suggestions.as_ref().unwrap();
         assert_eq!(suggestions.len(), 1);
-        let suggestion = suggestions.get(0).unwrap();
+        let suggestion = suggestions.first().unwrap();
         assert!(matches!(
             suggestion,
             LintCorrection::Replace(LintCorrectionReplace { .. })
@@ -949,7 +949,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 2);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "Don't use 'Foo'");
         assert_eq!(error.level, LintLevel::Error);
         assert_eq!(error.location.offset_range.start, AdjustedOffset::from(10));
@@ -986,7 +986,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "Don't use 'Foo bar'");
         assert_eq!(error.level, LintLevel::Error);
         assert_eq!(error.location.offset_range.start, AdjustedOffset::from(10));
@@ -1028,7 +1028,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "Don't use 'bartender'");
         assert_eq!(error.level, LintLevel::Error);
         assert_eq!(error.location.offset_range.start, AdjustedOffset::from(14));
@@ -1072,7 +1072,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "Don't use 'Foo bartender'");
         assert_eq!(error.level, LintLevel::Error);
         assert_eq!(error.location.offset_range.start, AdjustedOffset::from(10));
@@ -1132,7 +1132,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "Don't use 'Foo bartender'");
         assert_eq!(error.level, LintLevel::Error);
         assert_eq!(error.location.offset_range.start, AdjustedOffset::from(10));
@@ -1185,7 +1185,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "Don't use 'foo'");
         assert_eq!(error.level, LintLevel::Error);
         assert_eq!(error.location.offset_range.start, AdjustedOffset::from(10));
@@ -1216,7 +1216,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "Don't use 'foo'");
         assert_eq!(error.level, LintLevel::Warning);
         assert_eq!(error.location.offset_range.start, AdjustedOffset::from(10));
@@ -1247,7 +1247,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "blah blah blah");
         assert_eq!(error.level, LintLevel::Error);
         assert_eq!(error.location.offset_range.start, AdjustedOffset::from(0));
@@ -1278,7 +1278,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "This isn't Reddit.");
         assert_eq!(error.level, LintLevel::Error);
         assert_eq!(error.location.offset_range.start, AdjustedOffset::from(0));
@@ -1309,7 +1309,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "Don't use ladeeda");
     }
 
@@ -1337,7 +1337,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "Don't use %%s");
     }
 
@@ -1368,7 +1368,7 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
+        let error = errors.first().unwrap();
         assert_eq!(error.message, "Use Postgres instead of PostgreSQL");
     }
 
@@ -1396,8 +1396,8 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let error = errors.get(0).unwrap();
-        let suggestion = error.suggestions.as_ref().unwrap().get(0).unwrap();
+        let error = errors.first().unwrap();
+        let suggestion = error.suggestions.as_ref().unwrap().first().unwrap();
         match suggestion {
             LintCorrection::Replace(replace) => {
                 assert_eq!(replace.location.offset_range.start, AdjustedOffset::from(0));

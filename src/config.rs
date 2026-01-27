@@ -536,7 +536,7 @@ option2 = "value"
         let locations = metadata.config_file_locations.unwrap();
 
         assert!(locations.len() == 1);
-        assert!(locations.get(VALID_RULE_NAME).is_some());
+        assert!(locations.contains_key(VALID_RULE_NAME));
     }
 
     #[test]

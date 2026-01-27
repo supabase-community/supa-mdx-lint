@@ -201,10 +201,10 @@ mod tests {
             .deactivate_all_but("Rule001HeadingCase");
 
         let valid_mdx = "# Hello, world!\n\nThis is a valid document.";
-        let result = linter.lint(&LintTarget::String(&valid_mdx.to_string()))?;
+        let result = linter.lint(&LintTarget::String(valid_mdx))?;
 
         assert!(
-            result.get(0).unwrap().errors().is_empty(),
+            result.first().unwrap().errors().is_empty(),
             "Expected no lint errors for valid MDX, got {:?}",
             result
         );
@@ -220,10 +220,10 @@ mod tests {
             .deactivate_all_but("Rule001HeadingCase");
 
         let invalid_mdx = "# Incorrect Heading\n\nThis is an invalid document.";
-        let result = linter.lint(&LintTarget::String(&invalid_mdx.to_string()))?;
+        let result = linter.lint(&LintTarget::String(invalid_mdx))?;
 
         assert!(
-            !result.get(0).unwrap().errors().is_empty(),
+            !result.first().unwrap().errors().is_empty(),
             "Expected lint errors for invalid MDX"
         );
         Ok(())

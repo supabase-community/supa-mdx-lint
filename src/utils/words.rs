@@ -1114,9 +1114,7 @@ mod tests {
         let mut orig_iter: extras::WordIteratorExtension<'_, extras::WordIteratorPrefix> =
             WordIterator::new(slice, 0, Default::default()).into();
 
-        let mut consumed = vec![];
-        consumed.push(orig_iter.next().unwrap());
-        consumed.push(orig_iter.next().unwrap());
+        let consumed = vec![orig_iter.next().unwrap(), orig_iter.next().unwrap()];
 
         let mut new_iter = orig_iter.extend_on_prefix(extras::WordIteratorPrefix::new(consumed));
 

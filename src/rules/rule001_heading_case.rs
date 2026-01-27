@@ -362,13 +362,13 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let fixes = errors.get(0).unwrap().fix.clone();
+        let fixes = errors.first().unwrap().fix.clone();
         assert!(fixes.is_some());
 
         let fixes = fixes.unwrap();
         assert_eq!(fixes.len(), 1);
 
-        let fix = fixes.get(0).unwrap();
+        let fix = fixes.first().unwrap();
         match fix {
             LintCorrection::Replace(fix) => {
                 assert_eq!(fix.text, "This");
@@ -403,13 +403,13 @@ mod tests {
         let errors = result.unwrap();
         assert_eq!(errors.len(), 1);
 
-        let fixes = errors.get(0).unwrap().fix.clone();
+        let fixes = errors.first().unwrap().fix.clone();
         assert!(fixes.is_some());
 
         let fixes = fixes.unwrap();
         assert_eq!(fixes.len(), 2);
 
-        let fix_one = fixes.get(0).unwrap();
+        let fix_one = fixes.first().unwrap();
         match fix_one {
             LintCorrection::Replace(fix) => {
                 assert_eq!(fix.text, "should");
@@ -657,11 +657,11 @@ mod tests {
         let result = result.unwrap();
         assert_eq!(result.len(), 1);
 
-        let error = result.get(0).unwrap();
+        let error = result.first().unwrap();
         assert_eq!(error.fix.as_ref().unwrap().len(), 1);
 
         let fixes = error.fix.clone().unwrap();
-        let fix = fixes.get(0).unwrap();
+        let fix = fixes.first().unwrap();
         match fix {
             LintCorrection::Replace(fix) => {
                 assert_eq!(fix.text, "api");
@@ -885,8 +885,8 @@ mod tests {
             )
             .unwrap();
 
-        let fixes = result.get(0).unwrap().fix.as_ref().unwrap();
-        let fix = fixes.get(0).unwrap();
+        let fixes = result.first().unwrap().fix.as_ref().unwrap();
+        let fix = fixes.first().unwrap();
         match fix {
             LintCorrection::Replace(fix) => {
                 assert_eq!(fix.location.start.column, 8);

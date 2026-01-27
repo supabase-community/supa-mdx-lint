@@ -544,12 +544,10 @@ mod tests {
             parse_result
                 .ast()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap(),
             &context,
             LintLevel::Error,
@@ -574,12 +572,10 @@ mod tests {
                 parse_result
                     .ast()
                     .children()
-                    .unwrap()
-                    .get(0)
+                    .unwrap().first()
                     .unwrap()
                     .children()
-                    .unwrap()
-                    .get(0)
+                    .unwrap().first()
                     .unwrap(),
                 &context,
                 LintLevel::Error,
@@ -610,12 +606,10 @@ mod tests {
             parse_result
                 .ast()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap(),
             &context,
             LintLevel::Error,
@@ -640,12 +634,10 @@ mod tests {
             parse_result
                 .ast()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap(),
             &context,
             LintLevel::Error,
@@ -670,12 +662,10 @@ mod tests {
             parse_result
                 .ast()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap(),
             &context,
             LintLevel::Error,
@@ -700,12 +690,10 @@ mod tests {
                 parse_result
                     .ast()
                     .children()
-                    .unwrap()
-                    .get(0)
+                    .unwrap().first()
                     .unwrap()
                     .children()
-                    .unwrap()
-                    .get(0)
+                    .unwrap().first()
                     .unwrap(),
                 &context,
                 LintLevel::Error,
@@ -742,12 +730,10 @@ mod tests {
                 parse_result
                     .ast()
                     .children()
-                    .unwrap()
-                    .get(0)
+                    .unwrap().first()
                     .unwrap()
                     .children()
-                    .unwrap()
-                    .get(0)
+                    .unwrap().first()
                     .unwrap(),
                 &context,
                 LintLevel::Error,
@@ -778,12 +764,10 @@ mod tests {
                 parse_result
                     .ast()
                     .children()
-                    .unwrap()
-                    .get(0)
+                    .unwrap().first()
                     .unwrap()
                     .children()
-                    .unwrap()
-                    .get(0)
+                    .unwrap().first()
                     .unwrap(),
                 &context,
                 LintLevel::Error,
@@ -814,12 +798,10 @@ mod tests {
             parse_result
                 .ast()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap(),
             &context,
             LintLevel::Error,
@@ -844,12 +826,10 @@ mod tests {
             parse_result
                 .ast()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap(),
             &context,
             LintLevel::Error,
@@ -875,12 +855,10 @@ mod tests {
             parse_result
                 .ast()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap(),
             &context,
             LintLevel::Error,
@@ -904,12 +882,10 @@ mod tests {
             parse_result
                 .ast()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap(),
             &context,
             LintLevel::Error,
@@ -934,12 +910,10 @@ mod tests {
             parse_result
                 .ast()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap()
                 .children()
-                .unwrap()
-                .get(0)
+                .unwrap().first()
                 .unwrap(),
             &context,
             LintLevel::Error,
@@ -964,12 +938,10 @@ mod tests {
                 parse_result
                     .ast()
                     .children()
-                    .unwrap()
-                    .get(0)
+                    .unwrap().first()
                     .unwrap()
                     .children()
-                    .unwrap()
-                    .get(0)
+                    .unwrap().first()
                     .unwrap(),
                 &context,
                 LintLevel::Error,

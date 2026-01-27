@@ -206,7 +206,7 @@ Content here."#;
         let yaml = frontmatter.downcast_ref::<serde_yaml::Value>().unwrap();
         if let serde_yaml::Value::Mapping(map) = yaml {
             assert_eq!(map.len(), 1);
-            assert!(map.contains_key(&serde_yaml::Value::String("title".to_string())));
+            assert!(map.contains_key(serde_yaml::Value::String("title".to_string())));
         } else {
             panic!("Expected YAML frontmatter to be a mapping");
         }
