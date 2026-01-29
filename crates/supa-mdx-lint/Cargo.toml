@@ -1,0 +1,56 @@
+[package]
+name = "supa-mdx-lint"
+description = "Lint MDX files according to the Supabase style guide"
+version = "0.3.2"
+edition.workspace = true
+
+[[bin]]
+name = "supa-mdx-lint"
+path = "src/main.rs"
+
+[dependencies]
+# Workspace dependencies (shared across crates)
+anyhow.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+supa_mdx_macros.workspace = true
+thiserror.workspace = true
+
+# Crate-specific dependencies
+bon = "3.3.2"
+clap = { version = "4.5.20", features = ["derive"] }
+crop = { version = "0.4.2", features = ["graphemes"] }
+dialoguer = { version = "0.11.0", optional = true }
+either = { version = "1.14.0", features = ["serde"] }
+exitcode = "1.1.2"
+fastrand = "2.3.0"
+gag = "1.0.0"
+glob = "0.3.1"
+indexmap = "2.7.1"
+itertools = "0.13.0"
+markdown = "1.0.0-alpha.21"
+miette = { version = "7.5.0", optional = true, features = ["fancy"] }
+owo-colors = { version = "4.1.0", optional = true }
+regex = "1.11.0"
+regex-syntax = { version = "0.8.5", features = ["std", "unicode-perl"] }
+serde_yaml = "0.9.34"
+simplelog = "0.12.2"
+symspell = "0.4.3"
+toml = "0.8.19"
+
+[dev-dependencies]
+env_logger.workspace = true
+
+assert_cmd = "2.0.16"
+ctor = "0.2.8"
+insta = "1.42.2"
+predicates = "3.1.2"
+public-api = "0.44.2"
+rustdoc-json = "0.9.5"
+rustup-toolchain = "0.1.10"
+tempfile = "3.13.0"
+
+[features]
+interactive = ["dep:dialoguer", "dep:owo-colors", "pretty"]
+pretty = ["dep:miette"]
