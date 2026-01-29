@@ -75,6 +75,7 @@ impl ServerState {
     }
 
     /// Reload config and return list of document URIs that need re-linting
+    #[allow(dead_code)]
     pub fn reload_config(&mut self) -> Result<Vec<Uri>> {
         self.discover_config()?;
 
