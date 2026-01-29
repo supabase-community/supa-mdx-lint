@@ -103,6 +103,30 @@ impl LintError {
         &self.message
     }
 
+    pub fn rule_name(&self) -> &str {
+        &self.rule
+    }
+
+    /// Returns the 0-based start row (line number)
+    pub fn start_row(&self) -> usize {
+        self.location.start.row
+    }
+
+    /// Returns the 0-based start column (byte offset within line)
+    pub fn start_column(&self) -> usize {
+        self.location.start.column
+    }
+
+    /// Returns the 0-based end row (line number)
+    pub fn end_row(&self) -> usize {
+        self.location.end.row
+    }
+
+    /// Returns the 0-based end column (byte offset within line)
+    pub fn end_column(&self) -> usize {
+        self.location.end.column
+    }
+
     pub fn offset_range(&self) -> Range<usize> {
         self.location.offset_range.to_usize_range()
     }

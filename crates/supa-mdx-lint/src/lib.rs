@@ -6,7 +6,6 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::{fs, io::Read};
 
-use crate::output::LintOutput;
 use crate::parser::parse;
 
 mod app_error;
@@ -28,6 +27,8 @@ pub mod rules;
 pub use crate::config::{Config, ConfigDir, ConfigMetadata};
 #[doc(inline)]
 pub use crate::errors::{LintError, LintLevel};
+#[doc(inline)]
+pub use crate::output::LintOutput;
 
 #[derive(Debug)]
 pub struct PhaseSetup;
