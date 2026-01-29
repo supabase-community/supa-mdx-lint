@@ -1,0 +1,26 @@
+[package]
+name = "supa-mdx-lint-lsp"
+version = "0.1.0"
+edition.workspace = true
+
+[[bin]]
+name = "supa-mdx-lint-lsp"
+path = "src/main.rs"
+
+[dependencies]
+# Workspace dependencies (shared across crates)
+anyhow.workspace = true
+env_logger.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+supa-mdx-lint.workspace = true
+
+# LSP-specific dependencies (only used by this crate)
+crossbeam-channel = "0.5"
+lsp-server = "0.7"
+lsp-types = "0.97"
+percent-encoding = "2.3"
+
+[dev-dependencies]
+tempfile.workspace = true

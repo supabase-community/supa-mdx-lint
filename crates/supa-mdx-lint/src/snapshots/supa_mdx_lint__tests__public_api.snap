@@ -20,10 +20,10 @@ pub fn supa_mdx_lint::fix::LintCorrection::partial_cmp(&self, other: &Self) -> c
 impl core::fmt::Debug for supa_mdx_lint::fix::LintCorrection
 pub fn supa_mdx_lint::fix::LintCorrection::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for supa_mdx_lint::fix::LintCorrection
-impl serde::ser::Serialize for supa_mdx_lint::fix::LintCorrection
-pub fn supa_mdx_lint::fix::LintCorrection::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde::ser::Serializer>::Ok, <__S as serde::ser::Serializer>::Error> where __S: serde::ser::Serializer
-impl<'de> serde::de::Deserialize<'de> for supa_mdx_lint::fix::LintCorrection
-pub fn supa_mdx_lint::fix::LintCorrection::deserialize<__D>(__deserializer: __D) -> core::result::Result<Self, <__D as serde::de::Deserializer>::Error> where __D: serde::de::Deserializer<'de>
+impl serde_core::ser::Serialize for supa_mdx_lint::fix::LintCorrection
+pub fn supa_mdx_lint::fix::LintCorrection::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for supa_mdx_lint::fix::LintCorrection
+pub fn supa_mdx_lint::fix::LintCorrection::deserialize<__D>(__deserializer: __D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 impl core::marker::Freeze for supa_mdx_lint::fix::LintCorrection
 impl core::marker::Send for supa_mdx_lint::fix::LintCorrection
 impl core::marker::Sync for supa_mdx_lint::fix::LintCorrection
@@ -59,7 +59,7 @@ pub unsafe fn supa_mdx_lint::fix::LintCorrection::clone_to_uninit(&self, dst: *m
 impl<T> core::convert::From<T> for supa_mdx_lint::fix::LintCorrection
 pub fn supa_mdx_lint::fix::LintCorrection::from(t: T) -> T
 impl<T> either::into_either::IntoEither for supa_mdx_lint::fix::LintCorrection
-impl<T> serde::de::DeserializeOwned for supa_mdx_lint::fix::LintCorrection where T: for<'de> serde::de::Deserialize<'de>
+impl<T> serde_core::de::DeserializeOwned for supa_mdx_lint::fix::LintCorrection where T: for<'de> serde_core::de::Deserialize<'de>
 pub struct supa_mdx_lint::fix::LintCorrectionDelete
 impl core::clone::Clone for supa_mdx_lint::fix::LintCorrectionDelete
 pub fn supa_mdx_lint::fix::LintCorrectionDelete::clone(&self) -> supa_mdx_lint::fix::LintCorrectionDelete
@@ -69,13 +69,13 @@ pub fn supa_mdx_lint::fix::LintCorrectionDelete::eq(&self, other: &supa_mdx_lint
 impl core::fmt::Debug for supa_mdx_lint::fix::LintCorrectionDelete
 pub fn supa_mdx_lint::fix::LintCorrectionDelete::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for supa_mdx_lint::fix::LintCorrectionDelete
-impl serde::ser::Serialize for supa_mdx_lint::fix::LintCorrectionDelete
-pub fn supa_mdx_lint::fix::LintCorrectionDelete::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde::ser::Serializer>::Ok, <__S as serde::ser::Serializer>::Error> where __S: serde::ser::Serializer
+impl serde_core::ser::Serialize for supa_mdx_lint::fix::LintCorrectionDelete
+pub fn supa_mdx_lint::fix::LintCorrectionDelete::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl supa_mdx_lint::location::Offsets for supa_mdx_lint::fix::LintCorrectionDelete
 pub fn supa_mdx_lint::fix::LintCorrectionDelete::end(&self) -> usize
 pub fn supa_mdx_lint::fix::LintCorrectionDelete::start(&self) -> usize
-impl<'de> serde::de::Deserialize<'de> for supa_mdx_lint::fix::LintCorrectionDelete
-pub fn supa_mdx_lint::fix::LintCorrectionDelete::deserialize<__D>(__deserializer: __D) -> core::result::Result<Self, <__D as serde::de::Deserializer>::Error> where __D: serde::de::Deserializer<'de>
+impl<'de> serde_core::de::Deserialize<'de> for supa_mdx_lint::fix::LintCorrectionDelete
+pub fn supa_mdx_lint::fix::LintCorrectionDelete::deserialize<__D>(__deserializer: __D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 impl core::marker::Freeze for supa_mdx_lint::fix::LintCorrectionDelete
 impl core::marker::Send for supa_mdx_lint::fix::LintCorrectionDelete
 impl core::marker::Sync for supa_mdx_lint::fix::LintCorrectionDelete
@@ -109,7 +109,7 @@ pub unsafe fn supa_mdx_lint::fix::LintCorrectionDelete::clone_to_uninit(&self, d
 impl<T> core::convert::From<T> for supa_mdx_lint::fix::LintCorrectionDelete
 pub fn supa_mdx_lint::fix::LintCorrectionDelete::from(t: T) -> T
 impl<T> either::into_either::IntoEither for supa_mdx_lint::fix::LintCorrectionDelete
-impl<T> serde::de::DeserializeOwned for supa_mdx_lint::fix::LintCorrectionDelete where T: for<'de> serde::de::Deserialize<'de>
+impl<T> serde_core::de::DeserializeOwned for supa_mdx_lint::fix::LintCorrectionDelete where T: for<'de> serde_core::de::Deserialize<'de>
 pub struct supa_mdx_lint::fix::LintCorrectionInsert
 impl supa_mdx_lint::fix::LintCorrectionInsert
 pub fn supa_mdx_lint::fix::LintCorrectionInsert::text(&self) -> &str
@@ -121,13 +121,13 @@ pub fn supa_mdx_lint::fix::LintCorrectionInsert::eq(&self, other: &supa_mdx_lint
 impl core::fmt::Debug for supa_mdx_lint::fix::LintCorrectionInsert
 pub fn supa_mdx_lint::fix::LintCorrectionInsert::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for supa_mdx_lint::fix::LintCorrectionInsert
-impl serde::ser::Serialize for supa_mdx_lint::fix::LintCorrectionInsert
-pub fn supa_mdx_lint::fix::LintCorrectionInsert::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde::ser::Serializer>::Ok, <__S as serde::ser::Serializer>::Error> where __S: serde::ser::Serializer
+impl serde_core::ser::Serialize for supa_mdx_lint::fix::LintCorrectionInsert
+pub fn supa_mdx_lint::fix::LintCorrectionInsert::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl supa_mdx_lint::location::Offsets for supa_mdx_lint::fix::LintCorrectionInsert
 pub fn supa_mdx_lint::fix::LintCorrectionInsert::end(&self) -> usize
 pub fn supa_mdx_lint::fix::LintCorrectionInsert::start(&self) -> usize
-impl<'de> serde::de::Deserialize<'de> for supa_mdx_lint::fix::LintCorrectionInsert
-pub fn supa_mdx_lint::fix::LintCorrectionInsert::deserialize<__D>(__deserializer: __D) -> core::result::Result<Self, <__D as serde::de::Deserializer>::Error> where __D: serde::de::Deserializer<'de>
+impl<'de> serde_core::de::Deserialize<'de> for supa_mdx_lint::fix::LintCorrectionInsert
+pub fn supa_mdx_lint::fix::LintCorrectionInsert::deserialize<__D>(__deserializer: __D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 impl core::marker::Freeze for supa_mdx_lint::fix::LintCorrectionInsert
 impl core::marker::Send for supa_mdx_lint::fix::LintCorrectionInsert
 impl core::marker::Sync for supa_mdx_lint::fix::LintCorrectionInsert
@@ -161,7 +161,7 @@ pub unsafe fn supa_mdx_lint::fix::LintCorrectionInsert::clone_to_uninit(&self, d
 impl<T> core::convert::From<T> for supa_mdx_lint::fix::LintCorrectionInsert
 pub fn supa_mdx_lint::fix::LintCorrectionInsert::from(t: T) -> T
 impl<T> either::into_either::IntoEither for supa_mdx_lint::fix::LintCorrectionInsert
-impl<T> serde::de::DeserializeOwned for supa_mdx_lint::fix::LintCorrectionInsert where T: for<'de> serde::de::Deserialize<'de>
+impl<T> serde_core::de::DeserializeOwned for supa_mdx_lint::fix::LintCorrectionInsert where T: for<'de> serde_core::de::Deserialize<'de>
 pub struct supa_mdx_lint::fix::LintCorrectionReplace
 impl supa_mdx_lint::fix::LintCorrectionReplace
 pub fn supa_mdx_lint::fix::LintCorrectionReplace::text(&self) -> &str
@@ -173,13 +173,13 @@ pub fn supa_mdx_lint::fix::LintCorrectionReplace::eq(&self, other: &supa_mdx_lin
 impl core::fmt::Debug for supa_mdx_lint::fix::LintCorrectionReplace
 pub fn supa_mdx_lint::fix::LintCorrectionReplace::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for supa_mdx_lint::fix::LintCorrectionReplace
-impl serde::ser::Serialize for supa_mdx_lint::fix::LintCorrectionReplace
-pub fn supa_mdx_lint::fix::LintCorrectionReplace::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde::ser::Serializer>::Ok, <__S as serde::ser::Serializer>::Error> where __S: serde::ser::Serializer
+impl serde_core::ser::Serialize for supa_mdx_lint::fix::LintCorrectionReplace
+pub fn supa_mdx_lint::fix::LintCorrectionReplace::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl supa_mdx_lint::location::Offsets for supa_mdx_lint::fix::LintCorrectionReplace
 pub fn supa_mdx_lint::fix::LintCorrectionReplace::end(&self) -> usize
 pub fn supa_mdx_lint::fix::LintCorrectionReplace::start(&self) -> usize
-impl<'de> serde::de::Deserialize<'de> for supa_mdx_lint::fix::LintCorrectionReplace
-pub fn supa_mdx_lint::fix::LintCorrectionReplace::deserialize<__D>(__deserializer: __D) -> core::result::Result<Self, <__D as serde::de::Deserializer>::Error> where __D: serde::de::Deserializer<'de>
+impl<'de> serde_core::de::Deserialize<'de> for supa_mdx_lint::fix::LintCorrectionReplace
+pub fn supa_mdx_lint::fix::LintCorrectionReplace::deserialize<__D>(__deserializer: __D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 impl core::marker::Freeze for supa_mdx_lint::fix::LintCorrectionReplace
 impl core::marker::Send for supa_mdx_lint::fix::LintCorrectionReplace
 impl core::marker::Sync for supa_mdx_lint::fix::LintCorrectionReplace
@@ -213,7 +213,7 @@ pub unsafe fn supa_mdx_lint::fix::LintCorrectionReplace::clone_to_uninit(&self, 
 impl<T> core::convert::From<T> for supa_mdx_lint::fix::LintCorrectionReplace
 pub fn supa_mdx_lint::fix::LintCorrectionReplace::from(t: T) -> T
 impl<T> either::into_either::IntoEither for supa_mdx_lint::fix::LintCorrectionReplace
-impl<T> serde::de::DeserializeOwned for supa_mdx_lint::fix::LintCorrectionReplace where T: for<'de> serde::de::Deserialize<'de>
+impl<T> serde_core::de::DeserializeOwned for supa_mdx_lint::fix::LintCorrectionReplace where T: for<'de> serde_core::de::Deserialize<'de>
 pub mod supa_mdx_lint::location
 pub trait supa_mdx_lint::location::Offsets: supa_mdx_lint::private::Sealed
 pub fn supa_mdx_lint::location::Offsets::end(&self) -> usize
@@ -616,10 +616,10 @@ impl core::fmt::Display for supa_mdx_lint::LintLevel
 pub fn supa_mdx_lint::LintLevel::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for supa_mdx_lint::LintLevel
 impl core::marker::StructuralPartialEq for supa_mdx_lint::LintLevel
-impl serde::ser::Serialize for supa_mdx_lint::LintLevel
-pub fn supa_mdx_lint::LintLevel::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde::ser::Serializer>::Ok, <__S as serde::ser::Serializer>::Error> where __S: serde::ser::Serializer
-impl<'de> serde::de::Deserialize<'de> for supa_mdx_lint::LintLevel
-pub fn supa_mdx_lint::LintLevel::deserialize<__D>(__deserializer: __D) -> core::result::Result<Self, <__D as serde::de::Deserializer>::Error> where __D: serde::de::Deserializer<'de>
+impl serde_core::ser::Serialize for supa_mdx_lint::LintLevel
+pub fn supa_mdx_lint::LintLevel::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for supa_mdx_lint::LintLevel
+pub fn supa_mdx_lint::LintLevel::deserialize<__D>(__deserializer: __D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 impl core::marker::Freeze for supa_mdx_lint::LintLevel
 impl core::marker::Send for supa_mdx_lint::LintLevel
 impl core::marker::Sync for supa_mdx_lint::LintLevel
@@ -657,7 +657,7 @@ pub unsafe fn supa_mdx_lint::LintLevel::clone_to_uninit(&self, dst: *mut u8)
 impl<T> core::convert::From<T> for supa_mdx_lint::LintLevel
 pub fn supa_mdx_lint::LintLevel::from(t: T) -> T
 impl<T> either::into_either::IntoEither for supa_mdx_lint::LintLevel
-impl<T> serde::de::DeserializeOwned for supa_mdx_lint::LintLevel where T: for<'de> serde::de::Deserialize<'de>
+impl<T> serde_core::de::DeserializeOwned for supa_mdx_lint::LintLevel where T: for<'de> serde_core::de::Deserialize<'de>
 pub enum supa_mdx_lint::LintTarget<'a>
 pub supa_mdx_lint::LintTarget::FileOrDirectory(std::path::PathBuf)
 pub supa_mdx_lint::LintTarget::String(&'a str)
@@ -689,7 +689,7 @@ impl<T> either::into_either::IntoEither for supa_mdx_lint::LintTarget<'a>
 pub struct supa_mdx_lint::Config<Phase>
 impl supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>
 pub fn supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>::from_config_file<P: core::convert::AsRef<std::path::Path>>(config_file: P) -> anyhow::Result<Self>
-pub fn supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>::from_serializable<'f1, T: serde::ser::Serialize>() -> supa_mdx_lint::config::ConfigFromSerializableBuilder<'f1, T>
+pub fn supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>::from_serializable<'f1, T: serde_core::ser::Serialize>() -> supa_mdx_lint::config::ConfigFromSerializableBuilder<'f1, T>
 impl core::convert::From<&supa_mdx_lint::Config<supa_mdx_lint::PhaseReady>> for supa_mdx_lint::ConfigMetadata
 pub fn supa_mdx_lint::ConfigMetadata::from(config: &supa_mdx_lint::Config<supa_mdx_lint::PhaseReady>) -> Self
 impl core::convert::TryFrom<supa_mdx_lint::Config<supa_mdx_lint::PhaseSetup>> for supa_mdx_lint::Config<supa_mdx_lint::PhaseReady>
@@ -805,13 +805,13 @@ impl core::clone::Clone for supa_mdx_lint::LintError
 pub fn supa_mdx_lint::LintError::clone(&self) -> supa_mdx_lint::LintError
 impl core::fmt::Debug for supa_mdx_lint::LintError
 pub fn supa_mdx_lint::LintError::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl serde::ser::Serialize for supa_mdx_lint::LintError
-pub fn supa_mdx_lint::LintError::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde::ser::Serializer>::Ok, <__S as serde::ser::Serializer>::Error> where __S: serde::ser::Serializer
+impl serde_core::ser::Serialize for supa_mdx_lint::LintError
+pub fn supa_mdx_lint::LintError::serialize<__S>(&self, __serializer: __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl supa_mdx_lint::location::Offsets for supa_mdx_lint::LintError
 pub fn supa_mdx_lint::LintError::end(&self) -> usize
 pub fn supa_mdx_lint::LintError::start(&self) -> usize
-impl<'de> serde::de::Deserialize<'de> for supa_mdx_lint::LintError
-pub fn supa_mdx_lint::LintError::deserialize<__D>(__deserializer: __D) -> core::result::Result<Self, <__D as serde::de::Deserializer>::Error> where __D: serde::de::Deserializer<'de>
+impl<'de> serde_core::de::Deserialize<'de> for supa_mdx_lint::LintError
+pub fn supa_mdx_lint::LintError::deserialize<__D>(__deserializer: __D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 impl core::marker::Freeze for supa_mdx_lint::LintError
 impl core::marker::Send for supa_mdx_lint::LintError
 impl core::marker::Sync for supa_mdx_lint::LintError
@@ -841,7 +841,7 @@ pub unsafe fn supa_mdx_lint::LintError::clone_to_uninit(&self, dst: *mut u8)
 impl<T> core::convert::From<T> for supa_mdx_lint::LintError
 pub fn supa_mdx_lint::LintError::from(t: T) -> T
 impl<T> either::into_either::IntoEither for supa_mdx_lint::LintError
-impl<T> serde::de::DeserializeOwned for supa_mdx_lint::LintError where T: for<'de> serde::de::Deserialize<'de>
+impl<T> serde_core::de::DeserializeOwned for supa_mdx_lint::LintError where T: for<'de> serde_core::de::Deserialize<'de>
 pub struct supa_mdx_lint::LintOutput
 impl supa_mdx_lint::output::LintOutput
 pub fn supa_mdx_lint::output::LintOutput::errors(&self) -> &[supa_mdx_lint::LintError]
