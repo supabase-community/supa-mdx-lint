@@ -105,6 +105,10 @@ impl std::fmt::Debug for Rule003Spelling {
 }
 
 impl Rule for Rule003Spelling {
+    fn description(&self) -> &'static str {
+        "Word isn't spelled correctly"
+    }
+
     fn default_level(&self) -> LintLevel {
         LintLevel::Error
     }

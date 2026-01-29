@@ -42,6 +42,10 @@ pub struct Rule006NoAbsoluteUrls {
 }
 
 impl Rule for Rule006NoAbsoluteUrls {
+    fn description(&self) -> &'static str {
+        "Internal links must use relative URLs"
+    }
+
     fn default_level(&self) -> LintLevel {
         LintLevel::Error
     }

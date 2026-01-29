@@ -24,6 +24,10 @@ pub struct Rule002AdmonitionTypes {
 }
 
 impl Rule for Rule002AdmonitionTypes {
+    fn description(&self) -> &'static str {
+        "Admonitions must have a valid type"
+    }
+
     fn default_level(&self) -> LintLevel {
         LintLevel::Error
     }

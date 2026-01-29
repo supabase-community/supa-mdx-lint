@@ -60,6 +60,10 @@ impl Default for Rule001HeadingCase {
 }
 
 impl Rule for Rule001HeadingCase {
+    fn description(&self) -> &'static str {
+        "Headings must use sentence case"
+    }
+
     fn default_level(&self) -> LintLevel {
         LintLevel::Error
     }

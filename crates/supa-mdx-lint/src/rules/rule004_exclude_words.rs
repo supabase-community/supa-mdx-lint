@@ -365,6 +365,10 @@ impl From<WordExclusionIndexIntermediate> for WordExclusionIndex {
 }
 
 impl Rule for Rule004ExcludeWords {
+    fn description(&self) -> &'static str {
+        "This word or phrase is discouraged"
+    }
+
     fn default_level(&self) -> LintLevel {
         // An implementation is required for this trait, but this rule defines
         // its levels in its own configuration, so this is ignored.

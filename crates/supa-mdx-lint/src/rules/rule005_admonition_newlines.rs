@@ -57,6 +57,10 @@ static ADMONITION_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
 pub struct Rule005AdmonitionNewlines;
 
 impl Rule for Rule005AdmonitionNewlines {
+    fn description(&self) -> &'static str {
+        "Admonitions should have a single blank line between the tags and the content"
+    }
+
     fn default_level(&self) -> LintLevel {
         LintLevel::Error
     }

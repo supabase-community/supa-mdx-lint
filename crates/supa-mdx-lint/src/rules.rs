@@ -40,6 +40,8 @@ fn get_all_rules() -> Vec<Box<dyn Rule>> {
 }
 
 pub(crate) trait Rule: Debug + RuleName {
+    /// Returns a human-readable description of what this rule checks.
+    fn description(&self) -> &'static str;
     fn default_level(&self) -> LintLevel;
     fn setup(&mut self, _settings: Option<&mut RuleSettings>) {}
     fn check(&self, ast: &Node, context: &Context, level: LintLevel) -> Option<Vec<LintError>>;
@@ -335,6 +337,10 @@ mod tests {
     }
 
     impl Rule for MockRule {
+        fn description(&self) -> &'static str {
+            "Mock rule for testing"
+        }
+
         fn default_level(&self) -> LintLevel {
             LintLevel::Error
         }
@@ -356,6 +362,10 @@ mod tests {
     }
 
     impl Rule for MockRule2 {
+        fn description(&self) -> &'static str {
+            "Mock rule 2 for testing"
+        }
+
         fn default_level(&self) -> LintLevel {
             LintLevel::Error
         }
