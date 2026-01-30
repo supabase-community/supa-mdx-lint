@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.vsix
+
+# Bundled LSP binaries
+bin/
+
+# Test outputs
+.vscode-test/
+
+# OS files
+.DS_Store
+Thumbs.db
