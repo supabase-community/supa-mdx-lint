@@ -20,6 +20,7 @@ mod rule003_spelling;
 mod rule004_exclude_words;
 mod rule005_admonition_newlines;
 mod rule006_no_absolute_urls;
+mod rule007_no_headings_in_admonitions;
 
 pub use rule001_heading_case::Rule001HeadingCase;
 pub use rule002_admonition_types::Rule002AdmonitionTypes;
@@ -27,6 +28,7 @@ pub use rule003_spelling::Rule003Spelling;
 pub use rule004_exclude_words::Rule004ExcludeWords;
 pub use rule005_admonition_newlines::Rule005AdmonitionNewlines;
 pub use rule006_no_absolute_urls::Rule006NoAbsoluteUrls;
+pub use rule007_no_headings_in_admonitions::Rule007NoHeadingsInAdmonitions;
 
 fn get_all_rules() -> Vec<Box<dyn Rule>> {
     vec![
@@ -36,6 +38,7 @@ fn get_all_rules() -> Vec<Box<dyn Rule>> {
         Box::new(Rule004ExcludeWords::default()),
         Box::new(Rule005AdmonitionNewlines),
         Box::new(Rule006NoAbsoluteUrls::default()),
+        Box::new(Rule007NoHeadingsInAdmonitions),
     ]
 }
 

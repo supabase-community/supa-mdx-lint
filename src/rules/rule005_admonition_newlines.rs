@@ -19,10 +19,10 @@ struct ErrorInfo {
     fixes: Vec<LintCorrection>,
 }
 
-static ADMONITION_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?s)<Admonition[^>]*>\s*\r?\n\s*\r?\n.*?\r?\n\s*\r?\n\s*</Admonition>")
-        .unwrap()
-});
+static OPENING_SEPARATION_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\r?\n[ \t]*\r?\n[ \t]*$").unwrap());
+static AFTER_OPENING_SEPARATION_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\r?\n[ \t]*\r?\n").unwrap());
 
 /// Admonition JSX tags must have empty line separation from their content.
 ///
@@ -113,9 +113,24 @@ impl Rule005AdmonitionNewlines {
         let admonition_content = admonition_slice.to_string();
         debug!("Admonition content: {:?}", admonition_content);
 
-        // Check if the content matches the valid pattern
-        if !self.has_proper_newlines(&admonition_content) {
-            let fixes = self.generate_fixes(&admonition_content, &adjusted_range, context);
+        let opening_tag_end = find_opening_tag_end(&admonition_content)?;
+        let content_after_opening = &admonition_content[opening_tag_end..];
+        let closing_tag_offset = admonition_content.rfind("</Admonition>")?;
+        let content_before_closing = &admonition_content[..closing_tag_offset];
+
+        let has_opening_separation = starts_with_blank_line(content_after_opening);
+        let has_closing_separation = OPENING_SEPARATION_PATTERN.is_match(content_before_closing);
+
+        if !has_opening_separation || !has_closing_separation {
+            let fixes = self.generate_fixes(
+                &admonition_content,
+                content_after_opening,
+                opening_tag_end,
+                content_before_closing,
+                closing_tag_offset,
+                &adjusted_range,
+                context,
+            );
             return Some(ErrorInfo {
                 message: "Admonition must have empty lines between tags and content".to_string(),
                 fixes,
@@ -125,64 +140,36 @@ impl Rule005AdmonitionNewlines {
         None
     }
 
-    fn has_proper_newlines(&self, content: &str) -> bool {
-        let matches = ADMONITION_PATTERN.is_match(content);
-        debug!(
-            "Pattern match result for content {:?}: {}",
-            content, matches
-        );
-
-        matches
-    }
-
     fn generate_fixes(
         &self,
         content: &str,
+        content_after_opening: &str,
+        opening_tag_end: usize,
+        content_before_closing: &str,
+        closing_tag_offset: usize,
         adjusted_range: &AdjustedRange,
         context: &Context,
     ) -> Vec<LintCorrection> {
-        let lines: Vec<&str> = content.lines().collect();
-        if lines.is_empty() {
-            return Vec::new();
-        }
-
         // Detect the line ending style used in the content
         let line_ending = if content.contains("\r\n") {
             "\r\n"
         } else {
             "\n"
         };
-        let line_ending_len = line_ending.len();
 
         let mut fix_list = Vec::new();
 
-        let opening_tag_line = 0;
-        let closing_tag_line = lines.len() - 1;
-
-        // Check if we need to add an empty line after the opening tag
-        let needs_opening_newline = if lines.len() >= 2 {
-            // Check if there's content immediately after the opening tag (no empty line)
-            !lines[1].trim().is_empty()
-        } else {
-            false
-        };
-
-        // Check if we need to add an empty line before the closing tag
-        let needs_closing_newline = if closing_tag_line > 0 {
-            // Check if there's content immediately before the closing tag (no empty line)
-            !lines[closing_tag_line - 1].trim().is_empty()
-        } else {
-            false
-        };
-
-        // Add fix for opening newline
-        if needs_opening_newline {
-            // Position after the opening tag line + its newline
-            let relative_offset = lines[opening_tag_line].len() + line_ending_len;
-
+        if !starts_with_blank_line(content_after_opening) {
+            let (insertion_offset, missing_line_endings) =
+                if content_after_opening.starts_with("\r\n") {
+                    (opening_tag_end + 2, 1)
+                } else if content_after_opening.starts_with('\n') {
+                    (opening_tag_end + 1, 1)
+                } else {
+                    (opening_tag_end, 2)
+                };
             let mut start_point = adjusted_range.start;
-            start_point.increment(relative_offset);
-
+            start_point.increment(insertion_offset);
             let location = DenormalizedLocation::from_offset_range(
                 AdjustedRange::new(start_point, start_point),
                 context,
@@ -190,24 +177,18 @@ impl Rule005AdmonitionNewlines {
 
             fix_list.push(LintCorrection::Insert(LintCorrectionInsert {
                 location,
-                text: line_ending.to_string(),
+                text: line_ending.repeat(missing_line_endings),
             }));
         }
 
-        // Add fix for closing newline
-        if needs_closing_newline {
-            // Calculate relative position at the start of the closing tag line
-            let mut relative_offset = 0;
-            for (i, line) in lines.iter().enumerate() {
-                if i == closing_tag_line {
-                    break;
-                }
-                relative_offset += line.len() + line_ending_len;
-            }
-
+        if !OPENING_SEPARATION_PATTERN.is_match(content_before_closing) {
+            let missing_line_endings = if content_before_closing.ends_with('\n') {
+                1
+            } else {
+                2
+            };
             let mut start_point = adjusted_range.start;
-            start_point.increment(relative_offset);
-
+            start_point.increment(closing_tag_offset);
             let location = DenormalizedLocation::from_offset_range(
                 AdjustedRange::new(start_point, start_point),
                 context,
@@ -215,12 +196,51 @@ impl Rule005AdmonitionNewlines {
 
             fix_list.push(LintCorrection::Insert(LintCorrectionInsert {
                 location,
-                text: line_ending.to_string(),
+                text: line_ending.repeat(missing_line_endings),
             }));
         }
 
         fix_list
     }
+}
+
+fn starts_with_blank_line(content: &str) -> bool {
+    AFTER_OPENING_SEPARATION_PATTERN.is_match(content)
+}
+
+fn find_opening_tag_end(content: &str) -> Option<usize> {
+    let mut brace_depth: usize = 0;
+    let mut quote = None;
+    let mut escaped = false;
+
+    for (offset, character) in content.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+
+        if character == '\\' && quote.is_some() {
+            escaped = true;
+            continue;
+        }
+
+        if let Some(active_quote) = quote {
+            if character == active_quote {
+                quote = None;
+            }
+            continue;
+        }
+
+        match character {
+            '"' | '\'' | '`' => quote = Some(character),
+            '{' => brace_depth += 1,
+            '}' => brace_depth = brace_depth.saturating_sub(1),
+            '>' if brace_depth == 0 => return Some(offset + character.len_utf8()),
+            _ => {}
+        }
+    }
+
+    None
 }
 
 #[cfg(test)]
@@ -256,6 +276,38 @@ This is the content.
             result.is_none(),
             "Expected no lint errors for valid admonition"
         );
+    }
+
+    #[test]
+    fn test_rule005_valid_admonition_with_jsx_action() {
+        let mdx = r#"<Admonition
+  type="note"
+  actions={
+    <Button>Continue</Button>
+  }
+>
+
+This is the content.
+
+</Admonition>"#;
+
+        let rule = Rule005AdmonitionNewlines;
+        let parse_result = parse(mdx).unwrap();
+        let context = Context::builder()
+            .parse_result(&parse_result)
+            .build()
+            .unwrap();
+        let admonition = context
+            .parse_result
+            .ast()
+            .children()
+            .unwrap()
+            .first()
+            .unwrap();
+
+        assert!(rule
+            .check(admonition, &context, LintLevel::Error)
+            .is_none());
     }
 
     #[test]
