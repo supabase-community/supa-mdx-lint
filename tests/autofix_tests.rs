@@ -157,6 +157,26 @@ This one is missing the opening newline.
 }
 
 #[test]
+fn test_autofix_rule005_opening_newline_with_trailing_whitespace() {
+    let tempdir = TempDir::new().unwrap();
+    let bad_file = "<Admonition type=\"note\">  \t\nBody.\n\n</Admonition>";
+    fs::write(tempdir.path().join("bad.mdx"), bad_file).unwrap();
+
+    let mut cmd = Command::cargo_bin("supa-mdx-lint").unwrap();
+    cmd.arg(tempdir.path().join("bad.mdx"))
+        .arg("--config")
+        .arg("tests/supa-mdx-lint.config.toml")
+        .arg("--fix");
+    cmd.assert().success();
+
+    let result = fs::read_to_string(tempdir.path().join("bad.mdx")).unwrap();
+    assert_eq!(
+        result,
+        "<Admonition type=\"note\">  \t\n\nBody.\n\n</Admonition>"
+    );
+}
+
+#[test]
 fn test_autofix_rule005_admonition_newlines_with_frontmatter() {
     let tempdir = TempDir::new().unwrap();
     let bad_file = r#"---
