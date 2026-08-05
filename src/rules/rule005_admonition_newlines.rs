@@ -22,7 +22,7 @@ struct ErrorInfo {
 static OPENING_SEPARATION_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\r?\n[ \t]*\r?\n[ \t]*$").unwrap());
 static AFTER_OPENING_SEPARATION_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\r?\n[ \t]*\r?\n").unwrap());
+    LazyLock::new(|| Regex::new(r"^[ \t]*\r?\n[ \t]*\r?\n").unwrap());
 
 /// Admonition JSX tags must have empty line separation from their content.
 ///
@@ -160,14 +160,13 @@ impl Rule005AdmonitionNewlines {
         let mut fix_list = Vec::new();
 
         if !starts_with_blank_line(content_after_opening) {
-            let (insertion_offset, missing_line_endings) =
-                if content_after_opening.starts_with("\r\n") {
-                    (opening_tag_end + 2, 1)
-                } else if content_after_opening.starts_with('\n') {
-                    (opening_tag_end + 1, 1)
-                } else {
-                    (opening_tag_end, 2)
-                };
+            let (insertion_offset, missing_line_endings) = if let Some(first_line_end) =
+                first_line_ending_after_horizontal_whitespace(content_after_opening)
+            {
+                (opening_tag_end + first_line_end, 1)
+            } else {
+                (opening_tag_end, 2)
+            };
             let mut start_point = adjusted_range.start;
             start_point.increment(insertion_offset);
             let location = DenormalizedLocation::from_offset_range(
@@ -206,6 +205,22 @@ impl Rule005AdmonitionNewlines {
 
 fn starts_with_blank_line(content: &str) -> bool {
     AFTER_OPENING_SEPARATION_PATTERN.is_match(content)
+}
+
+fn first_line_ending_after_horizontal_whitespace(content: &str) -> Option<usize> {
+    let whitespace_len = content
+        .bytes()
+        .take_while(|byte| matches!(byte, b' ' | b'\t'))
+        .count();
+    let content_after_whitespace = &content[whitespace_len..];
+
+    if content_after_whitespace.starts_with("\r\n") {
+        Some(whitespace_len + 2)
+    } else if content_after_whitespace.starts_with('\n') {
+        Some(whitespace_len + 1)
+    } else {
+        None
+    }
 }
 
 fn find_opening_tag_end(content: &str) -> Option<usize> {
@@ -308,6 +323,56 @@ This is the content.
         assert!(rule
             .check(admonition, &context, LintLevel::Error)
             .is_none());
+    }
+
+    #[test]
+    fn test_rule005_valid_admonition_with_trailing_opening_whitespace() {
+        let mdx = "<Admonition type=\"note\">  \t\n\t\nBody.\n\n</Admonition>";
+
+        let rule = Rule005AdmonitionNewlines;
+        let parse_result = parse(mdx).unwrap();
+        let context = Context::builder()
+            .parse_result(&parse_result)
+            .build()
+            .unwrap();
+        let admonition = context
+            .parse_result
+            .ast()
+            .children()
+            .unwrap().first()
+            .unwrap();
+
+        assert!(rule.check(admonition, &context, LintLevel::Error).is_none());
+    }
+
+    #[test]
+    fn test_rule005_auto_fix_missing_opening_empty_line_with_trailing_whitespace() {
+        let mdx = "<Admonition type=\"note\">  \t\nBody.\n\n</Admonition>";
+
+        let rule = Rule005AdmonitionNewlines;
+        let parse_result = parse(mdx).unwrap();
+        let context = Context::builder()
+            .parse_result(&parse_result)
+            .build()
+            .unwrap();
+        let admonition = context
+            .parse_result
+            .ast()
+            .children()
+            .unwrap().first()
+            .unwrap();
+        let errors = rule.check(admonition, &context, LintLevel::Error).unwrap();
+        let fixes = errors[0].fix.as_ref().unwrap();
+
+        assert_eq!(fixes.len(), 1);
+        match &fixes[0] {
+            LintCorrection::Insert(fix) => {
+                assert_eq!(fix.text, "\n");
+                assert_eq!(fix.location.start.row, 1);
+                assert_eq!(fix.location.start.column, 0);
+            }
+            _ => panic!("Expected Insert fix"),
+        }
     }
 
     #[test]
@@ -607,7 +672,8 @@ This is the content.
             .parse_result
             .ast()
             .children()
-            .unwrap().first()
+            .unwrap()
+            .first()
             .unwrap();
         let result = rule.check(admonition, &context, LintLevel::Error);
 
