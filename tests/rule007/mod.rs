@@ -1,9 +1,10 @@
-use std::process::Command;
+use std::{path::MAIN_SEPARATOR_STR, process::Command};
 
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
 
-fn assert_heading_error(fixture: &str, expected_location: &str) {
+fn assert_heading_error(fixture: &str) {
+    let expected_location = format!("{}:3:1", fixture.replace('/', MAIN_SEPARATOR_STR));
     let mut cmd = Command::cargo_bin("supa-mdx-lint").unwrap();
     cmd.arg(fixture)
         .arg("--config")
@@ -35,16 +36,10 @@ fn integration_test_rule007_reports_headings_in_admonitions() {
 
 #[test]
 fn integration_test_rule007_reports_markdown_heading() {
-    assert_heading_error(
-        "tests/rule007/markdown_heading.mdx",
-        "tests/rule007/markdown_heading.mdx:3:1",
-    );
+    assert_heading_error("tests/rule007/markdown_heading.mdx");
 }
 
 #[test]
 fn integration_test_rule007_reports_jsx_heading() {
-    assert_heading_error(
-        "tests/rule007/jsx_heading.mdx",
-        "tests/rule007/jsx_heading.mdx:3:1",
-    );
+    assert_heading_error("tests/rule007/jsx_heading.mdx");
 }
